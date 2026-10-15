@@ -75,6 +75,8 @@ async function writeFeatureSpecJson(planApproved: boolean): Promise<string> {
 }
 
 describe("guard case sensitivity and normalization", () => {
+  // The case-insensitive scenarios below need a case-insensitive filesystem,
+  // so they are skipped on Linux where paths are always case-sensitive.
   it.skipIf(process.platform === "linux")("matches protected files case-insensitively", () => {
     const reason = isProtectedFile(path.join(worktree, ".opencode", "spec-memory", "SESSION.JSON"), DEFAULT_CONFIG)
     expect(reason).not.toBeNull()

@@ -136,7 +136,7 @@ The toolkit organizes its components into a clear directory hierarchy that separ
   tools/                 TypeScript tool modules (15 files)
   tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot.ts)
   tools/plugins/         Runtime plugins (2 files)
-  tools/test/            Test suite (88 test files)
+  tools/test/            Test suite (89 test files)
   templates/             Artifact templates (12 templates)
   docs/                  Reference documentation
 ```
@@ -587,7 +587,7 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 2482 automated tests distributed across 88 test files. The test suite covers multiple quality dimensions, each designed to validate a specific aspect of the system's correctness and reliability.
+The project includes 2495 automated tests distributed across 89 test files. The test suite covers multiple quality dimensions, each designed to validate a specific aspect of the system's correctness and reliability.
 
 ### Unit Tests
 

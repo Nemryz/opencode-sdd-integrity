@@ -1,7 +1,42 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import os from "node:os"
+import { execFileSync } from "node:child_process"
+import { fileURLToPath } from "node:url"
 import type { ToolContext } from "@opencode-ai/plugin"
+
+function repoRootDir(): string {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..")
+}
+
+let ownedFilesCache: Set<string> | null = null
+
+export function ownedRepoFiles(): Set<string> {
+  if (ownedFilesCache) return ownedFilesCache
+  const owned = new Set<string>()
+  try {
+    const output = execFileSync("git", ["ls-files"], {
+      cwd: repoRootDir(),
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 15000,
+    })
+    for (const line of output.split("\n")) {
+      const trimmed = line.trim()
+      if (trimmed) owned.add(trimmed.replace(/\\/g, "/"))
+    }
+  } catch {
+    // not a git checkout (e.g. installed kit) → treated as "everything is ours"
+  }
+  ownedFilesCache = owned
+  return owned
+}
+
+export function isKitOwned(relPath: string): boolean {
+  const owned = ownedRepoFiles()
+  if (owned.size === 0) return true
+  return owned.has(relPath.replace(/\\/g, "/"))
+}
 
 export function mockContext(worktree: string): ToolContext {
   return {

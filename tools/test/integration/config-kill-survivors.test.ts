@@ -64,6 +64,7 @@ describe("config kill survivors - projectWarnings path", () => {
     }
   })
 
+  // Depends on the Windows filesystem error message format.
   it.skipIf(process.platform !== "win32")("joins multiple warnings with a blank line separator", async () => {
     const rootBin = "C:\\bin"
     let exists = true

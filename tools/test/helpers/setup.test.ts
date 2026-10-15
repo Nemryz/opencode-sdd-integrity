@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest"
-import { mockContext, createTempWorktree, destroyTempWorktree, createConstitution } from "./setup"
+import {
+  mockContext,
+  createTempWorktree,
+  destroyTempWorktree,
+  createConstitution,
+  isKitOwned,
+} from "./setup"
 import fs from "node:fs/promises"
 import path from "node:path"
 
@@ -47,5 +53,22 @@ describe("createConstitution", () => {
     } finally {
       await destroyTempWorktree(dir)
     }
+  })
+})
+
+describe("isKitOwned", () => {
+  it("recognizes files tracked by the repository", () => {
+    expect(isKitOwned("tools/speckit-snapshot.ts")).toBe(true)
+    expect(isKitOwned("commands/snapshot.md")).toBe(true)
+    expect(isKitOwned("AGENTS.md")).toBe(true)
+  })
+
+  it("rejects untracked files installed by foreign plugins", () => {
+    expect(isKitOwned("skills/engram-not-a-kit-skill")).toBe(false)
+    expect(isKitOwned("commands/foreign-plugin.md")).toBe(false)
+  })
+
+  it("normalizes Windows path separators", () => {
+    expect(isKitOwned("tools\\speckit-snapshot.ts")).toBe(true)
   })
 })

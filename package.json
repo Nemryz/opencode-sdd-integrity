@@ -1,6 +1,22 @@
 {
   "name": "opencode-sdd-kit",
   "version": "1.8.0",
+  "files": [
+    "AGENTS.md",
+    "LICENSE",
+    "README.md",
+    "install.ps1",
+    "install.sh",
+    "opencode.jsonc.example",
+    "package.json",
+    "package-lock.json",
+    "agents/",
+    "commands/",
+    "docs/",
+    "skills/",
+    "templates/",
+    "tools/"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",

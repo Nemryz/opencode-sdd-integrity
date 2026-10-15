@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { isKitOwned } from "../helpers/setup"
 
 const AGENTS_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "AGENTS.md")
 const COMMANDS_DIR = path.resolve(AGENTS_PATH, "..", "commands")
@@ -15,10 +16,14 @@ describe("AGENTS.md completeness", () => {
 
   beforeAll(async () => {
     content = await fs.readFile(AGENTS_PATH, "utf-8")
-    commandFiles = (await fs.readdir(COMMANDS_DIR)).filter(f => f.endsWith(".md")).map(f => f.replace(".md", ""))
-    toolFiles = (await fs.readdir(TOOLS_DIR)).filter(f => f.startsWith("speckit-") && f.endsWith(".ts")).map(f => f.replace(".ts", ""))
+    commandFiles = (await fs.readdir(COMMANDS_DIR))
+      .filter(f => f.endsWith(".md") && isKitOwned(`commands/${f}`))
+      .map(f => f.replace(".md", ""))
+    toolFiles = (await fs.readdir(TOOLS_DIR))
+      .filter(f => f.startsWith("speckit-") && f.endsWith(".ts") && isKitOwned(`tools/${f}`))
+      .map(f => f.replace(".ts", ""))
     const entries = await fs.readdir(SKILLS_DIR, { withFileTypes: true })
-    skillDirs = entries.filter(e => e.isDirectory()).map(e => e.name)
+    skillDirs = entries.filter(e => e.isDirectory() && isKitOwned(`skills/${e.name}`)).map(e => e.name)
   })
 
   it("documents all commands in the Commands section", () => {

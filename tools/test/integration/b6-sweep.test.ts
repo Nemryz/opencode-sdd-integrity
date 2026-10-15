@@ -205,6 +205,7 @@ describe("project root hardening", () => {
     }
   })
 
+  // Linux filesystems are case-sensitive, so case-variation scenarios cannot be reproduced there.
   it.skipIf(process.platform === "linux")("detects kit dir with different case", async () => {
     const kitDir = path.join(os.homedir(), ".config", "opencode")
     const warnings = await getProjectRootWarnings(kitDir.toUpperCase())
