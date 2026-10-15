@@ -136,7 +136,7 @@ The toolkit organizes its components into a clear directory hierarchy that separ
   tools/                 TypeScript tool modules (15 files)
   tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot.ts)
   tools/plugins/         Runtime plugins (2 files)
-  tools/test/            Test suite (89 test files)
+  tools/test/            Test suite (94 test files)
   templates/             Artifact templates (12 templates)
   docs/                  Reference documentation
 ```
@@ -159,7 +159,7 @@ The toolkit organizes its components into a clear directory hierarchy that separ
 
 **templates/** provides the artifact templates used when creating new specifications, plans, tasks, and other documents. These templates ensure consistency across all generated artifacts.
 
-**docs/** contains reference documentation, guides, and supplementary materials that explain the toolkit's architecture and usage patterns.
+**docs/** contains reference documentation, guides, and supplementary materials that explain the toolkit's architecture and usage patterns. `docs/testing.md` documents the test types, the multi-value matrix convention, and the per-module coverage inventory.
 
 ## Tools Reference
 
@@ -587,7 +587,7 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 2495 automated tests distributed across 89 test files. The test suite covers multiple quality dimensions, each designed to validate a specific aspect of the system's correctness and reliability.
+The project includes 2800 automated tests distributed across 94 test files. The test suite covers multiple quality dimensions, each designed to validate a specific aspect of the system's correctness and reliability. See `docs/testing.md` for the testing conventions and the multi-value matrix inventory.
 
 ### Unit Tests
 
