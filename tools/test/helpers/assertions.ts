@@ -1,7 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { expect } from "vitest"
-import { readRestoreJournal, snapshotsDirPath } from "../../shared/snapshot/paths"
+import { readRestoreJournal, snapshotsDirPath, writeRestoreJournal } from "../../shared/snapshot/paths"
 import { listSnapshots } from "../../shared/snapshot/manifest"
 import {
   readSession,
@@ -124,7 +124,38 @@ export async function expectRestoreJournal(worktree: string, pending: boolean): 
   expect(journal !== null, `restore journal pending expected ${pending}`).toBe(pending)
 }
 
-// Returns the absolute snapshots directory so chaos tests can replace it with a blocking file.
+// Returns the absolute path of the snapshots directory so chaos tests can replace it with a blocking file.
 export function snapshotDir(worktree: string): string {
   return snapshotsDirPath(worktree)
+}
+
+// Returns the absolute path of a file stored inside a snapshot so tests reach the copy without rebuilding the layout.
+export function snapshotFilePath(worktree: string, snapshotId: string, relInside: string): string {
+  return path.join(snapshotsDirPath(worktree), snapshotId, ...relInside.split(/[\\/]/))
+}
+
+// Appends text to a stored copy so its checksum stops matching the manifest, which is how tests create real tampering.
+export async function tamperSnapshotFile(
+  worktree: string,
+  snapshotId: string,
+  relInside: string,
+  text = "x",
+): Promise<void> {
+  await fs.appendFile(snapshotFilePath(worktree, snapshotId, relInside), text, "utf-8")
+}
+
+// Writes a pending restore journal so tests reach the recovery paths without repeating the whole record.
+export async function writePendingRestoreJournal(
+  worktree: string,
+  options: { snapshotId: string; safetySnapshotId: string; mode?: "full" | "selective"; files?: string[] },
+): Promise<void> {
+  await writeRestoreJournal(worktree, {
+    format: 1,
+    snapshot_id: options.snapshotId,
+    safety_snapshot_id: options.safetySnapshotId,
+    mode: options.mode ?? "full",
+    started_at: new Date().toISOString(),
+    files: options.files ?? [],
+    removed: [],
+  })
 }

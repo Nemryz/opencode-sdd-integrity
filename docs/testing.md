@@ -105,9 +105,13 @@ The suite asserts the transactional promises of the engine, where a failed creat
 | `expectSchemaValid` | Validate any object against a Zod schema |
 | `expectSessionState`, `expectFeatureSpecJson` | Read the real state files and match the expected fields |
 | `listSnapshotIds`, `listSnapshotTriggers`, `snapshotDir` | Expose snapshot facts and the folder that chaos tests replace |
-| `countBackupsFor`, `expectRestoreJournal` | Count checksum guarded backups and assert a pending restore |
+| `snapshotFilePath`, `tamperSnapshotFile` | Reach a stored copy and make its checksum stop matching the manifest |
+| `writePendingRestoreJournal`, `expectRestoreJournal` | Plant and assert the journal that marks an interrupted restore |
+| `countBackupsFor` | Count the checksum guarded backups of one file |
 
 New integration tests use these helpers instead of ad hoc `readFile` calls, and helper tests themselves run against a temp worktree.
+The six snapshot suites (`snapshot.test.ts`, `snapshot-restore.test.ts`, `snapshot-prune.test.ts`, `snapshot-drill.test.ts`, `snapshot-tool.test.ts`, and `matrix-snapshot.test.ts`) were retrofitted onto this set, so a fixture change lands in one place instead of six.
+`tamperSnapshotFile` exists because corrupting a stored copy is the precondition of the verify, drill, and restore tests, and spelling it out keeps those tests from rebuilding the snapshot layout.
 
 ## Workflow coverage
 
@@ -173,6 +177,18 @@ npx stryker run --mutate "tools/shared/snapshot/manifest.ts"
 ```
 
 The snapshot engine lives in `tools/shared/snapshot/`, so a single module is measured on its own instead of through the former monolith.
-
-Survivors are killed with targeted `*-kill-survivors.test.ts` files, and the baseline is recorded in `reports/mutation-testing-analysis.md`.
+The baseline is recorded in `reports/mutation-testing-analysis.md`.
 Mutants that no test can kill because the branch is defensive and unreachable may carry a `// Stryker disable` annotation with the reason written beside it.
+
+### Directed suites and what their names mean
+
+These files are ordinary vitest suites that pin behavior on purpose, and they are named so the reason they exist survives the sprint that wrote them.
+
+| Suffix | What the file is | What it is not |
+|--------|-------------------|----------------|
+| `*-mutation.test.ts` | A suite written for one module, where every case kills a specific mutation class such as a flipped condition, a swapped boundary, or a dropped branch | Not a Stryker run and not a copy of the whole test suite |
+| `*-kill-survivors.test.ts` | A suite that closes the mutants a previous run reported as escaped, usually named after the tool it protects | Not a performance suite and not a place for unrelated coverage |
+
+The rule behind both names is that a mutant only dies when a test fails without the mutation, so each case must assert an observable fact on disk or on the returned result rather than restate the implementation.
+A directed suite that cannot kill the mutant it was written for is dead weight and belongs in the report as a decision instead of in the suite as a hope.
+Both suffixes run in the normal suite and in CI, because a survivor killer that only passes under Stryker would hide the regression it exists to catch.

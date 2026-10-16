@@ -3,23 +3,18 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import { collectScope, readDrillInfo, readPinInfo, snapshotsDirPath } from "../../shared/snapshot/paths"
+import { tamperSnapshotFile, writeProjectFile } from "../helpers/assertions"
+import { collectScope, readDrillInfo, readPinInfo } from "../../shared/snapshot/paths"
 import { createSnapshot, listSnapshots } from "../../shared/snapshot/manifest"
 import { drillSnapshot, pinSnapshot, unpinSnapshot } from "../../shared/snapshot/retention"
 
 let worktree: string
 
-async function write(rel: string, content: string): Promise<void> {
-  const abs = path.join(worktree, ...rel.split("/"))
-  await fs.mkdir(path.dirname(abs), { recursive: true })
-  await fs.writeFile(abs, content, "utf-8")
-}
-
 beforeEach(async () => {
   worktree = await createTempWorktree()
-  await write(".opencode/spec-memory/constitution.md", "# Constitution\n")
-  await write(".opencode/guard.json", JSON.stringify({ version: 1, enabled: true }))
-  await write("specs/001-demo/spec.md", "# Spec\n")
+  await writeProjectFile(worktree, ".opencode/spec-memory/constitution.md", "# Constitution\n")
+  await writeProjectFile(worktree, ".opencode/guard.json", JSON.stringify({ version: 1, enabled: true }))
+  await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Spec\n")
 })
 
 afterEach(async () => {
@@ -68,7 +63,7 @@ describe("drillSnapshot", () => {
 
   it("fails when a snapshot file was modified", async () => {
     const manifest = await createSnapshot(worktree, { trigger: "manual" })
-    await fs.appendFile(path.join(snapshotsDirPath(worktree), manifest.id, "specs", "001-demo", "spec.md"), "x")
+    await tamperSnapshotFile(worktree, manifest.id, "specs/001-demo/spec.md")
 
     const drill = await drillSnapshot(worktree, manifest.id)
 
