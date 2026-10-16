@@ -8,6 +8,14 @@ import cleanTool from "../../speckit-clean"
 import healthTool from "../../speckit-health"
 import { mockContext, createTempWorktree, destroyTempWorktree } from "../helpers/setup"
 import {
+  expectFeatureSpecJson,
+  listSnapshotIds,
+  listSnapshotTriggers,
+  readProjectJson,
+  snapshotDir,
+  writeProjectFile,
+} from "../helpers/assertions"
+import {
   createSnapshot,
   listSnapshots,
   readDrillInfo,
@@ -15,16 +23,9 @@ import {
   snapshotBeforeOperation,
   snapshotsDirPath,
 } from "../../shared/snapshot"
-import { readSpecJson } from "../../shared/types"
 
 let worktree: string
 let ctx: ReturnType<typeof mockContext>
-
-async function write(rel: string, content: string): Promise<void> {
-  const abs = path.join(worktree, ...rel.split("/"))
-  await fs.mkdir(path.dirname(abs), { recursive: true })
-  await fs.writeFile(abs, content, "utf-8")
-}
 
 const GUARD_CONFIG = {
   version: 1,
@@ -61,7 +62,7 @@ function makeSpecJson(overrides: Record<string, unknown> = {}) {
 }
 
 async function seedFeature(specJsonOverrides: Record<string, unknown> = {}): Promise<void> {
-  await write(".opencode/spec-memory/session.json", JSON.stringify({
+  await writeProjectFile(worktree, ".opencode/spec-memory/session.json", JSON.stringify({
     command: "/status",
     phase: "ready",
     featureDir: "001-demo",
@@ -71,26 +72,17 @@ async function seedFeature(specJsonOverrides: Record<string, unknown> = {}): Pro
     lastResult: null,
     history: [],
   }))
-  await write(".opencode/spec-memory/constitution.md", "# Constitution\n")
-  await write(".opencode/guard.json", JSON.stringify(GUARD_CONFIG, null, 2))
-  await write("specs/001-demo/spec.md", "# Spec\n")
-  await write("specs/001-demo/plan.md", "# Plan\n")
-  await write("specs/001-demo/tasks.md", "# Tasks\n")
-  await write("specs/001-demo/spec.json", JSON.stringify(makeSpecJson(specJsonOverrides), null, 2))
+  await writeProjectFile(worktree, ".opencode/spec-memory/constitution.md", "# Constitution\n")
+  await writeProjectFile(worktree, ".opencode/guard.json", JSON.stringify(GUARD_CONFIG, null, 2))
+  await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Spec\n")
+  await writeProjectFile(worktree, "specs/001-demo/plan.md", "# Plan\n")
+  await writeProjectFile(worktree, "specs/001-demo/tasks.md", "# Tasks\n")
+  await writeProjectFile(worktree, "specs/001-demo/spec.json", JSON.stringify(makeSpecJson(specJsonOverrides), null, 2))
 }
 
+// Turns the snapshots folder into a plain file so snapshot creation fails with a filesystem error.
 async function blockSnapshotsDir(): Promise<void> {
-  await fs.writeFile(path.join(worktree, ".opencode", "snapshots"), "blocked", "utf-8")
-}
-
-async function collectTriggers(): Promise<string[]> {
-  const entries = await listSnapshots(worktree)
-  const triggers: string[] = []
-  for (const entry of entries) {
-    const manifest = await readSnapshotManifest(worktree, entry.id)
-    if (manifest) triggers.push(manifest.trigger)
-  }
-  return triggers
+  await fs.writeFile(snapshotDir(worktree), "blocked", "utf-8")
 }
 
 beforeEach(async () => {
@@ -128,7 +120,7 @@ describe("snapshotBeforeOperation", () => {
   it("creates a new snapshot when the scope changed", async () => {
     await seedFeature()
     const first = await snapshotBeforeOperation(worktree, "pre-fix:one")
-    await write("specs/001-demo/spec.md", "# Spec v2\n")
+    await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Spec v2\n")
     const second = await snapshotBeforeOperation(worktree, "pre-fix:two")
     expect(second.reused).toBe(false)
     expect(second.snapshotId).not.toBe(first.snapshotId)
@@ -166,18 +158,18 @@ describe("phase tool trigger", () => {
     const result = await phaseTool.execute({ phase: "impl" } as never, ctx)
     expect(result.title).toBe("Phase: impl")
 
-    const triggers = await collectTriggers()
+    const triggers = await listSnapshotTriggers(worktree)
     expect(triggers).toContain("phase:ready->impl")
 
-    const entries = await listSnapshots(worktree)
-    const captured = JSON.parse(await fs.readFile(
-      path.join(snapshotsDirPath(worktree), entries[0].id, ".opencode", "spec-memory", "session.json"),
-      "utf-8",
-    ))
+    const snapshotIds = await listSnapshotIds(worktree)
+    // The snapshot must hold the session as it was before the transition was written.
+    const captured = await readProjectJson<{ phase: string }>(
+      worktree,
+      `.opencode/snapshots/${snapshotIds[0]}/.opencode/spec-memory/session.json`,
+    )
     expect(captured.phase).toBe("ready")
 
-    const sj = await readSpecJson(path.join(worktree, "specs", "001-demo"))
-    expect(sj?.phase).toBe("impl")
+    await expectFeatureSpecJson(worktree, "001-demo", { phase: "impl" })
   })
 
   it("blocks the transition when the snapshot cannot be created", async () => {
@@ -186,8 +178,7 @@ describe("phase tool trigger", () => {
     const result = await phaseTool.execute({ phase: "impl" } as never, ctx)
     expect(result.title).toBe("Error")
     expect(result.output).toContain("BLOCKED")
-    const sj = await readSpecJson(path.join(worktree, "specs", "001-demo"))
-    expect(sj?.phase).toBe("ready")
+    await expectFeatureSpecJson(worktree, "001-demo", { phase: "ready" })
   })
 
   it("captures a post-failure snapshot when the transition write fails", async () => {
@@ -197,7 +188,7 @@ describe("phase tool trigger", () => {
     const result = await phaseTool.execute({ phase: "impl" } as never, ctx)
     expect(result.title).toBe("Error")
     expect(result.output).toContain("Post-failure snapshot:")
-    const triggers = await collectTriggers()
+    const triggers = await listSnapshotTriggers(worktree)
     expect(triggers.some(t => t.startsWith("post-failure"))).toBe(true)
   })
 })
@@ -215,10 +206,9 @@ describe("approve tool trigger", () => {
     })
     const result = await approveTool.execute({ artifact: "tasks", confirmed: true } as never, ctx)
     expect(result.title).toBe("tasks approved")
-    const triggers = await collectTriggers()
+    const triggers = await listSnapshotTriggers(worktree)
     expect(triggers).toContain("phase:tasks->ready")
-    const sj = await readSpecJson(path.join(worktree, "specs", "001-demo"))
-    expect(sj?.phase).toBe("ready")
+    await expectFeatureSpecJson(worktree, "001-demo", { phase: "ready" })
   })
 })
 
@@ -228,10 +218,9 @@ describe("audit tool trigger", () => {
     await fs.rm(path.join(worktree, "specs", "001-demo", "tasks.md"))
     const result = await auditTool.execute({ fix: true } as never, ctx)
     expect(result.output).toContain("auto-fixed")
-    const triggers = await collectTriggers()
+    const triggers = await listSnapshotTriggers(worktree)
     expect(triggers).toContain("pre-fix:audit")
-    const sj = await readSpecJson(path.join(worktree, "specs", "001-demo"))
-    expect(sj?.phase).toBe("tasks")
+    await expectFeatureSpecJson(worktree, "001-demo", { phase: "tasks" })
   })
 
   it("blocks fixes when the snapshot cannot be created", async () => {
@@ -240,8 +229,7 @@ describe("audit tool trigger", () => {
     await blockSnapshotsDir()
     const result = await auditTool.execute({ fix: true } as never, ctx)
     expect(result.output).toContain("Fix blocked")
-    const sj = await readSpecJson(path.join(worktree, "specs", "001-demo"))
-    expect(sj?.phase).toBe("ready")
+    await expectFeatureSpecJson(worktree, "001-demo", { phase: "ready" })
   })
 })
 
@@ -252,10 +240,9 @@ describe("clean tool trigger", () => {
     const result = await cleanTool.execute({ fix: true } as never, ctx)
     const issues = (result.metadata?.issues ?? []) as string[]
     expect(issues.some(i => i.includes("Fix blocked"))).toBe(false)
-    const triggers = await collectTriggers()
+    const triggers = await listSnapshotTriggers(worktree)
     expect(triggers).toContain("pre-fix:clean")
-    const sj = await readSpecJson(path.join(worktree, "specs", "001-demo"))
-    expect(sj?.phase).toBe("tasks")
+    await expectFeatureSpecJson(worktree, "001-demo", { phase: "tasks" })
   })
 
   it("blocks repairs when the snapshot cannot be created", async () => {
@@ -265,8 +252,7 @@ describe("clean tool trigger", () => {
     const result = await cleanTool.execute({ fix: true } as never, ctx)
     const issues = (result.metadata?.issues ?? []) as string[]
     expect(issues.some(i => i.includes("Fix blocked"))).toBe(true)
-    const sj = await readSpecJson(path.join(worktree, "specs", "001-demo"))
-    expect(sj?.phase).toBe("ready")
+    await expectFeatureSpecJson(worktree, "001-demo", { phase: "ready" })
   })
 })
 
@@ -275,7 +261,7 @@ describe("health tool trigger", () => {
     await seedFeature()
     const result = await healthTool.execute({ fix: true } as never, ctx)
     expect(result.output).toContain("Recovery Readiness:")
-    const triggers = await collectTriggers()
+    const triggers = await listSnapshotTriggers(worktree)
     expect(triggers).toContain("pre-fix:health")
   })
 })

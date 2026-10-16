@@ -279,6 +279,21 @@ Agent: Loads speckit-implementer. Executes tasks phase by phase.
 
 ---
 
+## Code Style
+
+**Language.** Every file in this repository is written in English. Cyrillic, Greek, kana, CJK ideographs, Hangul and fullwidth forms never appear in source code, comments, documentation or identifiers. Unicode literals inside test fixtures are allowed because they are the subject under test, and the language lint ignores string literal contents for that reason. Run `npm run lint:lang` to verify.
+
+**Comments.** Each comment occupies a single line and describes the procedure as narrative prose. Use a variety of verbs and connectors so the sentence reads as an explanation of what the code does, never as a label. Do not use long or short dashes, colons or semicolons inside comments. Explain the mechanism directly, without detours and without restating the code.
+
+```ts
+// Turns the snapshots folder into a plain file so snapshot creation fails with a filesystem error.
+await fs.writeFile(snapshotDir(worktree), "blocked", "utf-8")
+```
+
+**Naming.** Branch names, commit messages, test names and identifiers are English. Branches follow `d0-3-verification-helpers` style, where the phase prefix keeps the campaign readable.
+
+---
+
 ## Concise Output Rule (NON-NEGOTIABLE)
 
 Agent chat responses MUST be 1-3 lines maximum in the `[Result] [Next: /command]` format. No status tables, no artifact listings, no checkmark trees, no verbose explanations.
