@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import fs from "node:fs/promises"
 import path from "node:path"
 import { createTempWorktree, destroyTempWorktree, mockContext } from "./setup"
 import {
@@ -16,10 +17,13 @@ import {
   readProjectFile,
   readProjectJson,
   snapshotDir,
+  snapshotFilePath,
+  tamperSnapshotFile,
+  writePendingRestoreJournal,
   writeProjectFile,
 } from "./assertions"
-import { createSnapshot } from "../../shared/snapshot/manifest"
-import { writeRestoreJournal } from "../../shared/snapshot/paths"
+import { createSnapshot, verifySnapshot } from "../../shared/snapshot/manifest"
+import { readRestoreJournal, writeRestoreJournal } from "../../shared/snapshot/paths"
 import { SessionStateSchema } from "../../shared/types"
 
 let worktree: string
@@ -154,6 +158,49 @@ describe("assertions: snapshot helpers", () => {
       removed: [],
     })
     await expectRestoreJournal(worktree, true)
+  })
+
+  it("snapshotFilePath reaches a stored copy through either separator style", () => {
+    expect(snapshotFilePath(worktree, "snap-1", "specs/001-demo/spec.md")).toBe(
+      path.join(worktree, ".opencode", "snapshots", "snap-1", "specs", "001-demo", "spec.md"),
+    )
+    expect(snapshotFilePath(worktree, "snap-1", "specs\\001-demo\\spec.md")).toBe(
+      snapshotFilePath(worktree, "snap-1", "specs/001-demo/spec.md"),
+    )
+  })
+
+  it("tamperSnapshotFile changes the stored bytes without touching the project", async () => {
+    await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Spec\n")
+    const manifest = await createSnapshot(worktree, { trigger: "manual" })
+
+    await tamperSnapshotFile(worktree, manifest.id, "specs/001-demo/spec.md")
+
+    const stored = snapshotFilePath(worktree, manifest.id, "specs/001-demo/spec.md")
+    expect(await fs.readFile(stored, "utf-8")).toBe("# Spec\nx")
+    expect(await readProjectFile(worktree, "specs/001-demo/spec.md")).toBe("# Spec\n")
+    expect((await verifySnapshot(worktree, manifest.id)).ok).toBe(false)
+  })
+
+  it("writePendingRestoreJournal stores a valid journal and clears on request", async () => {
+    await writePendingRestoreJournal(worktree, { snapshotId: "target", safetySnapshotId: "safety" })
+    const journal = await readRestoreJournal(worktree)
+    expect(journal).toMatchObject({
+      snapshot_id: "target",
+      safety_snapshot_id: "safety",
+      mode: "full",
+      files: [],
+    })
+
+    await writePendingRestoreJournal(worktree, {
+      snapshotId: "target",
+      safetySnapshotId: "safety",
+      mode: "selective",
+      files: ["specs/001-demo/spec.md"],
+    })
+    expect(await readRestoreJournal(worktree)).toMatchObject({
+      mode: "selective",
+      files: ["specs/001-demo/spec.md"],
+    })
   })
 })
 

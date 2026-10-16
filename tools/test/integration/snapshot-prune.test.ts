@@ -1,19 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import fs from "node:fs/promises"
-import path from "node:path"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import { snapshotsDirPath, writeRestoreJournal } from "../../shared/snapshot/paths"
+import { expectFileContent, projectPath, writePendingRestoreJournal, writeProjectFile } from "../helpers/assertions"
 import { createSnapshot, listSnapshots } from "../../shared/snapshot/manifest"
 import { drillSnapshot, pinSnapshot, pruneSnapshots } from "../../shared/snapshot/retention"
 
 let worktree: string
 
-async function write(rel: string, content: string): Promise<void> {
-  const abs = path.join(worktree, ...rel.split("/"))
-  await fs.mkdir(path.dirname(abs), { recursive: true })
-  await fs.writeFile(abs, content, "utf-8")
-}
-
+// Snapshot ids are stamped with local time, so build the fixture from local components.
 function date(sec: number): Date {
   return new Date(2026, 0, 1, 10, 0, sec)
 }
@@ -25,9 +19,9 @@ async function make(trigger: string, feature: string | null, sec: number): Promi
 
 beforeEach(async () => {
   worktree = await createTempWorktree()
-  await write(".opencode/spec-memory/constitution.md", "# Constitution\n")
-  await write(".opencode/guard.json", JSON.stringify({ version: 1, enabled: true }))
-  await write("specs/001-demo/spec.md", "# Spec\n")
+  await writeProjectFile(worktree, ".opencode/spec-memory/constitution.md", "# Constitution\n")
+  await writeProjectFile(worktree, ".opencode/guard.json", JSON.stringify({ version: 1, enabled: true }))
+  await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Spec\n")
 })
 
 afterEach(async () => {
@@ -119,15 +113,7 @@ describe("pruneSnapshots", () => {
   it("aborts when a restore journal exists", async () => {
     const safety = await make("pre-restore:x", null, 0)
     const target = await make("manual", null, 1)
-    await writeRestoreJournal(worktree, {
-      format: 1,
-      snapshot_id: target,
-      safety_snapshot_id: safety,
-      mode: "full",
-      started_at: new Date().toISOString(),
-      files: [],
-      removed: [],
-    })
+    await writePendingRestoreJournal(worktree, { snapshotId: target, safetySnapshotId: safety })
 
     const report = await pruneSnapshots(worktree)
 
@@ -139,23 +125,23 @@ describe("pruneSnapshots", () => {
 
   it("reports unreadable snapshot directories without removing them", async () => {
     await make("manual", null, 0)
-    const ghost = path.join(snapshotsDirPath(worktree), "20990101-000000-ghost")
-    await fs.mkdir(ghost, { recursive: true })
+    await fs.mkdir(projectPath(worktree, ".opencode/snapshots/20990101-000000-ghost"), { recursive: true })
 
     const report = await pruneSnapshots(worktree)
 
     expect(report.unreadable).toContain("20990101-000000-ghost")
-    expect(await fs.stat(ghost).then(() => true)).toBe(true)
+    const ghost = (await listSnapshots(worktree)).find((entry) => entry.id === "20990101-000000-ghost")
+    expect(ghost?.status).toBe("unreadable")
   })
 
   it("touches nothing outside the snapshots directory", async () => {
     for (let i = 0; i < 6; i++) await make("pre-fix-audit", "001-a", i)
-    await write("specs/001-demo/keep.md", "keep\n")
+    await writeProjectFile(worktree, "specs/001-demo/keep.md", "keep\n")
 
     await pruneSnapshots(worktree)
 
-    expect(await fs.readFile(path.join(worktree, "specs", "001-demo", "keep.md"), "utf-8")).toBe("keep\n")
-    expect(await fs.readFile(path.join(worktree, "specs", "001-demo", "spec.md"), "utf-8")).toBe("# Spec\n")
+    await expectFileContent(worktree, "specs/001-demo/keep.md", "keep\n")
+    await expectFileContent(worktree, "specs/001-demo/spec.md", "# Spec\n")
   })
 
   it("is idempotent", async () => {

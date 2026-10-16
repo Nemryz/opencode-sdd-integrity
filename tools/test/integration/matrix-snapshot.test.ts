@@ -1,26 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
-import fs from "node:fs/promises"
-import path from "node:path"
-import { mockContext, createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import { readDrillInfo, readPinInfo, snapshotsDirPath } from "../../shared/snapshot/paths"
+import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
+import { tamperSnapshotFile, writeProjectFile } from "../helpers/assertions"
+import { readDrillInfo, readPinInfo } from "../../shared/snapshot/paths"
 import { createSnapshot, listSnapshots } from "../../shared/snapshot/manifest"
 import { drillSnapshot, pinSnapshot, pruneSnapshots, unpinSnapshot } from "../../shared/snapshot/retention"
 
 let worktree: string
-
-async function write(rel: string, content: string): Promise<void> {
-  const abs = path.join(worktree, ...rel.split("/"))
-  await fs.mkdir(path.dirname(abs), { recursive: true })
-  await fs.writeFile(abs, content, "utf-8")
-}
 
 // Snapshot ids are stamped with local time (not UTC), so build the fixture from local components.
 const FIXED_NOW = new Date(2026, 2, 4, 5, 6, 7)
 
 beforeEach(async () => {
   worktree = await createTempWorktree()
-  await write(".opencode/spec-memory/session.json", JSON.stringify({ phase: "plan" }))
-  await write("specs/001-demo/spec.md", "# Spec\n")
+  await writeProjectFile(worktree, ".opencode/spec-memory/session.json", JSON.stringify({ phase: "plan" }))
+  await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Spec\n")
 })
 
 afterEach(async () => {
@@ -110,11 +103,7 @@ describe("matrix: drill results", () => {
   ])("%s -> drill ok=%s", async (_label, corrupt) => {
     const manifest = await createSnapshot(worktree, { trigger: "manual" })
     if (corrupt) {
-      await fs.appendFile(
-        path.join(snapshotsDirPath(worktree), manifest.id, "specs", "001-demo", "spec.md"),
-        "corrupt",
-        "utf-8",
-      )
+      await tamperSnapshotFile(worktree, manifest.id, "specs/001-demo/spec.md", "corrupt")
     }
     const drill = await drillSnapshot(worktree, manifest.id)
     expect(drill.ok).toBe(!corrupt)
@@ -138,11 +127,7 @@ describe("matrix: list entry status", () => {
   ])("%s -> %s", async (_label, corrupt, expected) => {
     const manifest = await createSnapshot(worktree, { trigger: "manual" })
     if (corrupt) {
-      await fs.appendFile(
-        path.join(snapshotsDirPath(worktree), manifest.id, "manifest.json"),
-        "garbage",
-        "utf-8",
-      )
+      await tamperSnapshotFile(worktree, manifest.id, "manifest.json", "garbage")
     }
     const entry = (await listSnapshots(worktree)).find(e => e.id === manifest.id)
     expect(entry?.status).toBe(expected)

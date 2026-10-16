@@ -1,23 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import fs from "node:fs/promises"
-import path from "node:path"
 import crypto from "node:crypto"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import { collectScope, snapshotsDirPath } from "../../shared/snapshot/paths"
+import { projectPath, snapshotDir, snapshotFilePath, tamperSnapshotFile, writeProjectFile } from "../helpers/assertions"
+import { collectScope } from "../../shared/snapshot/paths"
 import { createSnapshot, listSnapshots, readSnapshotManifest, verifySnapshot } from "../../shared/snapshot/manifest"
 import { SnapshotManifestSchema } from "../../shared/schemas"
 
 let worktree: string
 
-async function write(rel: string, content: string): Promise<void> {
-  const abs = path.join(worktree, ...rel.split("/"))
-  await fs.mkdir(path.dirname(abs), { recursive: true })
-  await fs.writeFile(abs, content, "utf-8")
-}
-
 beforeEach(async () => {
   worktree = await createTempWorktree()
-  await write(
+  await writeProjectFile(
+    worktree,
     ".opencode/spec-memory/session.json",
     JSON.stringify({
       command: null,
@@ -30,7 +25,8 @@ beforeEach(async () => {
       history: [],
     }),
   )
-  await write(
+  await writeProjectFile(
+    worktree,
     ".opencode/spec-memory/config.json",
     JSON.stringify({
       defaultTechStack: null,
@@ -40,18 +36,18 @@ beforeEach(async () => {
       preferences: {},
     }),
   )
-  await write(".opencode/spec-memory/constitution.md", "# Constitution\n")
-  await write(".opencode/guard.json", JSON.stringify({ version: 1, enabled: true }))
-  await write(".opencode/steering/product.md", "# Product\n")
-  await write(".opencode/steering/tech.md", "# Tech\n")
-  await write(".opencode/domain-map.md", "# Domain\n")
-  await write("specs/001-demo/spec.md", "# Spec\n")
-  await write("specs/001-demo/spec.json", "{}")
-  await write("specs/001-demo/plan.md", "# Plan\n")
-  await write(".opencode/backups/old.bak", "old")
-  await write(".opencode/spec-memory/session.json.sha256", "checksum")
-  await write("specs/001-demo/plan.md.tmp", "tmp")
-  await write("specs/001-demo/notes.lock", "lock")
+  await writeProjectFile(worktree, ".opencode/spec-memory/constitution.md", "# Constitution\n")
+  await writeProjectFile(worktree, ".opencode/guard.json", JSON.stringify({ version: 1, enabled: true }))
+  await writeProjectFile(worktree, ".opencode/steering/product.md", "# Product\n")
+  await writeProjectFile(worktree, ".opencode/steering/tech.md", "# Tech\n")
+  await writeProjectFile(worktree, ".opencode/domain-map.md", "# Domain\n")
+  await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Spec\n")
+  await writeProjectFile(worktree, "specs/001-demo/spec.json", "{}")
+  await writeProjectFile(worktree, "specs/001-demo/plan.md", "# Plan\n")
+  await writeProjectFile(worktree, ".opencode/backups/old.bak", "old")
+  await writeProjectFile(worktree, ".opencode/spec-memory/session.json.sha256", "checksum")
+  await writeProjectFile(worktree, "specs/001-demo/plan.md.tmp", "tmp")
+  await writeProjectFile(worktree, "specs/001-demo/notes.lock", "lock")
 })
 
 afterEach(async () => {
@@ -110,9 +106,7 @@ describe("createSnapshot", () => {
     expect(manifest.files.map((f) => f.path).sort()).toEqual([...scope].sort())
     expect(manifest.files.every((f) => !f.path.includes("\\"))).toBe(true)
 
-    const snapshotDir = path.join(snapshotsDirPath(worktree), manifest.id)
-    expect(await fs.stat(snapshotDir).then((s) => s.isDirectory())).toBe(true)
-    const specCopy = await fs.readFile(path.join(snapshotDir, "specs", "001-demo", "spec.md"), "utf-8")
+    const specCopy = await fs.readFile(snapshotFilePath(worktree, manifest.id, "specs/001-demo/spec.md"), "utf-8")
     expect(specCopy).toBe("# Spec\n")
   })
 
@@ -128,7 +122,7 @@ describe("createSnapshot", () => {
   it("succeeds with only the core files that exist", async () => {
     const bare = await createTempWorktree()
     try {
-      await fs.writeFile(path.join(bare, ".opencode", "spec-memory", "constitution.md"), "# C\n")
+      await writeProjectFile(bare, ".opencode/spec-memory/constitution.md", "# C\n")
       const manifest = await createSnapshot(bare, { trigger: "manual" })
       expect(manifest.files.map((f) => f.path)).toEqual([".opencode/spec-memory/constitution.md"])
     } finally {
@@ -156,7 +150,7 @@ describe("createSnapshot", () => {
     await expect(createSnapshot(worktree, { trigger: "manual" })).rejects.toThrow()
     spy.mockRestore()
 
-    const entries = await fs.readdir(snapshotsDirPath(worktree)).catch(() => [] as string[])
+    const entries = await fs.readdir(snapshotDir(worktree)).catch(() => [] as string[])
     expect(entries).toEqual([])
   })
 })
@@ -172,7 +166,7 @@ describe("verifySnapshot", () => {
 
   it("detects a single-byte modification as a mismatch", async () => {
     const manifest = await createSnapshot(worktree, { trigger: "manual" })
-    await fs.appendFile(path.join(snapshotsDirPath(worktree), manifest.id, "specs", "001-demo", "spec.md"), "x")
+    await tamperSnapshotFile(worktree, manifest.id, "specs/001-demo/spec.md")
     const result = await verifySnapshot(worktree, manifest.id)
     expect(result.ok).toBe(false)
     expect(result.entries.find((e) => e.path === "specs/001-demo/spec.md")?.status).toBe("mismatch")
@@ -180,7 +174,7 @@ describe("verifySnapshot", () => {
 
   it("detects a missing file", async () => {
     const manifest = await createSnapshot(worktree, { trigger: "manual" })
-    await fs.rm(path.join(snapshotsDirPath(worktree), manifest.id, ".opencode", "steering", "product.md"))
+    await fs.rm(snapshotFilePath(worktree, manifest.id, ".opencode/steering/product.md"))
     const result = await verifySnapshot(worktree, manifest.id)
     expect(result.ok).toBe(false)
     expect(result.entries.find((e) => e.path === ".opencode/steering/product.md")?.status).toBe("missing")
@@ -188,7 +182,7 @@ describe("verifySnapshot", () => {
 
   it("reports unreadable for a corrupt or missing manifest", async () => {
     const manifest = await createSnapshot(worktree, { trigger: "manual" })
-    await fs.writeFile(path.join(snapshotsDirPath(worktree), manifest.id, "manifest.json"), "not json", "utf-8")
+    await fs.writeFile(snapshotFilePath(worktree, manifest.id, "manifest.json"), "not json", "utf-8")
     const result = await verifySnapshot(worktree, manifest.id)
     expect(result.ok).toBe(false)
     expect(result.error).toBe("manifest unreadable")
@@ -223,8 +217,8 @@ describe("listSnapshots", () => {
 
   it("marks a tampered snapshot as mismatched and a manifestless dir as unreadable", async () => {
     const manifest = await createSnapshot(worktree, { trigger: "manual" })
-    await fs.appendFile(path.join(snapshotsDirPath(worktree), manifest.id, ".opencode", "guard.json"), " ")
-    await fs.mkdir(path.join(snapshotsDirPath(worktree), "20990101-000000-ghost"), { recursive: true })
+    await tamperSnapshotFile(worktree, manifest.id, ".opencode/guard.json", " ")
+    await fs.mkdir(projectPath(worktree, ".opencode/snapshots/20990101-000000-ghost"), { recursive: true })
 
     const list = await listSnapshots(worktree)
     expect(list.find((e) => e.id === manifest.id)?.status).toBe("mismatched")

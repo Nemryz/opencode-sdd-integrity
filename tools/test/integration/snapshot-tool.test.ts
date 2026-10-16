@@ -4,20 +4,15 @@ import path from "node:path"
 import os from "node:os"
 import snapshotTool from "../../speckit-snapshot"
 import { mockContext, createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import { writeRestoreJournal } from "../../shared/snapshot/paths"
+import {
+  expectFileContent,
+  tamperSnapshotFile,
+  writePendingRestoreJournal,
+  writeProjectFile,
+} from "../helpers/assertions"
 
 let worktree: string
 let ctx: ReturnType<typeof mockContext>
-
-async function write(rel: string, content: string): Promise<void> {
-  const abs = path.join(worktree, ...rel.split("/"))
-  await fs.mkdir(path.dirname(abs), { recursive: true })
-  await fs.writeFile(abs, content, "utf-8")
-}
-
-async function read(rel: string): Promise<string> {
-  return fs.readFile(path.join(worktree, ...rel.split("/")), "utf-8")
-}
 
 async function run(args: Record<string, unknown> = {}) {
   return snapshotTool.execute(args as never, ctx)
@@ -26,7 +21,8 @@ async function run(args: Record<string, unknown> = {}) {
 beforeEach(async () => {
   worktree = await createTempWorktree()
   ctx = mockContext(worktree)
-  await write(
+  await writeProjectFile(
+    worktree,
     ".opencode/spec-memory/session.json",
     JSON.stringify({
       command: "/spec",
@@ -39,9 +35,9 @@ beforeEach(async () => {
       history: [],
     }),
   )
-  await write(".opencode/spec-memory/constitution.md", "# Constitution\n")
-  await write(".opencode/guard.json", JSON.stringify({ version: 1, enabled: true }))
-  await write("specs/001-demo/spec.md", "# Spec\n")
+  await writeProjectFile(worktree, ".opencode/spec-memory/constitution.md", "# Constitution\n")
+  await writeProjectFile(worktree, ".opencode/guard.json", JSON.stringify({ version: 1, enabled: true }))
+  await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Spec\n")
 })
 
 afterEach(async () => {
@@ -71,15 +67,7 @@ describe("speckit-snapshot list", () => {
   it("reports NOT READY when an interrupted restore is pending", async () => {
     await run({ subcommand: "create" })
     const entries = (await run({ subcommand: "list" })).metadata?.snapshots as Array<{ id: string }>
-    await writeRestoreJournal(worktree, {
-      format: 1,
-      snapshot_id: entries[0]?.id ?? "x",
-      safety_snapshot_id: entries[0]?.id ?? "x",
-      mode: "full",
-      started_at: new Date().toISOString(),
-      files: [],
-      removed: [],
-    })
+    await writePendingRestoreJournal(worktree, { snapshotId: entries[0]?.id ?? "x", safetySnapshotId: entries[0]?.id ?? "x" })
     const result = await run({ subcommand: "list" })
     expect(result.title).toBe("Snapshots: NOT READY")
     expect(result.output).toContain("interrupted restore")
@@ -105,8 +93,7 @@ describe("speckit-snapshot create and verify", () => {
     const verified = await run({ subcommand: "verify", id })
     expect(verified.title).toBe("Snapshot Verified")
 
-    const snapshotFile = path.join(worktree, ".opencode", "snapshots", id, "specs", "001-demo", "spec.md")
-    await fs.appendFile(snapshotFile, "x")
+    await tamperSnapshotFile(worktree, id, "specs/001-demo/spec.md")
     const problems = await run({ subcommand: "verify", id })
     expect(problems.title).toBe("Snapshot Problems")
     expect(problems.output).toContain("mismatch")
@@ -122,32 +109,32 @@ describe("speckit-snapshot create and verify", () => {
 describe("speckit-snapshot preview and restore", () => {
   it("previews changes without writing anything", async () => {
     await run({ subcommand: "create" })
-    await write("specs/001-demo/spec.md", "# Changed\n")
+    await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Changed\n")
 
     const preview = await run({ subcommand: "preview", id: "latest" })
     expect(preview.title).toBe("Restore Preview")
     expect(preview.output).toContain("changed: 1")
-    expect(await read("specs/001-demo/spec.md")).toBe("# Changed\n")
+    await expectFileContent(worktree, "specs/001-demo/spec.md", "# Changed\n")
   })
 
   it("requires confirmation and reports the impact before restoring", async () => {
     await run({ subcommand: "create" })
-    await write("specs/001-demo/spec.md", "# Changed\n")
+    await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Changed\n")
 
     const pending = await run({ subcommand: "restore", id: "latest" })
     expect(pending.title).toBe("Confirm Restore")
     expect(pending.metadata?.requiresConfirmation).toBe(true)
     expect(pending.output).toContain("Impact:")
-    expect(await read("specs/001-demo/spec.md")).toBe("# Changed\n")
+    await expectFileContent(worktree, "specs/001-demo/spec.md", "# Changed\n")
   })
 
   it("restores with confirmed and takes a safety snapshot", async () => {
     await run({ subcommand: "create" })
-    await write("specs/001-demo/spec.md", "# Changed\n")
+    await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Changed\n")
 
     const result = await run({ subcommand: "restore", id: "latest", confirmed: true })
     expect(result.title).toBe("Restore Complete")
-    expect(await read("specs/001-demo/spec.md")).toBe("# Spec\n")
+    await expectFileContent(worktree, "specs/001-demo/spec.md", "# Spec\n")
 
     const entries = (await run({ subcommand: "list" })).metadata?.snapshots as Array<{ trigger: string }>
     expect(entries.some((entry) => entry.trigger.startsWith("pre-restore:"))).toBe(true)
@@ -175,8 +162,7 @@ describe("speckit-snapshot pin, drill, prune, recover", () => {
 
     expect((await run({ subcommand: "drill", id })).title).toBe("Drill Passed")
 
-    const snapshotFile = path.join(worktree, ".opencode", "snapshots", id, "specs", "001-demo", "spec.md")
-    await fs.appendFile(snapshotFile, "x")
+    await tamperSnapshotFile(worktree, id, "specs/001-demo/spec.md")
     const failed = await run({ subcommand: "drill", id })
     expect(failed.title).toBe("Drill Failed")
     expect(failed.output).toContain("not safe")
@@ -189,15 +175,7 @@ describe("speckit-snapshot pin, drill, prune, recover", () => {
 
     const created = await run({ subcommand: "create" })
     const id = created.metadata?.snapshotId as string
-    await writeRestoreJournal(worktree, {
-      format: 1,
-      snapshot_id: id,
-      safety_snapshot_id: id,
-      mode: "full",
-      started_at: new Date().toISOString(),
-      files: [],
-      removed: [],
-    })
+    await writePendingRestoreJournal(worktree, { snapshotId: id, safetySnapshotId: id })
     const aborted = await run({ subcommand: "prune" })
     expect(aborted.title).toBe("Prune Aborted")
     expect(aborted.output).toContain("journal")
@@ -206,20 +184,12 @@ describe("speckit-snapshot pin, drill, prune, recover", () => {
   it("recovers an interrupted restore and reports when there is nothing to recover", async () => {
     const created = await run({ subcommand: "create" })
     const id = created.metadata?.snapshotId as string
-    await writeRestoreJournal(worktree, {
-      format: 1,
-      snapshot_id: "20990101-000000-manual",
-      safety_snapshot_id: id,
-      mode: "full",
-      started_at: new Date().toISOString(),
-      files: [],
-      removed: [],
-    })
-    await write("specs/001-demo/spec.md", "# Half restored\n")
+    await writePendingRestoreJournal(worktree, { snapshotId: "20990101-000000-manual", safetySnapshotId: id })
+    await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Half restored\n")
 
     const recovered = await run({ subcommand: "recover" })
     expect(recovered.title).toBe("Restore Recovered")
-    expect(await read("specs/001-demo/spec.md")).toBe("# Spec\n")
+    await expectFileContent(worktree, "specs/001-demo/spec.md", "# Spec\n")
 
     const nothing = await run({ subcommand: "recover" })
     expect(nothing.title).toBe("Nothing to Recover")
