@@ -63,6 +63,20 @@ it.each([
 })
 ```
 
+## Workflow coverage
+
+`integration/e2e-workflow-snapshots.test.ts` walks the whole SDD workflow against a temp
+worktree and asserts the recovery points it creates at every stage:
+
+- Specification through approval, planning, tasks and implementation, ending in the complete phase.
+- One verified snapshot per phase transition and one for the approval that unlocks work.
+- A repair run that realigns a phase mismatch after taking a pre-fix snapshot.
+- An interrupted restore recovered in the middle of a workflow through `/health --fix`, with
+  the journal cleared on disk and the validation gate accepting the result.
+- A restore that returns the feature to an earlier milestone, removes later artifacts and lets
+  the workflow continue from there.
+- A blocked repair run that refuses to change state when the snapshot cannot be created.
+
 ## Matrix inventory
 
 | Module | Matrix file | What it varies |
