@@ -66,6 +66,54 @@ exports[`Snapshot: /health (healthy) > matches snapshot for healthy state 2`] = 
   Overall: CRITICAL"
 `;
 
+exports[`Snapshot: /snapshot (after create) > matches snapshot for the created snapshot 1`] = `"Snapshot Created"`;
+
+exports[`Snapshot: /snapshot (after create) > matches snapshot for the created snapshot 2`] = `
+"<SNAPSHOT>
+  files: 4 (1010 B)
+  feature: 001-test-feature | phase: spec
+Next: /snapshot drill <SNAPSHOT> to prove it can be restored"
+`;
+
+exports[`Snapshot: /snapshot (after create) > matches snapshot for the created snapshot 3`] = `"Snapshots: DEGRADED"`;
+
+exports[`Snapshot: /snapshot (after create) > matches snapshot for the created snapshot 4`] = `
+"Recovery Readiness: DEGRADED
+  - no snapshot has been drilled yet
+
+Snapshots (1):
+  <SNAPSHOT> | <TIMESTAMP> | manual | 001-test-feature | 4 files | 1010 B | verified | unpinned | drill:never"
+`;
+
+exports[`Snapshot: /snapshot (after create) > matches snapshot for the created snapshot 5`] = `"Restore Preview"`;
+
+exports[`Snapshot: /snapshot (after create) > matches snapshot for the created snapshot 6`] = `
+"Preview restore <SNAPSHOT> (full) — nothing was written
+  changed: 0
+  missing (would be created): 0
+  identical: 4
+  extras (would be removed): 0"
+`;
+
+exports[`Snapshot: /snapshot (after drill) > matches snapshot for a drilled snapshot 1`] = `"Snapshots: READY"`;
+
+exports[`Snapshot: /snapshot (after drill) > matches snapshot for a drilled snapshot 2`] = `
+"Recovery Readiness: READY
+
+Snapshots (1):
+  <SNAPSHOT> | <TIMESTAMP> | manual | no feature | 1 files | 20 B | verified | unpinned | drill:ok"
+`;
+
+exports[`Snapshot: /snapshot (empty project) > matches snapshot for an empty project 1`] = `"Snapshots: NOT READY"`;
+
+exports[`Snapshot: /snapshot (empty project) > matches snapshot for an empty project 2`] = `
+"Recovery Readiness: NOT READY
+  - no snapshots yet — run create
+
+Snapshots (0):
+  (none)"
+`;
+
 exports[`Snapshot: /status (clean state) > matches snapshot for clean state 1`] = `"Status: 0 feature(s)"`;
 
 exports[`Snapshot: /status (clean state) > matches snapshot for clean state 2`] = `"No features yet. Next: /spec <description>"`;

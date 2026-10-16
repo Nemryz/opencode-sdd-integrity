@@ -7,6 +7,7 @@ import auditTool from "../../speckit-audit"
 import validateTool from "../../speckit-validate"
 import healthTool from "../../speckit-health"
 import deltaTool from "../../speckit-delta"
+import snapshotTool from "../../speckit-snapshot"
 import complexityTool from "../../speckit-complexity"
 import scaffoldTool from "../../speckit-scaffold"
 import { mockContext, createTempWorktree, destroyTempWorktree, createConstitution } from "../helpers/setup"
@@ -31,6 +32,10 @@ function normalizeOutput(output: string): string {
     .replace(/[A-Z]:\\[^\s]+/g, "<PATH>")
     .replace(/\/tmp\/[^\s]+/g, "<PATH>")
     .replace(/\/var\/folders\/[^\s]+/g, "<PATH>")
+    // Snapshot ids carry a local timestamp, so they are replaced to keep the snapshot stable.
+    .replace(/\d{8}-\d{6}-[a-z0-9-]+/g, "<SNAPSHOT>")
+    // Manifest timestamps change on every run, so they are replaced for the same reason.
+    .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?/g, "<TIMESTAMP>")
 }
 
 function makeSession(overrides?: Partial<SessionState>): SessionState {
@@ -225,5 +230,50 @@ describe("Snapshot: /complexity (complex task)", () => {
     )
     expect(result.title).toMatchSnapshot()
     expect(result.output).toMatchSnapshot()
+  })
+})
+
+// /snapshot (empty project)
+
+describe("Snapshot: /snapshot (empty project)", () => {
+  it("matches snapshot for an empty project", async () => {
+    await createConstitution(worktree)
+    const result = await snapshotTool.execute({ subcommand: "list" }, ctx)
+    expect(result.title).toMatchSnapshot()
+    expect(result.output).toMatchSnapshot()
+  })
+})
+
+// /snapshot (after create)
+
+describe("Snapshot: /snapshot (after create)", () => {
+  it("matches snapshot for the created snapshot", async () => {
+    await createConstitution(worktree)
+    await scaffoldTool.execute({ featureName: "Test Feature", template: "spec" }, ctx)
+    const created = await snapshotTool.execute({ subcommand: "create" }, ctx)
+    const listed = await snapshotTool.execute({ subcommand: "list" }, ctx)
+    const preview = await snapshotTool.execute({
+      subcommand: "preview",
+      id: created.metadata?.snapshotId as string,
+    }, ctx)
+    expect(created.title).toMatchSnapshot()
+    expect(normalizeOutput(created.output)).toMatchSnapshot()
+    expect(listed.title).toMatchSnapshot()
+    expect(normalizeOutput(listed.output)).toMatchSnapshot()
+    expect(preview.title).toMatchSnapshot()
+    expect(normalizeOutput(preview.output)).toMatchSnapshot()
+  })
+})
+
+// /snapshot (after drill)
+
+describe("Snapshot: /snapshot (after drill)", () => {
+  it("matches snapshot for a drilled snapshot", async () => {
+    await createConstitution(worktree)
+    const created = await snapshotTool.execute({ subcommand: "create" }, ctx)
+    await snapshotTool.execute({ subcommand: "drill", id: created.metadata?.snapshotId as string }, ctx)
+    const listed = await snapshotTool.execute({ subcommand: "list" }, ctx)
+    expect(listed.title).toMatchSnapshot()
+    expect(normalizeOutput(listed.output)).toMatchSnapshot()
   })
 })
