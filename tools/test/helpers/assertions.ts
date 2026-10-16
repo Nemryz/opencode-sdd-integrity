@@ -20,8 +20,10 @@ type ParserLike = {
 }
 
 // Builds the absolute path of a project relative file so tests never assemble paths by hand.
+// Both separator styles are accepted because fixtures are written with forward slashes and
+// occasionally with the Windows style, and a POSIX join would keep backslashes as literal names.
 export function projectPath(worktree: string, relPath: string): string {
-  return path.join(worktree, ...relPath.split("/"))
+  return path.join(worktree, ...relPath.split(/[\\/]/))
 }
 
 // Writes a file inside the temp worktree and creates the parent folders when they are missing.

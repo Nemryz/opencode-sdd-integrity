@@ -587,71 +587,59 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 2827 automated tests distributed across 97 test files. The test suite covers multiple quality dimensions, each designed to validate a specific aspect of the system's correctness and reliability. See `docs/testing.md` for the testing conventions and the multi-value matrix inventory. Run `npm run lint:lang` to verify that source stays in English.
+The project includes 2827 automated tests distributed across 97 test files, and every layer answers a different question about the same system.
+`docs/testing.md` holds the conventions, the per module matrix inventory, and the stability rules that this section only summarizes.
 
-### Unit Tests
+### Test Types
 
-Unit tests verify individual functions and modules in isolation. They create temporary directories, exercise specific functions with controlled inputs, and validate outputs against expected results. These tests catch logic errors in shared utilities, schema validation, type definitions, and tool-specific operations.
+| Type | Directory | Question it answers |
+|------|-----------|---------------------|
+| Unit | `tools/test/unit/` | Does this pure function compute the right value |
+| Matrix | `tools/test/**/matrix-*.test.ts` | Does it compute the right value across many inputs |
+| Integration | `tools/test/integration/` | Does the tool leave the filesystem in the right state |
+| Workflow | `tools/test/integration/e2e-*.test.ts` | Does a whole command sequence hold together |
+| Property | `tools/test/property/` | Does an invariant hold for generated inputs |
+| Chaos | `tools/test/chaos/` | Does the system survive injected filesystem failures |
+| Concurrency | `tools/test/concurrency/` | Does locking prevent corruption under parallel access |
+| Fuzz | `tools/test/fuzz/` | Does every schema reject hostile values without crashing |
+| Snapshot | `tools/test/snapshot/` | Does a command produce exactly this output |
+| Mutation | `*-mutation.test.ts` and `*-kill-survivors.test.ts` | Do the tests notice when the logic changes |
+| Shipped surface | `tools/test/integration/shipped-surface.test.ts` | Does the packaging still describe the repository truthfully |
 
-Unit tests execute quickly and provide immediate feedback during development. They form the foundation of the test pyramid, catching the majority of regressions before they reach integration testing.
+Content assertion and phase gate tests live in the unit and integration directories, where they verify that skills, templates, commands, and their prerequisites keep the structure the agents depend on.
 
-### Integration Tests
+### Value Matrices
 
-Integration tests validate complete workflows from start to finish. They exercise the full lifecycle of features including creation, validation, auditing, cleaning, and status reporting. These tests verify that tools interact correctly with each other and with the filesystem.
+Pure functions and behavioral rules carry `it.each` tables that vary values across five families, namely boundary, invalid, unicode, structural, and platform.
+The tables encode the behavior the code actually has rather than the behavior it was assumed to have, and the reason is written beside any case where the two disagreed.
+This is how a single scenario became 305 additional cases across the snapshot engine, the shared utilities, the guard matchers, and the state schemas.
 
-Integration tests create realistic scenarios that mirror actual usage patterns. They detect problems that unit tests cannot catch, such as incorrect file paths, missing prerequisites, and state synchronization issues between tools.
+### Verification Helpers
 
-### Content Assertion Tests
+`tools/test/helpers/assertions.ts` centralizes disk verification so tests read the real state files instead of rebuilding path logic in every test.
+The helpers assert presence, absence, exact bytes, schema validity, session and feature state, snapshot identity, backup counts, and pending restores.
+Every integration test in the campaign uses them, which is what makes a tool that reports success without writing anything fail.
 
-Content assertion tests verify that skill files, templates, and documentation maintain required structure and content. They check that frontmatter contains required fields, that templates include expected placeholders, and that documentation covers all necessary topics.
+### Workflow Coverage
 
-These tests prevent structural drift that could break agent instructions or produce malformed artifacts. They ensure that the human-authored content remains consistent with the machine-processed expectations.
+`tools/test/integration/e2e-workflow-snapshots.test.ts` walks the full lifecycle and asserts the recovery points created at every stage, the repair run that realigns a phase, the recovery of an interrupted restore, the restore to an earlier milestone, and the refusal to change state when a recovery point cannot be created.
 
-### Phase Gate Tests
+### Platform-Dependent Tests
 
-Phase gate tests validate that all commands enforce phase prerequisites and produce correct artifacts. They verify that `/plan` fails when no specification exists, that `/tasks` fails when no plan exists, and that `/impl` fails when prerequisites are incomplete.
+Case insensitive matching and Windows error formatting cannot be reproduced on Linux, so those cases use `it.skipIf(process.platform ...)` with the reason written next to them, and a bare `it.skip` is never accepted because an unexplained skip hides a regression.
 
-These tests enforce the workflow's sequential nature, ensuring that users cannot bypass required steps. They validate both positive paths, correct execution with valid prerequisites, and negative paths, appropriate rejection without prerequisites.
+### Stability Rules
 
-### Concurrency Tests
+Transient rename failures are retried, teardown tolerates the Windows busy codes, parallel filesystem mutations stay sequential, and global state is cleared between tests.
+A stable suite is confirmed by running it more than once and by running it without file parallelism, which is how hidden order dependence was ruled out during the campaign.
 
-Concurrency tests validate file locking mechanisms and concurrent access patterns. They simulate multiple processes attempting to read and write state files simultaneously, verifying that locks prevent corruption and that operations complete reliably.
+### Language Lint
 
-These tests address real-world scenarios where multiple terminal sessions or background processes might access the toolkit simultaneously. They validate that the locking implementation provides adequate protection without causing deadlocks or excessive contention.
+```bash
+npm run lint:lang
+```
 
-### Edge Case Tests
-
-Edge case tests exercise boundary conditions including empty inputs, invalid paths, missing directories, and malformed data. They verify that the toolkit handles gracefully the situations that occur rarely but cause significant problems when they do.
-
-These tests validate error handling paths, ensuring that the toolkit produces informative error messages rather than crashes. They check that validation catches invalid inputs before they corrupt state, and that recovery mechanisms function correctly.
-
-### Corruption Recovery Tests
-
-Corruption recovery tests validate backup creation, checksum verification, and automatic restoration when state files become corrupted. They intentionally corrupt files and verify that the system detects the corruption, creates appropriate warnings, and restores from valid backups.
-
-These tests provide confidence that the resilience layer actually protects against data loss. They validate the complete corruption detection pipeline from initial read through warning generation to successful restoration.
-
-### Snapshot Tests
-
-Snapshot tests cover the point-in-time system end to end: creation scope and manifest integrity, listing with verification status and recovery readiness, confirmed restore with safety snapshots and rollback under injected failures, interrupted-restore recovery from the journal, selective restore path safety, restore drills in sandboxes, pinning, and value-aware retention caps.
-
-### Property-Based Tests
-
-Property-based tests utilize fast-check to discover edge cases through random input generation. Instead of testing specific inputs, they generate thousands of random values and verify that certain properties hold true for all of them.
-
-These tests find bugs that manual test case design might miss. They exercise code paths with unexpected input combinations, extreme values, and malformed data that would be tedious to enumerate manually.
-
-### Fuzzing Tests
-
-Fuzzing tests inject random inputs to identify unexpected failure modes and crash conditions. They feed tools with completely random strings, numbers, paths, and data structures, validating that the toolkit handles all inputs without crashing.
-
-These tests complement property-based testing by focusing on resilience rather than correctness. They verify that the toolkit degrades gracefully with invalid input rather than failing catastrophically.
-
-### Chaos Tests
-
-Chaos tests inject faults to validate system behavior under adverse conditions. They simulate file deletions during operations, permission denials, disk full conditions, and other failure scenarios. These tests verify that the toolkit's error handling and recovery mechanisms function correctly when things go wrong.
-
-Chaos testing builds confidence in the system's resilience by exercising failure paths that normal testing cannot reach. They validate that the toolkit maintains data integrity even when external conditions become hostile.
+The lint walks every tracked source file and fails when Cyrillic, Greek, kana, CJK ideographs, Hangul, or fullwidth forms appear outside string literals, while unicode literals inside fixtures stay allowed because they are the subject under test.
 
 ## Mutation Testing
 
@@ -706,6 +694,17 @@ Contributions are welcome. The project maintains high standards for code quality
 
 Utilize TypeScript with strict mode enabled. No semicolons, no colons in comments, minimal periods. Use commas only for list separation. Follow the existing patterns in the codebase for naming conventions, import organization, and function structure.
 
+Every file is written in English, and `npm run lint:lang` fails the build when Cyrillic, Greek, kana, CJK ideographs, Hangul, or fullwidth forms appear outside string literals.
+
+Each comment occupies a single line and reads as narrative prose that explains the procedure with varied verbs and connectors, without labels, dashes, colons, or semicolons.
+
+Documentation follows the same single line discipline, where every paragraph, list item, and table row stays on one line so the reader never loses the thread midway.
+
+```ts
+// Turns the snapshots folder into a plain file so snapshot creation fails with a filesystem error.
+await fs.writeFile(snapshotDir(worktree), "blocked", "utf-8")
+```
+
 ### Testing Requirements
 
 All new features require integration tests that validate the complete workflow. Run `npm test` and `npm run typecheck` before committing. The test suite must pass completely with no warnings or skipped tests.
@@ -727,6 +726,8 @@ Tools must be self-contained. Shared logic belongs in tools/shared/. Avoid circu
 ### Documentation
 
 Update README.md when adding features or changing behavior. Keep examples current and ensure that all configuration options are documented. The documentation should reflect the actual state of the codebase.
+
+Keep one H1 per document, group the rest by the order a reader needs them, and let H3 headings carry only the lists that become unreadable without a title.
 
 Issues and pull requests are welcome at the GitHub repository.
 
