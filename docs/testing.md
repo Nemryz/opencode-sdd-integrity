@@ -84,6 +84,31 @@ so those tests are skipped explicitly with a comment explaining why:
 
 Never use a bare `it.skip`; always `it.skipIf(process.platform ...)` with a reason.
 
+## Verification helpers
+
+`tools/test/helpers/assertions.ts` centralizes disk verification so tests assert real data
+instead of reimplementing path juggling:
+
+- `writeProjectFile`, `readProjectFile`, `readProjectJson` handle project relative paths and BOM tolerance.
+- `expectFileExists`, `expectPathMissing`, `expectFileContent` assert presence, absence and exact bytes.
+- `expectSchemaValid` validates any object against a Zod schema.
+- `expectSessionState` and `expectFeatureSpecJson` read the real state files and match expected fields.
+- `listSnapshotIds`, `listSnapshotTriggers`, `snapshotDir`, `countBackupsFor` and `expectRestoreJournal`
+  expose snapshot and backup facts for assertions.
+
+New integration tests should use these helpers instead of ad hoc `readFile` calls.
+
+## Language lint
+
+```bash
+npm run lint:lang
+```
+
+The lint scans every tracked source file (TypeScript, Markdown, YAML, shell and PowerShell) and
+fails when Cyrillic, Greek, kana, CJK ideographs, Hangul or fullwidth forms appear outside string
+literals. Unicode literals inside test fixtures are allowed because they are the subject under
+test. Fuzz fixtures are excluded because they embed hostile values on purpose.
+
 ## Stability rules learned the hard way
 
 - Run the suite repeatedly before trusting it: flakes hide in ordering and timing.

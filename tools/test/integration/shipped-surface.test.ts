@@ -34,26 +34,29 @@ async function existsInRepo(relPath: string): Promise<boolean> {
   return fs.stat(path.join(REPO_ROOT, ...relPath.split("/"))).then(() => true).catch(() => false)
 }
 
+// Repo hygiene checks only make sense inside a git checkout because they rely on the tracked file list.
+const hasGit = ownedRepoFiles().size > 0
+
 function trackedUnder(prefix: string): string[] {
   return [...ownedRepoFiles()].filter((file) => file.startsWith(prefix)).sort()
 }
 
 describe("repo hygiene: local plugin content must stay untracked", () => {
-  it("tracks only kit commands", () => {
+  it.skipIf(!hasGit)("tracks only kit commands", () => {
     for (const file of trackedUnder("commands/")) {
       const name = file.replace("commands/", "").replace(/\.md$/, "")
       expect(KIT_COMMANDS, `unexpected command tracked: ${file}`).toContain(name)
     }
   })
 
-  it("tracks only kit agents", () => {
+  it.skipIf(!hasGit)("tracks only kit agents", () => {
     for (const file of trackedUnder("agents/")) {
       const name = file.replace("agents/", "").replace(/\.md$/, "")
       expect(KIT_AGENTS, `unexpected agent tracked: ${file}`).toContain(name)
     }
   })
 
-  it("tracks only kit skills", () => {
+  it.skipIf(!hasGit)("tracks only kit skills", () => {
     for (const file of trackedUnder("skills/")) {
       const skillDir = file.split("/")[1]
       const isKitSkill = skillDir === "rules" || skillDir.startsWith("speckit-")
@@ -61,7 +64,7 @@ describe("repo hygiene: local plugin content must stay untracked", () => {
     }
   })
 
-  it("does not track local-only config, MCP servers or plugin scripts", () => {
+  it.skipIf(!hasGit)("does not track local-only config, MCP servers or plugin scripts", () => {
     const tracked = [...ownedRepoFiles()]
     const forbidden = [
       /^opencode\.jsonc$/,
@@ -157,7 +160,7 @@ describe("shipped surface stays consistent", () => {
 })
 
 describe("shipped agents keep a single valid frontmatter block", () => {
-  it("is not shadowed by a second frontmatter block injected by another plugin", async () => {
+  it.skipIf(!hasGit)("is not shadowed by a second frontmatter block injected by another plugin", async () => {
     const agentFiles = trackedUnder("agents/")
     expect(agentFiles.length).toBeGreaterThan(0)
 
