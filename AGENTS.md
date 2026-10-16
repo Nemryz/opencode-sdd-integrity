@@ -415,3 +415,11 @@ When a fix loop needs to distinguish between multiple sub-items (e.g., spec/plan
 
 **Test pattern:** Create a feature whose name contains a phase word (e.g., "tasks view" → `001-tasks-view`), set only `spec.md`, unmark approvals, run `--fix`, and assert that only `approvals.spec.generated` flips to `true` while `approvals.tasks.generated` stays `false`.
 
+### Multi-value matrix tests for new code
+
+A single happy-path `it()` proves almost nothing. Every pure function and every behavioral rule gets an `it.each` table that varies the values: boundary (empty, single char, max length), invalid (null, wrong type, missing field), unicode (CJK, emoji, null byte), structural (nested, empty arrays, bad element) and platform (Windows separators and casing). Encode the behavior the code **actually** has — verify against the implementation before writing the expectation, and when reality differs from the assumption, decide which is correct and comment the reason.
+
+**Test pattern:** `tools/test/unit/matrix-types.test.ts` (parsers, phase detection, path safety, package manager), `matrix-io.test.ts` (BOM, checksums, backup keys, errno matchers), `matrix-guard.test.ts` (path matchers, phase protection, redirect extraction) and `integration/matrix-snapshot.test.ts` (trigger slug, timestamp format, id collisions, prune priority).
+
+**Invariants that bite:** snapshot ids use **local** time (not UTC) and Zod schemas legitimately accept unicode strings, empty arrays and empty labels — assert the real boundary. See `docs/testing.md` for the full inventory and conventions.
+
