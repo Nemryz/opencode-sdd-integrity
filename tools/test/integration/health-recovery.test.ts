@@ -9,7 +9,8 @@ import {
   expectSessionState,
   writeProjectFile,
 } from "../helpers/assertions"
-import { createSnapshot, readRestoreJournal, writeRestoreJournal } from "../../shared/snapshot"
+import { readRestoreJournal, writeRestoreJournal } from "../../shared/snapshot/paths"
+import { createSnapshot } from "../../shared/snapshot/manifest"
 
 let worktree: string
 let ctx: ReturnType<typeof mockContext>

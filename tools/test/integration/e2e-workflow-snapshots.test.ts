@@ -22,7 +22,7 @@ import {
   snapshotDir,
   writeProjectFile,
 } from "../helpers/assertions"
-import { readRestoreJournal, writeRestoreJournal } from "../../shared/snapshot"
+import { readRestoreJournal, writeRestoreJournal } from "../../shared/snapshot/paths"
 
 let worktree: string
 let ctx: ReturnType<typeof mockContext>

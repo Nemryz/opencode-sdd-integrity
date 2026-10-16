@@ -27,7 +27,7 @@ import {
   clearCorruptionWarnings,
   stripBom,
 } from "./shared/types"
-import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot"
+import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot/triggers"
 
 export default tool({
   description: "Scan all feature directories and report inconsistencies in artifact states",

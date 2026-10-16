@@ -4,7 +4,7 @@ import path from "node:path"
 import os from "node:os"
 import snapshotTool from "../../speckit-snapshot"
 import { mockContext, createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import { writeRestoreJournal } from "../../shared/snapshot"
+import { writeRestoreJournal } from "../../shared/snapshot/paths"
 
 let worktree: string
 let ctx: ReturnType<typeof mockContext>

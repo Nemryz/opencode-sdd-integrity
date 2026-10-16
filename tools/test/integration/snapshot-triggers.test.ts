@@ -15,14 +15,9 @@ import {
   snapshotDir,
   writeProjectFile,
 } from "../helpers/assertions"
-import {
-  createSnapshot,
-  listSnapshots,
-  readDrillInfo,
-  readSnapshotManifest,
-  snapshotBeforeOperation,
-  snapshotsDirPath,
-} from "../../shared/snapshot"
+import { readDrillInfo, snapshotsDirPath } from "../../shared/snapshot/paths"
+import { createSnapshot, listSnapshots, readSnapshotManifest } from "../../shared/snapshot/manifest"
+import { snapshotBeforeOperation } from "../../shared/snapshot/triggers"
 
 let worktree: string
 let ctx: ReturnType<typeof mockContext>

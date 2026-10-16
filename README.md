@@ -652,7 +652,11 @@ The project utilizes Stryker mutation testing to measure test suite effectivenes
 | shared/io.ts | File I/O operations, backup management, corruption detection |
 | shared/schemas.ts | Zod schema definitions for all state files |
 | shared/types.ts | Re-exports, phase detection, project validation |
-| shared/snapshot.ts | Snapshots, restore journal, drills, retention |
+| shared/snapshot/paths.ts | Snapshot layout, sidecars, journal paths, scope collection, hashing |
+| shared/snapshot/manifest.ts | Snapshot creation, manifest reading, verification and listing |
+| shared/snapshot/restore.ts | Restore preview, transactional restore and interrupted restore recovery |
+| shared/snapshot/retention.ts | Pinning, drills, pruning caps and recovery readiness |
+| shared/snapshot/triggers.ts | Automatic recovery points before risky operations and after failures |
 | speckit-scaffold | Feature directory and artifact creation |
 | speckit-validate | Artifact existence validation |
 | speckit-audit | Project audit with auto-fix capabilities |

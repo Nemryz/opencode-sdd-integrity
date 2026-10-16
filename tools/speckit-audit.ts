@@ -24,7 +24,7 @@ import {
 } from "./shared/types"
 import { DeltasIndexSchema, type Delta } from "./shared/schemas"
 import { computeBodyChecksum, stripBom } from "./shared/io"
-import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot"
+import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot/triggers"
 
 export interface AuditFinding {
   severity: "info" | "warn" | "error"

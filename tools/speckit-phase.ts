@@ -11,7 +11,7 @@ import {
   writeSession,
   writeSpecJson,
 } from "./shared/types"
-import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot"
+import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot/triggers"
 
 const NEXT_STEPS: Record<string, string> = {
   impl: "/impl (continue)",

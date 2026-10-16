@@ -2,17 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import {
-  clearRestoreJournal,
-  createSnapshot,
-  listSnapshots,
-  previewRestore,
-  readRestoreJournal,
-  recoverInterruptedRestore,
-  restoreSnapshot,
-  snapshotsDirPath,
-  writeRestoreJournal,
-} from "../../shared/snapshot"
+import { clearRestoreJournal, readRestoreJournal, snapshotsDirPath, writeRestoreJournal } from "../../shared/snapshot/paths"
+import { createSnapshot, listSnapshots } from "../../shared/snapshot/manifest"
+import { previewRestore, recoverInterruptedRestore, restoreSnapshot } from "../../shared/snapshot/restore"
 
 const state = vi.hoisted(() => ({ failProjectWrites: 0 }))
 

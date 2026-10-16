@@ -21,7 +21,7 @@ import {
   corruptionWarnings,
   clearCorruptionWarnings,
 } from "./shared/types"
-import { readRestoreJournal } from "./shared/snapshot"
+import { readRestoreJournal } from "./shared/snapshot/paths"
 
 export default tool({
   description: "Show the current Spec-Driven Development workflow state across all features",

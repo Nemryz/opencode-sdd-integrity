@@ -2,17 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { mockContext, createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import {
-  createSnapshot,
-  listSnapshots,
-  pinSnapshot,
-  unpinSnapshot,
-  pruneSnapshots,
-  drillSnapshot,
-  readDrillInfo,
-  readPinInfo,
-  snapshotsDirPath,
-} from "../../shared/snapshot"
+import { readDrillInfo, readPinInfo, snapshotsDirPath } from "../../shared/snapshot/paths"
+import { createSnapshot, listSnapshots } from "../../shared/snapshot/manifest"
+import { drillSnapshot, pinSnapshot, pruneSnapshots, unpinSnapshot } from "../../shared/snapshot/retention"
 
 let worktree: string
 

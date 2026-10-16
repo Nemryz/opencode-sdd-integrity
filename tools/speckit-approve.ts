@@ -14,7 +14,7 @@ import {
   writeSpecJson,
 } from "./shared/types"
 import { computeBodyChecksum } from "./shared/io"
-import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot"
+import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot/triggers"
 
 const ARTIFACT_FILES: Record<string, string> = {
   spec: "spec.md",
