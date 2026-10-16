@@ -3,14 +3,8 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import crypto from "node:crypto"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import {
-  collectScope,
-  createSnapshot,
-  listSnapshots,
-  readSnapshotManifest,
-  snapshotsDirPath,
-  verifySnapshot,
-} from "../../shared/snapshot"
+import { collectScope, snapshotsDirPath } from "../../shared/snapshot/paths"
+import { createSnapshot, listSnapshots, readSnapshotManifest, verifySnapshot } from "../../shared/snapshot/manifest"
 import { SnapshotManifestSchema } from "../../shared/schemas"
 
 let worktree: string

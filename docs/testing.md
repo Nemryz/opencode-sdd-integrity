@@ -169,8 +169,10 @@ A new module earns a row in the inventory above, because an undocumented matrix 
 Stryker runs on demand through `.github/workflows/stryker.yml` and per module locally.
 
 ```bash
-npx stryker run --mutate "tools/shared/snapshot.ts"
+npx stryker run --mutate "tools/shared/snapshot/manifest.ts"
 ```
+
+The snapshot engine lives in `tools/shared/snapshot/`, so a single module is measured on its own instead of through the former monolith.
 
 Survivors are killed with targeted `*-kill-survivors.test.ts` files, and the baseline is recorded in `reports/mutation-testing-analysis.md`.
 Mutants that no test can kill because the branch is defensive and unreachable may carry a `// Stryker disable` annotation with the reason written beside it.

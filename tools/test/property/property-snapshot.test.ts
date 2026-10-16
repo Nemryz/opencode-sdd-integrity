@@ -2,17 +2,10 @@ import { describe, it, expect } from "vitest"
 import * as fc from "fast-check"
 import fs from "node:fs/promises"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import {
-  AUTO_CAP_PER_FEATURE,
-  TOTAL_CAP,
-  createSnapshot,
-  listSnapshots,
-  pinSnapshot,
-  pruneSnapshots,
-  restoreSnapshot,
-  snapshotBeforeOperation,
-  verifySnapshot,
-} from "../../shared/snapshot"
+import { createSnapshot, listSnapshots, verifySnapshot } from "../../shared/snapshot/manifest"
+import { restoreSnapshot } from "../../shared/snapshot/restore"
+import { AUTO_CAP_PER_FEATURE, TOTAL_CAP, pinSnapshot, pruneSnapshots } from "../../shared/snapshot/retention"
+import { snapshotBeforeOperation } from "../../shared/snapshot/triggers"
 import { projectPath, writeProjectFile } from "../helpers/assertions"
 
 // Runs one property case against its own worktree so cases never inherit state from the previous run.
@@ -134,7 +127,9 @@ describe("property: trigger reuse", () => {
 
   it("creates a new snapshot whenever any captured file changes", async () => {
     await fc.assert(
-      fc.asyncProperty(contentArbitrary, contentArbitrary, async (before, after) => {
+      fc.asyncProperty(contentArbitrary, async (before) => {
+        // Derives the second content from the first so the file always differs, because the property is about a change and not about two unrelated values.
+        const after = `${before} changed`
         await withFreshWorktree(async (worktree) => {
           await writeProjectFile(worktree, "specs/001-demo/spec.md", before)
 

@@ -24,15 +24,11 @@ import path from "node:path"
 import fs from "node:fs/promises"
 import { exists } from "./shared/types"
 import { DEFAULT_CONFIG, GuardConfigSchema } from "./plugins/speckit-guard"
-import {
-  computeRecoveryReadiness,
-  listSnapshots,
-  postFailureNote,
-  readRestoreJournal,
-  recoverInterruptedRestore,
-  snapshotAfterFailure,
-  snapshotBeforeOperation,
-} from "./shared/snapshot"
+import { readRestoreJournal } from "./shared/snapshot/paths"
+import { listSnapshots } from "./shared/snapshot/manifest"
+import { recoverInterruptedRestore } from "./shared/snapshot/restore"
+import { computeRecoveryReadiness } from "./shared/snapshot/retention"
+import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot/triggers"
 
 async function guardConfigStatus(fp: string): Promise<"healthy" | "corrupted" | "missing"> {
   try {

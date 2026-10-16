@@ -1,11 +1,8 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { expect } from "vitest"
-import {
-  listSnapshots,
-  readRestoreJournal,
-  snapshotsDirPath,
-} from "../../shared/snapshot"
+import { readRestoreJournal, snapshotsDirPath } from "../../shared/snapshot/paths"
+import { listSnapshots } from "../../shared/snapshot/manifest"
 import {
   readSession,
   readSpecJson,

@@ -3,17 +3,9 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import {
-  collectScope,
-  createSnapshot,
-  drillSnapshot,
-  listSnapshots,
-  pinSnapshot,
-  readDrillInfo,
-  readPinInfo,
-  snapshotsDirPath,
-  unpinSnapshot,
-} from "../../shared/snapshot"
+import { collectScope, readDrillInfo, readPinInfo, snapshotsDirPath } from "../../shared/snapshot/paths"
+import { createSnapshot, listSnapshots } from "../../shared/snapshot/manifest"
+import { drillSnapshot, pinSnapshot, unpinSnapshot } from "../../shared/snapshot/retention"
 
 let worktree: string
 
@@ -86,13 +78,29 @@ describe("drillSnapshot", () => {
   })
 
   it("cleans up its sandbox", async () => {
-    const manifest = await createSnapshot(worktree, { trigger: "manual" })
-    const countBefore = (await fs.readdir(os.tmpdir())).filter((n) => n.startsWith("sdd-drill-")).length
+    // Counts drill sandboxes inside an isolated temp root so drills running in parallel test files cannot shift the count.
+    const previousEnv = { TMPDIR: process.env.TMPDIR, TMP: process.env.TMP, TEMP: process.env.TEMP }
+    const isolatedRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sdd-drill-count-"))
+    process.env.TMPDIR = isolatedRoot
+    process.env.TMP = isolatedRoot
+    process.env.TEMP = isolatedRoot
 
-    await drillSnapshot(worktree, manifest.id)
+    try {
+      const manifest = await createSnapshot(worktree, { trigger: "manual" })
+      const countBefore = (await fs.readdir(isolatedRoot)).filter((n) => n.startsWith("sdd-drill-")).length
 
-    const countAfter = (await fs.readdir(os.tmpdir())).filter((n) => n.startsWith("sdd-drill-")).length
-    expect(countAfter).toBe(countBefore)
+      await drillSnapshot(worktree, manifest.id)
+
+      const countAfter = (await fs.readdir(isolatedRoot)).filter((n) => n.startsWith("sdd-drill-")).length
+      expect(countAfter).toBe(countBefore)
+      expect((await fs.readdir(isolatedRoot)).filter((n) => n.startsWith("sdd-drill-"))).toHaveLength(0)
+    } finally {
+      for (const [key, value] of Object.entries(previousEnv)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+      await fs.rm(isolatedRoot, { recursive: true, force: true })
+    }
   })
 
   it("throws for an unreadable snapshot", async () => {

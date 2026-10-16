@@ -4,21 +4,10 @@ import {
   readSession,
   resolveProjectRoot,
 } from "./shared/types"
-import {
-  createSnapshot,
-  computeRecoveryReadiness,
-  drillSnapshot,
-  listSnapshots,
-  pinSnapshot,
-  previewRestore,
-  pruneSnapshots,
-  readRestoreJournal,
-  recoverInterruptedRestore,
-  restoreSnapshot,
-  unpinSnapshot,
-  verifySnapshot,
-  type SnapshotListEntry,
-} from "./shared/snapshot"
+import { readRestoreJournal } from "./shared/snapshot/paths"
+import { SnapshotListEntry, createSnapshot, listSnapshots, verifySnapshot } from "./shared/snapshot/manifest"
+import { previewRestore, recoverInterruptedRestore, restoreSnapshot } from "./shared/snapshot/restore"
+import { computeRecoveryReadiness, drillSnapshot, pinSnapshot, pruneSnapshots, unpinSnapshot } from "./shared/snapshot/retention"
 
 const SUBCOMMANDS = ["create", "list", "verify", "preview", "restore", "pin", "unpin", "drill", "prune", "recover"]
 

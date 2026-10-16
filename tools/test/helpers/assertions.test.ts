@@ -18,8 +18,8 @@ import {
   snapshotDir,
   writeProjectFile,
 } from "./assertions"
-import { createSnapshot } from "../../shared/snapshot"
-import { writeRestoreJournal } from "../../shared/snapshot"
+import { createSnapshot } from "../../shared/snapshot/manifest"
+import { writeRestoreJournal } from "../../shared/snapshot/paths"
 import { SessionStateSchema } from "../../shared/types"
 
 let worktree: string

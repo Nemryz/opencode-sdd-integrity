@@ -2,15 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
-import {
-  createSnapshot,
-  drillSnapshot,
-  listSnapshots,
-  pinSnapshot,
-  pruneSnapshots,
-  snapshotsDirPath,
-  writeRestoreJournal,
-} from "../../shared/snapshot"
+import { snapshotsDirPath, writeRestoreJournal } from "../../shared/snapshot/paths"
+import { createSnapshot, listSnapshots } from "../../shared/snapshot/manifest"
+import { drillSnapshot, pinSnapshot, pruneSnapshots } from "../../shared/snapshot/retention"
 
 let worktree: string
 
