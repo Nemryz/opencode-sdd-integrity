@@ -180,6 +180,21 @@ The snapshot engine lives in `tools/shared/snapshot/`, so a single module is mea
 The baseline is recorded in `reports/mutation-testing-analysis.md`.
 Mutants that no test can kill because the branch is defensive and unreachable may carry a `// Stryker disable` annotation with the reason written beside it.
 
+### Batches are the source of truth
+
+`mutation-batches.json` owns which files are measured and in which group, and `stryker.conf.json` is kept in sync with it.
+
+Measuring all twenty five files in one job takes longer than any CI runner should hold a slot, so the file splits them into ten batches that each hold one domain and stay under roughly twelve hundred lines.
+The workflow never repeats a batch id, because a `batches` job reads the file, checks that every path exists, and emits the matrix that the `mutate` job consumes.
+Adding a file means adding it to one batch, and `mutation-batches.test.ts` fails when a path lands in two batches, when the union stops matching `stryker.conf.json`, or when a batch grows past the size a CI job can finish.
+
+```bash
+npx stryker run --mutate "$(jq -r '.batches[] | select(.id == "snapshot-retention") | .mutate | join(",")' mutation-batches.json)"
+```
+
+The same filters run inside CI, so a batch measured locally and a batch measured in the matrix mutate exactly the same files.
+Neither `mutation-batches.json` nor `stryker.conf.json` is published or copied by the install scripts, because measuring the kit belongs to a checkout of the kit and not to an installed copy, which is why `/matrix` and `/baseline` report a clear message when they run outside one.
+
 ### Directed suites and what their names mean
 
 These files are ordinary vitest suites that pin behavior on purpose, and they are named so the reason they exist survives the sprint that wrote them.
