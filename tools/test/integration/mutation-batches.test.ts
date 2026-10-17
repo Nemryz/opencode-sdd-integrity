@@ -98,6 +98,15 @@ describe("mutation batches: the CI matrix reads the file instead of repeating it
     const workflow = await fs.readFile(path.join(REPO_ROOT, ".github", "workflows", "stryker.yml"), "utf-8")
     expect(workflow).toMatch(/name:.*batch/)
   })
+
+  it("passes the reporters as one comma separated list, because a repeated flag keeps only the last one", async () => {
+    const workflow = await fs.readFile(path.join(REPO_ROOT, ".github", "workflows", "stryker.yml"), "utf-8")
+    const flags = workflow.match(/--reporters\s+\S+/g) ?? []
+
+    expect(flags).toEqual(["--reporters clear-text,json,html"])
+    expect(flags.join(" ")).toContain("json")
+    expect(workflow, "the json report is what an aggregate run reads").toContain("json")
+  })
 })
 
 describe("mutation batches: the file stays out of the shipped surface", () => {
