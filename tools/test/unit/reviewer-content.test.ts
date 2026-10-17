@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { repoPath } from "../helpers/setup"
 
-const SKILL_PATH = path.resolve(
-  import.meta.dirname, "..", "..", "..",
-  "skills", "speckit-reviewer", "SKILL.md",
-)
+const SKILL_PATH = repoPath("skills", "speckit-reviewer", "SKILL.md")
 
 describe("speckit-reviewer SKILL.md content", () => {
   let content: string

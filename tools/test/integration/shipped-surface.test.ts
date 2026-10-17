@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { ownedRepoFiles } from "../helpers/setup"
+import { ownedRepoFiles, repoRootDir } from "../helpers/setup"
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..")
+const REPO_ROOT = repoRootDir()
 
 const KIT_COMMANDS = [
   "approve",

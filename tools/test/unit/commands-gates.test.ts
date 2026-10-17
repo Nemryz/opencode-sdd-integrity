@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { repoPath } from "../helpers/setup"
 
-const COMMANDS_DIR = path.resolve(import.meta.dirname, "..", "..", "..", "commands")
+const COMMANDS_DIR = repoPath("commands")
 
 async function readCommand(name: string): Promise<string> {
   return fs.readFile(path.join(COMMANDS_DIR, name), "utf-8")

@@ -5,11 +5,38 @@ import { execFileSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import type { ToolContext } from "@opencode-ai/plugin"
 
-function repoRootDir(): string {
-  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..")
+let repoRootCache: string | null = null
+
+// Asks git for the checkout root, because walking up by a fixed depth lands on a sandbox folder when the tool runs outside the checkout.
+// The walk stays as the fallback for an installed kit that carries no git metadata, and the answer is cached because the root cannot change while the suite runs.
+export function repoRootDir(): string {
+  if (repoRootCache) return repoRootCache
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url))
+  try {
+    const output = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: moduleDir,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 15000,
+    })
+    const root = output.trim()
+    if (root) {
+      repoRootCache = root
+      return repoRootCache
+    }
+  } catch {
+    // not a git checkout, so the walk below decides
+  }
+  repoRootCache = path.resolve(moduleDir, "..", "..", "..")
+  return repoRootCache
 }
 
 let ownedFilesCache: Set<string> | null = null
+
+// Joins a path relative to the checkout root, so a test that reads shipped content keeps working when the code runs from a sandbox.
+export function repoPath(...segments: string[]): string {
+  return path.join(repoRootDir(), ...segments)
+}
 
 export function ownedRepoFiles(): Set<string> {
   if (ownedFilesCache) return ownedFilesCache

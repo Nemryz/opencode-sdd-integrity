@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import fs from "node:fs/promises"
+import { existsSync } from "node:fs"
 import path from "node:path"
-import scaffoldTool from "../../speckit-scaffold"
+import scaffoldTool, { resolveTemplatesDir, TEMPLATES_DIR } from "../../speckit-scaffold"
 import { mockContext, createTempWorktree, destroyTempWorktree, createConstitution } from "../helpers/setup"
 import { readSpecJson, specsDirPath, readSession, steeringDirPath, PATHS } from "../../shared/types"
 
@@ -306,6 +307,34 @@ describe("Kill surviving mutants — speckit-scaffold", () => {
       await scaffoldTool.execute({ featureName: "Auth", template: "contracts" }, ctx)
       const result = await scaffoldTool.execute({ featureName: "Auth", template: "contracts", overwrite: true }, ctx)
       expect(result.output).toContain("contracts/ directory created")
+    })
+
+    it("fills _template.md with the real template from the kit, not with a silent empty file", async () => {
+      await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
+      await scaffoldTool.execute({ featureName: "Auth", template: "contracts" }, ctx)
+
+      const generated = await fs.readFile(path.join(worktree, "specs", "001-auth", "contracts", "_template.md"), "utf-8")
+      const shipped = await fs.readFile(path.join(TEMPLATES_DIR, "contracts-template.md"), "utf-8")
+
+      expect(generated.length).toBeGreaterThan(0)
+      expect(generated).not.toContain("[FEATURE NAME]")
+      expect(generated).not.toContain("NNN-feature-name")
+      expect(generated).toBe(shipped.replace(/\[FEATURE NAME\]/g, "Auth").replace(/NNN-feature-name/g, "001-auth"))
+    })
+  })
+
+  describe("templates directory resolution", () => {
+    it("takes the first candidate that exists", () => {
+      expect(resolveTemplatesDir([path.join(worktree, "absent"), TEMPLATES_DIR])).toBe(TEMPLATES_DIR)
+    })
+
+    it("returns the first candidate when none exists, so the caller can report it", () => {
+      const absent = path.join(worktree, "no-templates-here")
+      expect(resolveTemplatesDir([absent, path.join(worktree, "also-absent")])).toBe(absent)
+    })
+
+    it("resolves a real templates directory even when the tool runs from a sandbox", () => {
+      expect(existsSync(path.join(TEMPLATES_DIR, "contracts-template.md"))).toBe(true)
     })
   })
 

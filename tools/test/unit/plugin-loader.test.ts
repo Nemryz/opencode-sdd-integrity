@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { repoPath } from "../helpers/setup"
 import guardShim from "../../../plugins/speckit-guard"
 import perfmonShim from "../../../plugins/speckit-perfmon"
 
-const PLUGINS_DIR = path.resolve(import.meta.dirname, "..", "..", "..", "plugins")
+const PLUGINS_DIR = repoPath("plugins")
 
 describe("local plugin loading shims", () => {
   it("guard shim exposes id and server", () => {

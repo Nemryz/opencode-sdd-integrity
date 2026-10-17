@@ -26,11 +26,20 @@ import {
   PATHS,
 } from "./shared/types"
 
-const TEMPLATES_DIR = (() => {
-  const rel = path.resolve(import.meta.dirname, "..", "templates")
-  if (existsSync(rel)) return rel
-  return path.join(os.homedir(), ".config", "opencode", "templates")
-})()
+// Picks the first candidate directory that exists, because a tool loaded from a sandbox has no templates next to it.
+// The first candidate is returned when none exists, so the caller can report the path it looked at instead of reading the wrong one.
+export function resolveTemplatesDir(candidates: string[]): string {
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate
+  }
+  return candidates[0] ?? ""
+}
+
+export const TEMPLATES_DIR = resolveTemplatesDir([
+  path.resolve(import.meta.dirname, "..", "templates"),
+  path.resolve(process.cwd(), "templates"),
+  path.join(os.homedir(), ".config", "opencode", "templates"),
+])
 
 function slugify(text: string, maxLen: number = 80): { slug: string; truncated: boolean } {
   const raw = text
@@ -323,13 +332,18 @@ export default tool({
         if (args.template === "contracts") {
           const featurePath = path.join(specsDirPath(projectRoot), targetDir!)
           const dirPath = path.join(featurePath, "contracts")
-          await fs.mkdir(dirPath, { recursive: true })
-          if (template) {
-            const indexPath = path.join(dirPath, "_template.md")
-            if (args.overwrite || !(await exists(indexPath))) {
-              let content = template.replace(/\[FEATURE NAME\]/g, args.featureName).replace(/NNN-feature-name/g, targetDir!)
-              await fs.writeFile(indexPath, content, "utf-8")
+          if (!template) {
+            return {
+              title: "contracts template unreadable",
+              output: `Could not read contracts-template.md from ${TEMPLATES_DIR}  Nothing was written`,
+              metadata: { path: dirPath, featureDir: targetDir, templatesDir: TEMPLATES_DIR },
             }
+          }
+          await fs.mkdir(dirPath, { recursive: true })
+          const indexPath = path.join(dirPath, "_template.md")
+          if (args.overwrite || !(await exists(indexPath))) {
+            let content = template.replace(/\[FEATURE NAME\]/g, args.featureName).replace(/NNN-feature-name/g, targetDir!)
+            await fs.writeFile(indexPath, content, "utf-8")
           }
           return {
             title: "contracts/ created",
