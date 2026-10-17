@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import fs from "node:fs/promises"
 import { existsSync } from "node:fs"
 import path from "node:path"
-import scaffoldTool, { resolveTemplatesDir, TEMPLATES_DIR } from "../../speckit-scaffold"
+import scaffoldTool, { findTemplatesDir, TEMPLATES_DIR } from "../../speckit-scaffold"
 import { mockContext, createTempWorktree, destroyTempWorktree, createConstitution } from "../helpers/setup"
 import { readSpecJson, specsDirPath, readSession, steeringDirPath, PATHS } from "../../shared/types"
 
@@ -324,17 +324,36 @@ describe("Kill surviving mutants — speckit-scaffold", () => {
   })
 
   describe("templates directory resolution", () => {
-    it("takes the first candidate that exists", () => {
-      expect(resolveTemplatesDir([path.join(worktree, "absent"), TEMPLATES_DIR])).toBe(TEMPLATES_DIR)
+    it("finds the templates folder beside the tools", () => {
+      const beside = path.join(worktree, "templates")
+      return fs.mkdir(beside, { recursive: true })
+        .then(() => fs.writeFile(path.join(beside, "spec-template.md"), "# Spec\n", "utf-8"))
+        .then(() => expect(findTemplatesDir(worktree)).toBe(beside))
     })
 
-    it("returns the first candidate when none exists, so the caller can report it", () => {
-      const absent = path.join(worktree, "no-templates-here")
-      expect(resolveTemplatesDir([absent, path.join(worktree, "also-absent")])).toBe(absent)
+    it("finds the templates folder several levels up, which is what a sandbox needs", async () => {
+      const deep = path.join(worktree, "sandbox", "tools")
+      const root = path.join(worktree, "sandbox")
+      await fs.mkdir(path.join(root, "templates"), { recursive: true })
+      await fs.writeFile(path.join(root, "templates", "spec-template.md"), "# Spec\n", "utf-8")
+
+      expect(findTemplatesDir(deep)).toBe(path.join(root, "templates"))
+    })
+
+    it("ignores a folder named templates that holds no real templates", async () => {
+      const empty = path.join(worktree, "templates")
+      await fs.mkdir(empty, { recursive: true })
+
+      expect(findTemplatesDir(worktree)).toBeNull()
+    })
+
+    it("returns null when nothing above the start directory qualifies", async () => {
+      expect(findTemplatesDir(path.join(worktree, "empty", "deeper"))).toBeNull()
     })
 
     it("resolves a real templates directory even when the tool runs from a sandbox", () => {
       expect(existsSync(path.join(TEMPLATES_DIR, "contracts-template.md"))).toBe(true)
+      expect(existsSync(path.join(TEMPLATES_DIR, "spec-template.md"))).toBe(true)
     })
   })
 

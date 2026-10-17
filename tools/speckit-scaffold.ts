@@ -26,20 +26,23 @@ import {
   PATHS,
 } from "./shared/types"
 
-// Picks the first candidate directory that exists, because a tool loaded from a sandbox has no templates next to it.
-// The first candidate is returned when none exists, so the caller can report the path it looked at instead of reading the wrong one.
-export function resolveTemplatesDir(candidates: string[]): string {
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate
+// Looks for the templates folder beside the tools and then upward, because a sandboxed or vendored copy has no templates next to it.
+// A directory only counts when it really holds the shipped templates, so an unrelated folder named templates cannot win.
+export function findTemplatesDir(startDir: string, maxLevels = 6): string | null {
+  let current = startDir
+  for (let level = 0; level <= maxLevels; level++) {
+    const candidate = path.join(current, "templates")
+    if (existsSync(path.join(candidate, "spec-template.md"))) return candidate
+    const parent = path.dirname(current)
+    if (parent === current) return null
+    current = parent
   }
-  return candidates[0] ?? ""
+  return null
 }
 
-export const TEMPLATES_DIR = resolveTemplatesDir([
-  path.resolve(import.meta.dirname, "..", "templates"),
-  path.resolve(process.cwd(), "templates"),
-  path.join(os.homedir(), ".config", "opencode", "templates"),
-])
+// The home copy is the last resort for an installed kit whose layout is neither beside the tools nor above them.
+export const TEMPLATES_DIR =
+  findTemplatesDir(import.meta.dirname) ?? path.join(os.homedir(), ".config", "opencode", "templates")
 
 function slugify(text: string, maxLen: number = 80): { slug: string; truncated: boolean } {
   const raw = text
