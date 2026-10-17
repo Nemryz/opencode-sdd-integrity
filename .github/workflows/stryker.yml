@@ -79,6 +79,9 @@ jobs:
       - name: Run Stryker on the batch
         run: npx stryker run --mutate "${{ steps.files.outputs.paths }}" --reporters clear-text,json,html
 
+      - name: Publish the batch score
+        run: node .github/scripts/report-score.mjs reports/mutation/mutation.json "${{ matrix.batch.id }}"
+
       - name: Upload the batch report
         uses: actions/upload-artifact@v4
         with:
