@@ -94,13 +94,18 @@ describe("fuzz: MutationBatchesSchema", () => {
     expect(MutationBatchesSchema.safeParse({ format: 1, batches }).success).toBe(accepted)
   })
 
-  it("accepts any generated batch that keeps the required shape", () => {
+  it("accepts a generated batch exactly when the shape is valid", () => {
     const idArb = fc.stringMatching(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/)
+    // Blank descriptions are generated on purpose, because rejecting them is a rule worth proving instead of hoping for.
+    const descriptionArb = fc.oneof(fc.string({ minLength: 1, maxLength: 40 }), fc.constant("   "), fc.constant("\t"))
+    const mutateArb = fc.array(fc.stringMatching(/^[a-z/]+\.ts$/), { minLength: 1 })
+
     fc.assert(
-      fc.property(idArb, fc.string({ minLength: 1 }), fc.array(fc.stringMatching(/^[a-z/]+\.ts$/), { minLength: 1 }), (id, description, mutate) => {
-        expect(MutationBatchesSchema.safeParse({ format: 1, batches: [{ id, description, mutate }] }).success).toBe(true)
+      fc.property(idArb, descriptionArb, mutateArb, (id, description, mutate) => {
+        const expected = description.trim().length > 0 && mutate.length > 0
+        expect(MutationBatchesSchema.safeParse({ format: 1, batches: [{ id, description, mutate }] }).success).toBe(expected)
       }),
-      { numRuns: 50 },
+      { numRuns: 200 },
     )
   })
 
