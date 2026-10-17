@@ -207,6 +207,8 @@ The per batch figures live in `reports/mutation-testing-analysis.md`, and the ba
 ### Batches are the source of truth
 
 `mutation-batches.json` owns which files are measured and in which group, and `stryker.conf.json` is kept in sync with it.
+The `speckit-mutation` tool drives the whole thing with `list`, `run <batch...>` and `aggregate`, and the `/matrix` and `/baseline` commands wrap those subcommands for the common cases.
+`/matrix` measures the batches one after another, never in parallel, because every Stryker run starts the whole suite in its dry run and running several at once only makes each one slower, while `/baseline` adds the stored reports up and names the batches that are still pending.
 
 Measuring all twenty five files in one job takes longer than any CI runner should hold a slot, so the file splits them into ten batches that each hold one domain and stay under roughly twelve hundred lines.
 The workflow never repeats a batch id, because a `batches` job reads the file, checks that every path exists, and emits the matrix that the `mutate` job consumes.
@@ -218,6 +220,12 @@ npx stryker run --mutate "$(jq -r '.batches[] | select(.id == "snapshot-retentio
 
 The same filters run inside CI, so a batch measured locally and a batch measured in the matrix mutate exactly the same files.
 Neither `mutation-batches.json` nor `stryker.conf.json` is published or copied by the install scripts, because measuring the kit belongs to a checkout of the kit and not to an installed copy, which is why `/matrix` and `/baseline` report a clear message when they run outside one.
+
+### One place computes the score
+
+`.github/scripts/report-score.mjs` is the only place in the repository that turns a report into a percentage, because it calls `mutation-testing-metrics`, the same package Stryker uses.
+The `mutate` job runs it so each batch prints its own score in the run page, the tool's `aggregate` subcommand runs it again over every stored report to add them up, and both take the number from that one implementation.
+A test fails if the tool ever grows a division of its own, since two implementations of the same ratio is how a score starts telling two different stories about the same code.
 
 ### Directed suites and what their names mean
 
