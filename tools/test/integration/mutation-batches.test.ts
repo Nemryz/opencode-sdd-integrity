@@ -106,14 +106,16 @@ describe("mutation batches: the CI matrix reads the file instead of repeating it
     expect(flags).toEqual(["--reporters clear-text,json,html"])
   })
 
-  it("measures static mutants for speed but keeps the score comparable in the docs", async () => {
+  it("ignores static mutants for speed but keeps the measured cost of that in the docs", async () => {
     const config = (await readRepoJson("stryker.conf.json")) as { ignoreStatic?: boolean }
     expect(config.ignoreStatic).toBe(true)
 
-    // The docs carry the reason the score moves, so a future edit that drops the caveat fails here.
+    // The docs carry the measured pair from a real batch, so a rewrite with invented numbers fails here.
     const docs = await fs.readFile(path.join(REPO_ROOT, "docs", "testing.md"), "utf-8")
     expect(docs).toContain("ignoreStatic")
-    expect(docs).toContain("comparable")
+    expect(docs).toContain("70,33%")
+    expect(docs).toContain("68,86%")
+    expect(docs, "the sample file saving must not be presented as the batch saving").not.toContain("73%")
     expect(docs).toMatch(/killed \/ totalMutants/)
   })
 })
