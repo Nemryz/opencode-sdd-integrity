@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-2278-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-2928-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -33,6 +33,37 @@ Utilize frameworks directly. No repository patterns, service locators, or wrappe
 ### Integration-First Testing
 
 Test against real dependencies, databases, APIs, filesystems. Utilize testcontainers or equivalent solutions. No mocking of external services. Every user story requires at minimum one integration test covering the happy path. This ensures that tests validate actual behavior rather than simulated interactions.
+
+## Writing Conventions
+
+These rules apply to every file in the repository, and a change that breaks one of them fails the suite rather than waiting for a review. They are written down here because the first contribution should already follow them.
+
+### Language
+
+Everything written in the repository is English, including code, comments, documentation, test names, branch names, and commit messages.
+Cyrillic, Greek, kana, CJK ideographs, Hangul, and fullwidth forms never appear in source, and `npm run lint:lang` fails the build when they do, except inside string literals, where a test fixture may legitimately carry hostile unicode to exercise a validator.
+
+### Comments
+
+A comment occupies a single line and reads as prose about the mechanism, never as a label for the code.
+Explain why the line exists and what it causes, because the code already says what it does, so `// Process the entries` adds nothing while `// Turns the snapshots folder into a plain file so snapshot creation fails with a filesystem error` tells the reader what to expect.
+Vary the verbs and the connectors so a file does not read like a form filled in thirty times, and keep dashes, colons, and semicolons out of comments entirely, since they turn a sentence into a fragment.
+A module that owns one responsibility states it once at the top, in the form of a single comment beginning with `This module owns`, so a reader knows the boundary before reading a line of it.
+
+### Documentation
+
+One H1 per document, then the remaining headings in the order a reader needs them.
+Each paragraph, list item, and table row stays on one line, written as prose that explains the mechanism without cutting a sentence midway and without restating what the code shows.
+
+### Tests
+
+Reuse the helpers in `tools/test/helpers/assertions.ts` instead of rebuilding path handling in each file, and add a helper only when the same verification is repeated, never because one test needed it once.
+Name a suite for the question it answers, where `*-mutation.test.ts` and `*-kill-survivors.test.ts` mean a directed suite that pins behavior on purpose and are not Stryker runs.
+A probabilistic test asserts the rule the code really follows rather than a wish about it, because a property that passes for the wrong reason is worse than no property.
+
+### What the guards cover
+
+`tools/test/integration/shipped-surface.test.ts` protects what the package publishes, `tools/test/integration/mutation-batches.test.ts` protects the mutation workflow and its documented numbers, `tools/test/integration/language-lint.test.ts` protects the language rule, and `tools/test/integration/resource-resolution-guard.test.ts` fails when a tool starts resolving its own resources from the home or the working directory, which is the failure mode that hides on one machine and breaks on another.
 
 ## Capabilities
 
@@ -587,7 +618,7 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 2845 automated tests distributed across 99 test files, and every layer answers a different question about the same system.
+The project includes 2928 automated tests distributed across 104 test files, and every layer answers a different question about the same system.
 `docs/testing.md` holds the conventions, the per module matrix inventory, and the stability rules that this section only summarizes.
 
 ### Test Types
