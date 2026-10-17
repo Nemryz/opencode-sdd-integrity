@@ -185,10 +185,15 @@ Mutants that no test can kill because the branch is defensive and unreachable ma
 Stryker computes the score as `(killed + timedOut) / (killed + timedOut + survived + noCoverage)`, which leaves mutants that fail to compile or fail at runtime out of the denominator, because no test can ever kill them.
 Never recompute this score as `killed / totalMutants`, because that divides by a different set and yields a number that looks worse without any change in the code.
 
-`ignoreStatic` is enabled in `stryker.conf.json` because static mutants are the slowest kind, since each one runs the whole suite, and measuring `tools/speckit-complexity.ts` took 11m22s with them against 3m03s without, which is a 73% saving across ten batches.
-The cost is that the score stops being comparable with a run that measured static mutants, because the ones that never die leave the denominator.
-On that same file the score reads 32,50% measuring static mutants and 41,94% ignoring them, and not one static mutant was ever killed, so the rise comes entirely from dropping untestable mutants rather than from any improvement.
-Every recorded score therefore states whether static mutants were measured, and a breaking threshold set on the ignoring variant has to say so in the same breath, because otherwise the metric can be improved by measuring less.
+`ignoreStatic` is enabled in `stryker.conf.json` because static mutants are the slowest kind, since each one runs the whole suite against the batch.
+On the `snapshot-paths` batch it saved 10,6 minutes down to 9,1 minutes, which is 14% rather than the dramatic saving a small file suggests, because `tools/speckit-complexity.ts` took 11m22s with static mutants against 3m03s without them while none of its ten could be killed.
+
+The cost is larger than a comparability caveat, because the static mutants of this kit are not all untestable.
+On the same batch 13 of the 19 static mutants are killed by existing tests, and ignoring them moves those 13 into the ignored state instead of the killed one, so the score falls from 70,33% to 68,86% while the tests keep doing exactly the work they were doing.
+That trade is accepted on purpose, trading a signal the suite already covers for a faster batch, and the numbers are recorded here so nobody rediscovers them by measuring a sample file and concluding the opposite.
+
+Every recorded score therefore states that static mutants were ignored, because a score read without them is lower than it would be with them, and a breaking threshold set on that variant would be measuring less rather than testing more.
+The lesson worth keeping is that a conclusion about mutation behaviour drawn from one small file does not generalize, and the batch that produces the numbers anyone acts on is the one worth measuring before deciding.
 
 ### Batches are the source of truth
 
