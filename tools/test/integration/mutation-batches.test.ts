@@ -106,6 +106,27 @@ describe("mutation batches: the CI matrix reads the file instead of repeating it
     expect(flags).toEqual(["--reporters clear-text,json,html"])
   })
 
+  it("publishes the batch score with the package Stryker uses, never with a formula of its own", async () => {
+    const workflow = await fs.readFile(path.join(REPO_ROOT, ".github", "workflows", "stryker.yml"), "utf-8")
+
+    expect(await existsInRepo(".github/scripts/report-score.mjs")).toBe(true)
+    expect(workflow).toContain("report-score.mjs")
+
+    const source = await fs.readFile(path.join(REPO_ROOT, ".github", "scripts", "report-score.mjs"), "utf-8")
+    expect(source).toContain("mutation-testing-metrics")
+    expect(source, "the score must come from the shared package, not from local arithmetic").not.toMatch(
+      /killed\s*\/\s*\(?\s*metrics/,
+    )
+    expect(source, "the score must be published where the batch ran").toContain("GITHUB_STEP_SUMMARY")
+  })
+
+  it("documents that a score depends on the aggregation, because the ratio follows the cut", async () => {
+    const docs = await fs.readFile(path.join(REPO_ROOT, "docs", "testing.md"), "utf-8")
+    expect(docs).toContain("52,05%")
+    expect(docs).toContain("70,33%")
+    expect(docs).toContain("depends on where the aggregation is cut")
+  })
+
   it("ignores static mutants for speed but keeps the measured cost of that in the docs", async () => {
     const config = (await readRepoJson("stryker.conf.json")) as { ignoreStatic?: boolean }
     expect(config.ignoreStatic).toBe(true)

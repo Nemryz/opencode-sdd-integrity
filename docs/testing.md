@@ -195,6 +195,15 @@ That trade is accepted on purpose, trading a signal the suite already covers for
 Every recorded score therefore states that static mutants were ignored, because a score read without them is lower than it would be with them, and a breaking threshold set on that variant would be measuring less rather than testing more.
 The lesson worth keeping is that a conclusion about mutation behaviour drawn from one small file does not generalize, and the batch that produces the numbers anyone acts on is the one worth measuring before deciding.
 
+### The score depends on where the aggregation is cut
+
+A score is never a property of a file alone, because it is a ratio and the denominator is a choice.
+`tools/shared/snapshot/triggers.ts` measures 52,05% on its own, and the `snapshot-paths` batch that holds that file together with `tools/shared/snapshot/paths.ts` measures 70,33%, because `paths.ts` is covered well enough to lift the average.
+A file that looks weak inside its batch can be fine on its own, and the reverse is equally true, so two scores are only comparable when they were cut at the same place.
+
+Every reported number therefore names what it covers, and a batch score is never restated as a file score without saying so.
+The per batch figures live in `reports/mutation-testing-analysis.md`, and the batch list comes from `mutation-batches.json` rather than from a hand written list, so the boundary of each figure is auditable.
+
 ### Batches are the source of truth
 
 `mutation-batches.json` owns which files are measured and in which group, and `stryker.conf.json` is kept in sync with it.
