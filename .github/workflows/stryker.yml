@@ -77,7 +77,7 @@ jobs:
           echo "paths=$files" >> "$GITHUB_OUTPUT"
 
       - name: Run Stryker on the batch
-        run: npx stryker run --mutate "${{ steps.files.outputs.paths }}" --reporters html --reporters json
+        run: npx stryker run --mutate "${{ steps.files.outputs.paths }}" --reporters clear-text --reporters json --reporters html
 
       - name: Upload the batch report
         uses: actions/upload-artifact@v4
