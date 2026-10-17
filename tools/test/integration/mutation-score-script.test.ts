@@ -9,15 +9,25 @@ const SCRIPT = repoPath(".github", "scripts", "report-score.mjs")
 const BATCHES_FILE = repoPath("mutation-batches.json")
 const TOOL_SOURCE = repoPath("tools", "speckit-mutation.ts")
 
-function runScript(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+function runScript(args: string[], env: NodeJS.ProcessEnv = {}): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [SCRIPT, ...args], { cwd: repoPath() })
+    const child = spawn(process.execPath, [SCRIPT, ...args], { cwd: repoPath(), env: { ...process.env, ...env } })
     let stdout = ""
     let stderr = ""
     child.stdout.on("data", (chunk) => { stdout += String(chunk) })
     child.stderr.on("data", (chunk) => { stderr += String(chunk) })
     child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }))
   })
+}
+
+// The script sends the table to stdout only when no summary file is configured, so a test that wants the table has to say where it goes.
+async function withSummaryFile<T>(run: (summaryPath: string) => Promise<T>): Promise<T> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sdd-summary-"))
+  try {
+    return await run(path.join(dir, "summary.md"))
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true })
+  }
 }
 
 // Builds the smallest report the metrics package reads, so the arithmetic is exercised without running Stryker.
@@ -89,22 +99,66 @@ describe("score script: several reports", () => {
         { name: "b", mutants: [{ status: "Killed" }, { status: "Killed" }, { status: "Killed" }, { status: "Killed" }] },
       ],
       async (dir) => {
+        // A plain average of 50,00 and 100,00 would be 75,00, while five kills over six mutants is 83,33.
         const result = await runScript([path.join(dir, "a.json"), "alpha", path.join(dir, "b.json"), "beta"])
         expect(result.code).toBe(0)
-        expect(result.stdout).toContain("| alpha |")
-        expect(result.stdout).toContain("| beta |")
-        expect(result.stdout).toContain("| **all** |")
-        // A plain average of 50,00 and 100,00 would be 75,00, while five kills over six mutants is 83,33.
         expect(result.stdout).toContain("score=83.33")
+        expect(result.stdout).toContain("killed=5")
       },
     )
   })
 
   it("names the combined row only when more than one report is given", async () => {
+    await withReports(
+      [
+        { name: "a", mutants: [{ status: "Killed" }, { status: "Survived" }] },
+        { name: "b", mutants: [{ status: "Killed" }] },
+      ],
+      async (dir) => {
+        await withSummaryFile(async (summaryPath) => {
+          const env = { GITHUB_STEP_SUMMARY: summaryPath }
+          const two = await runScript([path.join(dir, "a.json"), "alpha", path.join(dir, "b.json"), "beta"], env)
+          const table = await fs.readFile(summaryPath, "utf-8")
+          expect(two.code).toBe(0)
+          expect(table).toContain("| alpha |")
+          expect(table).toContain("| beta |")
+          expect(table).toContain("| **all** |")
+        })
+
+        await withReports([{ name: "solo", mutants: [{ status: "Killed" }] }], async (soloDir) => {
+          await withSummaryFile(async (summaryPath) => {
+            await runScript([path.join(soloDir, "solo.json"), "solo"], { GITHUB_STEP_SUMMARY: summaryPath })
+            const table = await fs.readFile(summaryPath, "utf-8")
+            expect(table).not.toContain("**all**")
+            expect(table).toContain("**100.00%**")
+          })
+        })
+      },
+    )
+  })
+})
+
+describe("score script: where the table goes", () => {
+  it("writes the table to the summary file and keeps stdout for the numbers", async () => {
     await withReports([{ name: "a", mutants: [{ status: "Killed" }] }], async (dir) => {
-      const result = await runScript([path.join(dir, "a.json"), "solo"])
-      expect(result.stdout).not.toContain("**all**")
-      expect(result.stdout).toContain("score=100.00")
+      await withSummaryFile(async (summaryPath) => {
+        const result = await runScript([path.join(dir, "a.json"), "alpha"], { GITHUB_STEP_SUMMARY: summaryPath })
+        const table = await fs.readFile(summaryPath, "utf-8")
+
+        expect(table).toContain("| alpha |")
+        expect(table).toContain("| **100.00%** |")
+        expect(result.stdout).toContain("score=100.00")
+        expect(result.stdout).not.toContain("| alpha |")
+      })
+    })
+  })
+
+  it("prints the table on stdout when no summary file is configured", async () => {
+    await withReports([{ name: "a", mutants: [{ status: "Killed" }] }], async (dir) => {
+      const env = { ...process.env }
+      delete env.GITHUB_STEP_SUMMARY
+      const result = await runScript([path.join(dir, "a.json"), "alpha"], env)
+      expect(result.stdout).toContain("| alpha |")
     })
   })
 })
