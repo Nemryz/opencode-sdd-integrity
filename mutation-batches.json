@@ -1,0 +1,65 @@
+{
+  "format": 1,
+  "batches": [
+    {
+      "id": "shared-io",
+      "description": "Atomic writes, backups, corruption detection, because every tool depends on them",
+      "mutate": ["tools/shared/io.ts"]
+    },
+    {
+      "id": "shared-state",
+      "description": "Zod schemas and the derived types that guard every state file",
+      "mutate": ["tools/shared/types.ts", "tools/shared/schemas.ts"]
+    },
+    {
+      "id": "snapshot-paths",
+      "description": "Snapshot layout, scope collection and the automatic trigger that guards risky operations",
+      "mutate": ["tools/shared/snapshot/paths.ts", "tools/shared/snapshot/triggers.ts"]
+    },
+    {
+      "id": "snapshot-restore",
+      "description": "Manifest creation, verification and the transactional restore with its journal",
+      "mutate": ["tools/shared/snapshot/manifest.ts", "tools/shared/snapshot/restore.ts"]
+    },
+    {
+      "id": "snapshot-retention",
+      "description": "Pinning, drills, pruning caps and the tool that exposes them to the user",
+      "mutate": ["tools/shared/snapshot/retention.ts", "tools/speckit-snapshot.ts"]
+    },
+    {
+      "id": "tools-authoring",
+      "description": "Scaffolding, deltas and complexity routing, which is where artifacts come into being",
+      "mutate": ["tools/speckit-scaffold.ts", "tools/speckit-delta.ts", "tools/speckit-complexity.ts"]
+    },
+    {
+      "id": "tools-repair",
+      "description": "Audit and clean, which are the two paths that write fixes to an inconsistent project",
+      "mutate": ["tools/speckit-audit.ts", "tools/speckit-clean.ts"]
+    },
+    {
+      "id": "tools-recovery",
+      "description": "Health, self healing, performance telemetry and its plugin, which all read damaged state",
+      "mutate": [
+        "tools/speckit-health.ts",
+        "tools/speckit-selfheal.ts",
+        "tools/speckit-perf.ts",
+        "tools/plugins/speckit-perfmon.ts"
+      ]
+    },
+    {
+      "id": "tools-flow",
+      "description": "The phase machinery that validates, reports, approves and advances the workflow",
+      "mutate": [
+        "tools/speckit-validate.ts",
+        "tools/speckit-status.ts",
+        "tools/speckit-approve.ts",
+        "tools/speckit-phase.ts"
+      ]
+    },
+    {
+      "id": "tools-config-guard",
+      "description": "Configuration, the protected file guard and its plugin, which share the protected path list",
+      "mutate": ["tools/speckit-config.ts", "tools/speckit-guard.ts", "tools/plugins/speckit-guard.ts"]
+    }
+  ]
+}

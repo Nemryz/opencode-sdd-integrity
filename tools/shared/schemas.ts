@@ -273,3 +273,20 @@ export const HealthReportSchema = z.object({
 export type HealthStatus = z.infer<typeof HealthStatusSchema>
 export type FeatureHealth = z.infer<typeof FeatureHealthSchema>
 export type HealthReport = z.infer<typeof HealthReportSchema>
+
+// ─────────────────────── Mutation Batches Schema ───────────────────────
+
+export const MutationBatchSchema = z.object({
+  id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "batch id must be kebab case"),
+  // A blank description reads like a documented batch while explaining nothing, so it is rejected here.
+  description: z.string().min(1).refine((value) => value.trim().length > 0, "batch description must not be blank"),
+  mutate: z.array(z.string().min(1)).min(1),
+})
+
+export const MutationBatchesSchema = z.object({
+  format: z.literal(1),
+  batches: z.array(MutationBatchSchema).min(1),
+})
+
+export type MutationBatch = z.infer<typeof MutationBatchSchema>
+export type MutationBatches = z.infer<typeof MutationBatchesSchema>

@@ -2,11 +2,61 @@ name: Mutation Testing
 
 on:
   workflow_dispatch:
+    inputs:
+      batch:
+        description: Measure a single batch and leave the rest untouched
+        required: false
+        default: ""
 
 jobs:
-  stryker:
+  batches:
+    name: Read the batch source of truth
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.emit.outputs.matrix }}
+      selected: ${{ steps.emit.outputs.selected }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate every batch and build the matrix
+        id: emit
+        env:
+          SELECTED_BATCH: ${{ inputs.batch }}
+        run: |
+          set -euo pipefail
+          jq -e '.format == 1 and (.batches | length > 0)' mutation-batches.json > /dev/null
+          while read -r file; do
+            if [ ! -f "$file" ]; then
+              echo "batch points at a missing file: $file"
+              exit 1
+            fi
+          done < <(jq -r '.batches[].mutate[]' mutation-batches.json)
+
+          if [ -n "$SELECTED_BATCH" ]; then
+            jq -e --arg id "$SELECTED_BATCH" '.batches | map(select(.id == $id)) | length == 1' mutation-batches.json > /dev/null || {
+              echo "unknown batch: $SELECTED_BATCH"
+              jq -r '.batches[].id' mutation-batches.json
+              exit 1
+            }
+            selected=$(jq -c --arg id "$SELECTED_BATCH" '[.batches[] | select(.id == $id) | {id}]' mutation-batches.json)
+          else
+            selected=$(jq -c '[.batches[] | {id}]' mutation-batches.json)
+          fi
+
+          echo "matrix=$selected" >> "$GITHUB_OUTPUT"
+          echo "selected=$(jq -r '[.[].id] | join(",")' <<< "$selected")" >> "$GITHUB_OUTPUT"
+
+  mutate:
+    name: Mutate ${{ matrix.batch.id }}
+    needs: batches
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        batch: ${{ fromJSON(needs.batches.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -19,12 +69,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Stryker
-        run: npx stryker run
+      - name: Resolve the mutated files of this batch
+        id: files
+        run: |
+          set -euo pipefail
+          files=$(jq -r --arg id "${{ matrix.batch.id }}" '.batches[] | select(.id == $id) | .mutate | join(",")' mutation-batches.json)
+          echo "paths=$files" >> "$GITHUB_OUTPUT"
 
-      - name: Upload mutation report
+      - name: Run Stryker on the batch
+        run: npx stryker run --mutate "${{ steps.files.outputs.paths }}" --reporters html --reporters json
+
+      - name: Upload the batch report
         uses: actions/upload-artifact@v4
         with:
-          name: mutation-report
+          name: mutation-${{ matrix.batch.id }}
           path: reports/mutation/
           if-no-files-found: warn
+
+  summary:
+    name: Summarize the mutation run
+    needs: [batches, mutate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: always()
+    steps:
+      - name: List the batches that were measured
+        run: |
+          echo "Measured batches: ${{ needs.batches.outputs.selected }}"
+          echo "Result: ${{ needs.mutate.result }}"
