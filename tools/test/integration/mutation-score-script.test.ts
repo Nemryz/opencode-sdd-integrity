@@ -9,15 +9,23 @@ const SCRIPT = repoPath(".github", "scripts", "report-score.mjs")
 const BATCHES_FILE = repoPath("mutation-batches.json")
 const TOOL_SOURCE = repoPath("tools", "speckit-mutation.ts")
 
-function runScript(args: string[], env: NodeJS.ProcessEnv = {}): Promise<{ code: number; stdout: string; stderr: string }> {
+// The child environment is passed whole, because spreading a smaller object cannot remove a key the parent already carries.
+function runScript(args: string[], env: NodeJS.ProcessEnv = process.env): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [SCRIPT, ...args], { cwd: repoPath(), env: { ...process.env, ...env } })
+    const child = spawn(process.execPath, [SCRIPT, ...args], { cwd: repoPath(), env })
     let stdout = ""
     let stderr = ""
     child.stdout.on("data", (chunk) => { stdout += String(chunk) })
     child.stderr.on("data", (chunk) => { stderr += String(chunk) })
     child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }))
   })
+}
+
+// The summary variable has to be removed explicitly, because a spread over an object that lacks it would keep the inherited value.
+function envWithoutSummary(): NodeJS.ProcessEnv {
+  const env = { ...process.env }
+  delete env.GITHUB_STEP_SUMMARY
+  return env
 }
 
 // The script sends the table to stdout only when no summary file is configured, so a test that wants the table has to say where it goes.
@@ -155,10 +163,27 @@ describe("score script: where the table goes", () => {
 
   it("prints the table on stdout when no summary file is configured", async () => {
     await withReports([{ name: "a", mutants: [{ status: "Killed" }] }], async (dir) => {
-      const env = { ...process.env }
-      delete env.GITHUB_STEP_SUMMARY
-      const result = await runScript([path.join(dir, "a.json"), "alpha"], env)
+      const result = await runScript([path.join(dir, "a.json"), "alpha"], envWithoutSummary())
       expect(result.stdout).toContain("| alpha |")
+    })
+  })
+
+  it("prints numbers on stdout and the table in the file, even when the parent already exports the variable", async () => {
+    await withReports([{ name: "a", mutants: [{ status: "Killed" }] }], async (dir) => {
+      await withSummaryFile(async (summaryPath) => {
+        const previous = process.env.GITHUB_STEP_SUMMARY
+        process.env.GITHUB_STEP_SUMMARY = summaryPath
+        try {
+          // This is the shape a CI job sees, and it must not send the table to stdout.
+          const result = await runScript([path.join(dir, "a.json"), "alpha"], { ...process.env })
+          expect(result.stdout).not.toContain("| alpha |")
+          expect(result.stdout).toContain("score=100.00")
+          expect(await fs.readFile(summaryPath, "utf-8")).toContain("| alpha |")
+        } finally {
+          if (previous === undefined) delete process.env.GITHUB_STEP_SUMMARY
+          else process.env.GITHUB_STEP_SUMMARY = previous
+        }
+      })
     })
   })
 })
