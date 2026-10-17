@@ -180,6 +180,16 @@ The snapshot engine lives in `tools/shared/snapshot/`, so a single module is mea
 The baseline is recorded in `reports/mutation-testing-analysis.md`.
 Mutants that no test can kill because the branch is defensive and unreachable may carry a `// Stryker disable` annotation with the reason written beside it.
 
+### How the score is calculated and what ignoreStatic does to it
+
+Stryker computes the score as `(killed + timedOut) / (killed + timedOut + survived + noCoverage)`, which leaves mutants that fail to compile or fail at runtime out of the denominator, because no test can ever kill them.
+Never recompute this score as `killed / totalMutants`, because that divides by a different set and yields a number that looks worse without any change in the code.
+
+`ignoreStatic` is enabled in `stryker.conf.json` because static mutants are the slowest kind, since each one runs the whole suite, and measuring `tools/speckit-complexity.ts` took 11m22s with them against 3m03s without, which is a 73% saving across ten batches.
+The cost is that the score stops being comparable with a run that measured static mutants, because the ones that never die leave the denominator.
+On that same file the score reads 32,50% measuring static mutants and 41,94% ignoring them, and not one static mutant was ever killed, so the rise comes entirely from dropping untestable mutants rather than from any improvement.
+Every recorded score therefore states whether static mutants were measured, and a breaking threshold set on the ignoring variant has to say so in the same breath, because otherwise the metric can be improved by measuring less.
+
 ### Batches are the source of truth
 
 `mutation-batches.json` owns which files are measured and in which group, and `stryker.conf.json` is kept in sync with it.
