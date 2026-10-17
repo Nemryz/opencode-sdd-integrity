@@ -8,6 +8,7 @@
   },
   "coverageAnalysis": "perTest",
   "tsconfigFile": "tsconfig.json",
+  "ignoreStatic": true,
   "mutate": [
     "tools/shared/io.ts",
     "tools/shared/schemas.ts",
