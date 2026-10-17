@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { ownedRepoFiles } from "../helpers/setup"
+import { ownedRepoFiles, repoPath } from "../helpers/setup"
 
 // Scanned text files are the ones where prose or comments live, so binaries and locks are skipped.
 const SCANNED_EXTENSIONS = [".ts", ".tsx", ".js", ".mjs", ".md", ".jsonc", ".yml", ".yaml", ".sh", ".ps1"]
@@ -67,7 +67,7 @@ describe("language lint: source stays in English", () => {
     const violations: string[] = []
 
     for (const relPath of tracked) {
-      const content = await fs.readFile(path.resolve(import.meta.dirname, "..", "..", "..", ...relPath.split("/")), "utf-8")
+      const content = await fs.readFile(repoPath(...relPath.split("/")), "utf-8")
       const lines = content.split(/\r?\n/)
       for (let index = 0; index < lines.length; index++) {
         const found = findForbiddenCharacters(stripLiterals(lines[index]))

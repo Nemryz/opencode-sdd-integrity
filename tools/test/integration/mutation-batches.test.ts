@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { repoRootDir } from "../helpers/setup"
 import { MutationBatchesSchema } from "../../shared/schemas"
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..")
+const REPO_ROOT = repoRootDir()
 
 async function readRepoJson(relPath: string): Promise<unknown> {
   return JSON.parse(await fs.readFile(path.join(REPO_ROOT, ...relPath.split("/")), "utf-8"))

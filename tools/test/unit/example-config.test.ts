@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { repoPath } from "../helpers/setup"
 
-const EXAMPLE_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "opencode.jsonc.example")
+const EXAMPLE_PATH = repoPath("opencode.jsonc.example")
 
 describe("opencode.jsonc.example approval gate", () => {
   let config: Record<string, any>

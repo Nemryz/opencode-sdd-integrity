@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { isKitOwned } from "../helpers/setup"
+import { isKitOwned, repoPath } from "../helpers/setup"
 
-const AGENTS_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "AGENTS.md")
+const AGENTS_PATH = repoPath("AGENTS.md")
 const COMMANDS_DIR = path.resolve(AGENTS_PATH, "..", "commands")
 const TOOLS_DIR = path.resolve(AGENTS_PATH, "..", "tools")
 const SKILLS_DIR = path.resolve(AGENTS_PATH, "..", "skills")
