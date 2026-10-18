@@ -88,6 +88,12 @@ describe("mutation tool: run", () => {
     expect(result.title).toBe("No batch requested")
     expect(result.output).toContain("run snapshot-paths")
   })
+
+  it("warns that several batches in one call block for their sum", async () => {
+    const source = await fs.readFile(repoPath("tools", "speckit-mutation.ts"), "utf-8")
+    expect(source).toContain("blocks for as long as their sum")
+    expect(source).toContain("Run one batch per call")
+  })
 })
 
 describe("mutation tool: aggregate", () => {

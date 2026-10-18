@@ -147,6 +147,12 @@ export default tool({
           }
         }
 
+        // Several batches in one call block for as long as their sum, so the caller is told before it waits.
+        const banner =
+          requested.length > 1
+            ? `Measuring ${requested.length} batches in this call, which blocks for as long as their sum. Run one batch per call when progress matters.\n`
+            : ""
+
         const results: string[] = []
         for (const id of requested) {
           const batch = known.get(id)!
@@ -174,7 +180,7 @@ export default tool({
         }
         return {
           title: `Measured ${requested.length} batch(es)`,
-          output: results.join("\n"),
+          output: banner + results.join("\n"),
           metadata: { batches: requested },
         }
       }
