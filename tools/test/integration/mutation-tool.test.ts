@@ -3,7 +3,7 @@ import fs from "node:fs/promises"
 import { existsSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import mutationTool, { findKitRoot, readBatches, reportPathFor } from "../../speckit-mutation"
+import mutationTool, { findKitRoot, readBatches, reportPathFor, summarizeFailure } from "../../speckit-mutation"
 import { MutationBatchesSchema } from "../../shared/schemas"
 import { mockContext } from "../helpers/setup"
 import { repoPath } from "../helpers/setup"
@@ -105,6 +105,65 @@ describe("mutation tool: aggregate", () => {
     const result = await run("aggregate")
     expect(result.title).toMatch(/^Mutation score over \d+ batch/)
     expect(result.output).toContain("score=")
+  })
+})
+
+describe("mutation tool: failure output", () => {
+  it("spawns without a shell, because a shell splits the interpreter path on the space in Program Files", async () => {
+    const source = await fs.readFile(repoPath("tools", "speckit-mutation.ts"), "utf-8")
+    expect(source).not.toContain("shell: true")
+    expect(source).not.toContain("npx")
+    expect(source).toContain("@stryker-mutator")
+    expect(source).toContain("process.execPath")
+  })
+
+  it("checks the Stryker entry point exists before spawning it", async () => {
+    const source = await fs.readFile(repoPath("tools", "speckit-mutation.ts"), "utf-8")
+    expect(source).toContain("stryker.js")
+    expect(source).toContain("Stryker not installed")
+    expect(source).toContain("npm install")
+  })
+
+  it("surfaces the failing test names instead of the stack that ends the log", () => {
+    const output = [
+      "INFO Instrumenter Instrumented 2 source file(s) with 259 mutant(s)",
+      "ERROR DryRunExecutor One or more tests failed in the initial test run:",
+      "\tsome test > does the thing",
+      "\t\tAssertionError: expected true to be false",
+      "Error: Something went wrong in the initial test run",
+      "    at DryRunExecutor.validateResultCompleted (/very/long/path.js:76:15)",
+      "    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+    ].join("\n")
+
+    const summary = summarizeFailure(output)
+    expect(summary).toContain("One or more tests failed")
+    expect(summary).toContain("some test > does the thing")
+    expect(summary).toContain("AssertionError")
+    expect(summary).not.toContain("processTicksAndRejections")
+  })
+
+  it("falls back to the error lines when Stryker never names a test", () => {
+    const output = [
+      "INFO ProjectReader Found 2 of 179 file(s) to be mutated.",
+      "Error: Cannot resolve module",
+      "    at somewhere.js:1:1",
+      "    at elsewhere.js:2:2",
+    ].join("\n")
+
+    const summary = summarizeFailure(output)
+    expect(summary).toContain("Cannot resolve module")
+    expect(summary).not.toContain("elsewhere.js")
+  })
+
+  it("keeps the tail when the output says nothing recognizable", () => {
+    const lines = Array.from({ length: 40 }, (_, index) => `line ${index}`)
+    const summary = summarizeFailure(lines.join("\n"))
+    expect(summary).toContain("line 39")
+    expect(summary).not.toContain("line 0")
+  })
+
+  it("handles empty output without throwing", () => {
+    expect(summarizeFailure("")).toBe("")
   })
 })
 

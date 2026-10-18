@@ -39,9 +39,12 @@ async function readBatches(kitRoot: string): Promise<MutationBatch[]> {
   return parsed.data.batches
 }
 
+// Stryker is started through node and its own entry point, because a shell splits the interpreter path on the space in Program Files and node refuses to spawn a .cmd without one.
+const STRYKER_BIN = path.join("node_modules", "@stryker-mutator", "core", "bin", "stryker.js")
+
 function runCommand(cwd: string, command: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd, shell: true })
+    const child = spawn(command, args, { cwd })
     let stdout = ""
     let stderr = ""
     child.stdout.on("data", (chunk) => { stdout += String(chunk) })
@@ -58,6 +61,24 @@ async function countLines(kitRoot: string, files: string[]): Promise<number> {
     total += content.split(/\r?\n/).length
   }
   return total
+}
+
+// Stryker names the failing tests early in its output and ends with a stack trace, so the tail of the log is the wrong place to look.
+export function summarizeFailure(output: string): string {
+  const lines = output.split(/\r?\n/)
+  const marker = lines.findIndex((line) => line.includes("One or more tests failed"))
+  if (marker !== -1) {
+    const useful = [lines[marker]]
+    for (const line of lines.slice(marker + 1)) {
+      if (/^\s+at\s/.test(line)) break
+      useful.push(line)
+      if (useful.length >= 15) break
+    }
+    return useful.join("\n").trim()
+  }
+  const failed = lines.filter((line) => /\bFAIL\b|Error:/.test(line))
+  if (failed.length > 0) return failed.slice(0, 12).join("\n").trim()
+  return lines.slice(-20).join("\n").trim()
 }
 
 export default tool({
@@ -118,12 +139,20 @@ export default tool({
           return { title: "Missing files", output: `The batch list points at files that do not exist:\n  ${missing.join("\n  ")}` }
         }
 
+        const strykerBin = path.join(kitRoot, STRYKER_BIN)
+        if (!existsSync(strykerBin)) {
+          return {
+            title: "Stryker not installed",
+            output: `Cannot find ${path.relative(kitRoot, strykerBin)}  Run npm install in the checkout first.`,
+          }
+        }
+
         const results: string[] = []
         for (const id of requested) {
           const batch = known.get(id)!
           results.push(`Running ${id} over ${batch.mutate.length} files`)
-          const outcome = await runCommand(kitRoot, "npx", [
-            "stryker",
+          const outcome = await runCommand(kitRoot, process.execPath, [
+            strykerBin,
             "run",
             "--mutate",
             batch.mutate.join(","),
@@ -131,10 +160,10 @@ export default tool({
             "clear-text,json,html",
           ])
           if (outcome.code !== 0) {
-            const tail = outcome.stderr.trim().split("\n").slice(-8).join("\n")
+            const detail = summarizeFailure(`${outcome.stdout}\n${outcome.stderr}`)
             return {
               title: `Mutation failed for ${id}`,
-              output: `exit code ${outcome.code}\n${tail || outcome.stdout.trim().split("\n").slice(-8).join("\n")}`,
+              output: `exit code ${outcome.code}\n${detail}`,
               metadata: { batch: id, code: outcome.code },
             }
           }
