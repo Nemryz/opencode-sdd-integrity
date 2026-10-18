@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-2928-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-2949-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -213,6 +213,7 @@ The toolkit includes fifteen specialized tools, each designed for a specific pur
 | speckit-approve | Approves generated artifacts to unlock the next workflow phase |
 | speckit-phase | Advances the feature phase to impl or complete after implementation |
 | speckit-snapshot | Creates, inspects, restores, and prunes point-in-time snapshots of the SDD state |
+| speckit-mutation | Lists, runs, and aggregates the mutation batches of the kit itself, which only works inside a checkout of the repository |
 
 ### Shared Modules
 
@@ -618,7 +619,7 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 2928 automated tests distributed across 104 test files, and every layer answers a different question about the same system.
+The project includes 2949 automated tests distributed across 106 test files, and every layer answers a different question about the same system.
 `docs/testing.md` holds the conventions, the per module matrix inventory, and the stability rules that this section only summarizes.
 
 ### Test Types

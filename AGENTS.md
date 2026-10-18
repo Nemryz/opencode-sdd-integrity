@@ -117,6 +117,14 @@ Manage point-in-time snapshots of the SDD state. Uses `speckit-snapshot` tool.
 Automatic verified snapshots run before phase transitions, tasks approval, and `--fix` operations (audit, clean, health, selfheal). If the snapshot fails, the operation is blocked and nothing changes; failed fixes leave a post-failure snapshot. `/health` recovers interrupted restores with `--fix`.
 `restore` requires user confirmation (`confirmed: true`); `list` reports Recovery Readiness.
 
+### `/matrix [<batch> [batch...]|all]`
+Measure the mutation batches of the kit and store one report each. Uses `speckit-mutation` tool with `subcommand: "run"`.
+The batches run one after another because every Stryker run starts the whole suite in its dry run. A batch failure stops the sequence and its output is reported verbatim.
+
+### `/baseline [aggregate]`
+Add up the stored mutation reports and report the score per batch and combined. Uses `speckit-mutation` tool with `subcommand: "aggregate"`.
+The combined row covers the batch boundary in `mutation-batches.json`, so it is never a per file figure, and static mutants are ignored in the current configuration.
+
 ---
 
 ## Agent Roles — Tab-Switchable
@@ -228,6 +236,7 @@ Call a skill with: `skill({ name: "speckit-spec-writer" })`
 | `speckit-approve` | Approve a generated artifact to unlock the next phase | `artifact` (spec/plan/tasks), `confirmed` (bool, after user confirmation) |
 | `speckit-phase` | Advance the feature phase to impl or complete after implementation | `phase` (impl/complete) |
 | `speckit-snapshot` | Create, inspect, restore, and prune point-in-time snapshots of the SDD state | `subcommand` (create/list/verify/preview/restore/pin/unpin/drill/prune/recover), `id` (or "latest"), `mode`, `files`, `label`, `confirmed` |
+| `speckit-mutation` | List, run, and aggregate the mutation batches of the kit itself, which only works inside a checkout of the repository | `subcommand` (list/run/aggregate), batch ids appended to `run` |
 
 ---
 
@@ -339,7 +348,7 @@ Examples:
 
 ## Custom Tool Error Handling
 
-Custom tools (`speckit-scaffold`, `speckit-validate`, `speckit-audit`, `speckit-clean`, `speckit-config`, `speckit-status`, `speckit-complexity`, `speckit-selfheal`, `speckit-health`, `speckit-delta`, `speckit-perf`, `speckit-approve`, `speckit-phase`, `speckit-snapshot`, `speckit-guard`) are TypeScript files compiled at runtime by opencode. If a tool has compilation errors, opencode may fail to start or crash on each prompt.
+Custom tools (`speckit-scaffold`, `speckit-validate`, `speckit-audit`, `speckit-clean`, `speckit-config`, `speckit-status`, `speckit-complexity`, `speckit-selfheal`, `speckit-health`, `speckit-delta`, `speckit-perf`, `speckit-approve`, `speckit-phase`, `speckit-snapshot`, `speckit-mutation`, `speckit-guard`) are TypeScript files compiled at runtime by opencode. If a tool has compilation errors, opencode may fail to start or crash on each prompt.
 
 ### If a tool crashes opencode
 

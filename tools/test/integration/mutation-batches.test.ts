@@ -127,6 +127,23 @@ describe("mutation batches: the CI matrix reads the file instead of repeating it
     expect(docs).toContain("depends on where the aggregation is cut")
   })
 
+  it("ships the commands that drive the tool, and both name it", async () => {
+    expect(await existsInRepo("tools/speckit-mutation.ts")).toBe(true)
+    for (const name of ["baseline", "matrix"]) {
+      expect(await existsInRepo(`commands/${name}.md`), `commands/${name}.md is missing`).toBe(true)
+      const command = await fs.readFile(path.join(REPO_ROOT, "commands", `${name}.md`), "utf-8")
+      expect(command, `commands/${name}.md must drive the tool`).toContain("speckit-mutation")
+      expect(command, `commands/${name}.md must keep the frontmatter description`).toContain("description:")
+    }
+  })
+
+  it("keeps the tool out of the score arithmetic, so the script stays the only place that computes one", async () => {
+    const tool = await fs.readFile(path.join(REPO_ROOT, "tools", "speckit-mutation.ts"), "utf-8")
+    expect(tool).toContain("report-score.mjs")
+    expect(tool).not.toContain("mutation-testing-metrics")
+    expect(tool).not.toMatch(/killed\s*\/\s*/)
+  })
+
   it("ignores static mutants for speed but keeps the measured cost of that in the docs", async () => {
     const config = (await readRepoJson("stryker.conf.json")) as { ignoreStatic?: boolean }
     expect(config.ignoreStatic).toBe(true)
