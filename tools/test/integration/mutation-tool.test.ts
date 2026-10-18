@@ -120,7 +120,13 @@ describe("mutation tool: failure output", () => {
     expect(source).not.toContain("shell: true")
     expect(source).not.toContain("npx")
     expect(source).toContain("@stryker-mutator")
-    expect(source).toContain("process.execPath")
+  })
+
+  it("never spawns through process.execPath, because an opencode tool runs inside the opencode binary and that property points at opencode itself", async () => {
+    const source = await fs.readFile(repoPath("tools", "speckit-mutation.ts"), "utf-8")
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")
+    expect(code).not.toContain("process.execPath")
+    expect(code).toContain("NODE_COMMAND")
   })
 
   it("checks the Stryker entry point exists before spawning it", async () => {
