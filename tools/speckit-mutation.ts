@@ -40,6 +40,8 @@ async function readBatches(kitRoot: string): Promise<MutationBatch[]> {
 }
 
 // Stryker is started through node and its own entry point, because a shell splits the interpreter path on the space in Program Files and node refuses to spawn a .cmd without one.
+// The interpreter is named rather than taken from process.execPath, because an opencode tool runs inside the opencode binary and that property points at opencode itself, which would print its own CLI help instead of mutating.
+const NODE_COMMAND = "node"
 const STRYKER_BIN = path.join("node_modules", "@stryker-mutator", "core", "bin", "stryker.js")
 
 function runCommand(cwd: string, command: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -157,7 +159,7 @@ export default tool({
         for (const id of requested) {
           const batch = known.get(id)!
           results.push(`Running ${id} over ${batch.mutate.length} files`)
-          const outcome = await runCommand(kitRoot, process.execPath, [
+          const outcome = await runCommand(kitRoot, NODE_COMMAND, [
             strykerBin,
             "run",
             "--mutate",
@@ -198,7 +200,7 @@ export default tool({
           }
         }
         const flat = pairs.flatMap((pair) => [pair.reportPath, pair.label])
-        const outcome = await runCommand(kitRoot, process.execPath, [path.join(kitRoot, SCORE_SCRIPT), ...flat])
+        const outcome = await runCommand(kitRoot, NODE_COMMAND, [path.join(kitRoot, SCORE_SCRIPT), ...flat])
         if (outcome.code !== 0) {
           return { title: "Aggregate failed", output: outcome.stderr.trim() || outcome.stdout.trim() }
         }
