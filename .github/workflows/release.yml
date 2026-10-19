@@ -34,8 +34,8 @@ jobs:
         id: changelog
         run: |
           PREV_TAG=$(git tag --sort=-version:refname | head -n 2 | tail -n 1 || echo "")
-          echo "previous_tag=$PREV_TAG" >> $GITHUB_OUTPUT
-          echo "current_tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          echo "previous_tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
+          echo "current_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Create release archive
         run: |
