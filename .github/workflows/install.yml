@@ -62,11 +62,13 @@ jobs:
 
   npm-linux:
     runs-on: ubuntu-latest
-    env:
-      INSTALL_DIR: ${{ runner.temp }}/npm-install
-      PACK_DIR: ${{ runner.temp }}/npm-pack
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up the npm install variables
+        run: |
+          echo "INSTALL_DIR=$RUNNER_TEMP/npm-install" >> "$GITHUB_ENV"
+          echo "PACK_DIR=$RUNNER_TEMP/npm-pack" >> "$GITHUB_ENV"
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -102,10 +104,12 @@ jobs:
 
   npm-windows:
     runs-on: windows-latest
-    env:
-      INSTALL_DIR: ${{ runner.temp }}/npm-install
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up the npm install variables
+        run: |
+          "INSTALL_DIR=$env:RUNNER_TEMP\npm-install" >> $env:GITHUB_ENV
 
       - name: Use Node.js
         uses: actions/setup-node@v4
