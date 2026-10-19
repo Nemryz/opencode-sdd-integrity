@@ -9,6 +9,7 @@ type RegisteredTool = {
   name: string
   description: string
   input: any
+  options?: { codemode?: boolean }
   execute: (input: any, context: any) => Promise<{ content?: string; metadata?: Record<string, unknown> }>
 }
 
@@ -79,12 +80,14 @@ afterEach(async () => {
 })
 
 describe("speckit-tools V2 registration", () => {
-  it("registers every speckit tool with a description and an object schema", () => {
+  it("registers every speckit tool as a direct tool with a description and an object schema", () => {
     expect(registered.map((tool) => tool.name).sort()).toEqual([...EXPECTED_TOOLS].sort())
     for (const tool of registered) {
       expect(tool.description.length).toBeGreaterThan(0)
       expect(tool.input.type).toBe("object")
       expect(tool.input.properties).toBeDefined()
+      // Direct exposure keeps the tools callable outside the code mode catalog on OpenCode 2.
+      expect(tool.options).toEqual({ codemode: false })
     }
   })
 

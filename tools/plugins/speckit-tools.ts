@@ -62,6 +62,8 @@ export default {
           description: def.description,
           // Bridges the zod JSON Schema output to the effect schema type the V2 editor expects.
           input: z.toJSONSchema(argsSchema) as any,
+          // Keeps every tool callable as a first class tool on OpenCode 2, matching the way OpenCode 1 presents them.
+          options: { codemode: false },
           async execute(input, context) {
             try {
               const args = argsSchema.parse(input ?? {})
