@@ -41,8 +41,26 @@ jobs:
         run: |
           tar czf opencode-sdd-integrity-${{ github.ref_name }}.tar.gz \
             AGENTS.md install.sh install.ps1 opencode.jsonc.example package.json \
-            README.md LICENSE .github/ \
+            npm-shrinkwrap.json README.md LICENSE .github/ \
             agents/ commands/ templates/ skills/ tools/ plugins/ docs/
+
+      - name: Verify release archive
+        run: |
+          tar tzf opencode-sdd-integrity-${{ github.ref_name }}.tar.gz > /tmp/release-files.txt
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const surface = require('./tools/install/surface.json');
+          const entries = fs.readFileSync('/tmp/release-files.txt', 'utf8').split('\n').filter(Boolean);
+          const files = new Set(entries);
+          const missingFiles = [...surface.copyFiles, surface.exampleFile.source].filter((entry) => !files.has(entry));
+          const missingDirs = surface.copyDirs.filter((dir) => !entries.some((entry) => entry.startsWith(`${dir}/`)));
+          const missing = [...missingFiles, ...missingDirs];
+          if (missing.length > 0) {
+            console.error(`Release archive is missing: ${missing.join(', ')}`);
+            process.exit(1);
+          }
+          console.log(`Release archive carries every path from the install surface (${surface.copyFiles.length} files and ${surface.copyDirs.length} directories).`);
+          NODE
 
       - name: Generate checksum
         run: |

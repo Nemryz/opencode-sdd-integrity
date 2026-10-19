@@ -248,3 +248,16 @@ Installing the packed tarball with its dependencies enabled failed with `npm err
 **Fix:** the repository lock is committed as `npm-shrinkwrap.json`, which `npm pack` keeps, and the surface ships it as a required copy and verify path, so the dependency install resolves from that lock on every npm version.
 
 **Test coverage:** the `npm-linux` job installs the tarball produced by `npm pack` with its dependencies enabled on Node 22, where the bundled npm raised the Arborist error, and `installer.test.ts` pins the surface contract around the shrinkwrap.
+
+### R-17: The release archive omitted the shrinkwrap the install surface requires
+
+**Introduced in:** the release workflow archive step, which listed the shipped paths by hand
+**Fixed in:** current
+
+The `opencode-sdd-integrity-v2.0.1.tar.gz` asset attached to the GitHub Release carried every copied directory but not `npm-shrinkwrap.json`, because the tar command enumerated its inputs instead of reading `tools/install/surface.json`. An offline install from that archive therefore resolved dependencies without a lock and walked back into the npm 10.9.8 Arborist failure that R-16 fixed.
+
+**Root cause:** the archive list and the install surface were two independent descriptions of the same file set, so adding the shrinkwrap to `surface.json` did not add it to the release asset.
+
+**Fix:** the archive step now includes `npm-shrinkwrap.json`, and a `Verify release archive` step reads the tar listing and fails when any `copyFiles`, `copyDirs` or example path from `surface.json` is absent, so the contract stays single-sourced.
+
+**Test coverage:** the release workflow refuses to attach an archive that is missing a surface path.
