@@ -143,22 +143,71 @@ describe("shipped surface stays consistent", () => {
       "plugins",
       "docs",
     ])
-    for (const script of ["install.sh", "install.ps1"]) {
-      const content = await readRepoFile(script)
-      const copyLines = content.split("\n").filter(line => /^\s*(cp|Copy-Item)\b/.test(line))
-      expect(copyLines.length).toBeGreaterThan(0)
-      for (const line of copyLines) {
-        const match = line.match(/opencode-sdd-kit[\\/]([\w.-]+)/)
-        if (!match) continue
-        expect(allowed.has(match[1]), `${script} copies unexpected path: ${match[1]}`).toBe(true)
-      }
+
+    const shell = await readRepoFile("install.sh")
+    const copyLines = shell.split("\n").filter(line => /^\s*cp\b/.test(line))
+    expect(copyLines.length).toBeGreaterThan(0)
+    for (const line of copyLines) {
+      const match = line.match(/opencode-sdd-kit[\\/]([\w.-]+)/)
+      if (!match) continue
+      expect(allowed.has(match[1]), `install.sh copies unexpected path: ${match[1]}`).toBe(true)
+    }
+
+    const powershell = await readRepoFile("install.ps1")
+    const sources = [...powershell.matchAll(/Join-Path \$CloneDir "([^"]+)"/g)]
+    expect(sources.length).toBeGreaterThan(0)
+    for (const match of sources) {
+      expect(allowed.has(match[1]), `install.ps1 copies unexpected path: ${match[1]}`).toBe(true)
     }
   })
 
   it("install scripts ship the plugins directory", async () => {
+    const shell = await readRepoFile("install.sh")
+    expect(shell, "install.sh must copy the plugins directory").toMatch(/opencode-sdd-kit[\\/]plugins"/)
+
+    const powershell = await readRepoFile("install.ps1")
+    expect(powershell, "install.ps1 must copy the plugins directory").toContain('Join-Path $CloneDir "plugins"')
+  })
+
+  it("install scripts accept a ref, a directory and a dependency switch", async () => {
+    const shell = await readRepoFile("install.sh")
+    expect(shell, "install.sh must read --ref").toContain("--ref")
+    expect(shell, "install.sh must read --dir").toContain("--dir")
+    expect(shell, "install.sh must read --skip-deps").toContain("--skip-deps")
+
+    const powershell = await readRepoFile("install.ps1")
+    expect(powershell, "install.ps1 must read -Ref").toContain("[string]$Ref")
+    expect(powershell, "install.ps1 must read -Dir").toContain("[string]$Dir")
+    expect(powershell, "install.ps1 must read -SkipDeps").toContain("[switch]$SkipDeps")
+  })
+
+  it("install scripts keep the files they replace in a timestamped backup folder", async () => {
     for (const script of ["install.sh", "install.ps1"]) {
       const content = await readRepoFile(script)
-      expect(content, `${script} must copy the plugins directory`).toMatch(/opencode-sdd-kit[\\/]plugins"/)
+      expect(content, `${script} must back up the files it replaces`).toContain(".install-backups")
+    }
+  })
+
+  it("install scripts never overwrite the configuration file they only bootstrap", async () => {
+    for (const script of ["install.sh", "install.ps1"]) {
+      const content = await readRepoFile(script)
+      const bootstrap = content.split("\n").filter(line => line.includes("opencode.jsonc") && line.includes("opencode.jsonc.example"))
+      expect(bootstrap.length, `${script} must copy opencode.jsonc.example only once`).toBe(1)
+    }
+  })
+
+  it("the install workflow proves both installers, the flags and the backup path", async () => {
+    const workflow = await readRepoFile(".github/workflows/install.yml")
+    const markers = [
+      "install.sh", "install.ps1",
+      "--ref", "-Ref",
+      "--dir", "-Dir",
+      "--skip-deps", "-SkipDeps",
+      "verify-install.sh", "verify-install.ps1",
+      "--backup", "-Backup",
+    ]
+    for (const marker of markers) {
+      expect(workflow, `install.yml must mention ${marker}`).toContain(marker)
     }
   })
 

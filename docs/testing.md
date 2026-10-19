@@ -140,6 +140,13 @@ It installs a copy of the kit into an isolated config home the same way `install
 The model evidence is graded as a warning unless `SMOKE_LLM_REQUIRED=1` is set, because the free model tier can be unavailable while the wiring itself is healthy.
 `.github/workflows/smoke.yml` runs the script on every push against a pinned CLI version.
 
+## Install coverage
+
+`install.sh` and `install.ps1` take a git ref, a target directory, and a dependency switch, and they keep the previous copy of every file they replace in a timestamped `.install-backups` folder.
+`.github/workflows/install.yml` installs the branch that triggered the run once, edits the installation like a user would, installs again, and grades both passes.
+`tools/test/install/verify-install.sh` and `tools/test/install/verify-install.ps1` check the file surface the installer must leave behind, and in backup mode they also assert that exactly one timestamped folder holds the edited file, that the fresh copy replaced the same file in place, and that the configuration kept the user edit.
+Both jobs pass the dependency switch, because the smoke job already proves that the dependency tree resolves inside an isolated configuration directory.
+
 ## Platform-dependent tests
 
 Case insensitive path matching and Windows error formatting cannot be reproduced on Linux, so those cases are skipped explicitly with the reason written next to them.

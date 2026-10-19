@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-2975-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-2979-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -391,6 +391,8 @@ cd ~/.config/opencode && npm install
 
 ### Platform-Specific Scripts
 
+Both scripts clone the repository into the configuration directory, keep the previous copy of every file they replace in a timestamped `.install-backups` folder, and never overwrite an `opencode.jsonc` that already exists.
+
 **Windows PowerShell:**
 
 ```
@@ -401,6 +403,19 @@ irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.ps1
 
 ```
 curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.sh | bash
+```
+
+The scripts accept the same options, and the example pair below installs the branch that supports OpenCode 2:
+
+| Option | PowerShell | Shell | Default | Purpose |
+|--------|------------|-------|---------|---------|
+| Git ref | `-Ref` | `--ref` | `master` | Branch or tag to install, such as `V2` |
+| Config dir | `-Dir` | `--dir` | `~/.config/opencode` | Directory that receives the toolkit |
+| Skip deps | `-SkipDeps` | `--skip-deps` | off | Copy the files without running `npm install` |
+
+```
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/V2/install.ps1))) -Ref V2
+curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/V2/install.sh | bash -s -- --ref V2
 ```
 
 ### Verification
@@ -638,7 +653,7 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 2975 automated tests distributed across 108 test files, and every layer answers a different question about the same system.
+The project includes 2979 automated tests distributed across 108 test files, and every layer answers a different question about the same system.
 `docs/testing.md` holds the conventions, the per module matrix inventory, and the stability rules that this section only summarizes.
 
 ### Test Types
@@ -657,6 +672,7 @@ The project includes 2975 automated tests distributed across 108 test files, and
 | Mutation | `*-mutation.test.ts` and `*-kill-survivors.test.ts` | Do the tests notice when the logic changes |
 | Shipped surface | `tools/test/integration/shipped-surface.test.ts` | Does the packaging still describe the repository truthfully |
 | Smoke | `tools/test/smoke/` | Does the real OpenCode 2 CLI load the shipped wiring |
+| Install | `tools/test/install/` | Do the installers leave the promised surface and back up what they replace |
 
 Content assertion and phase gate tests live in the unit and integration directories, where they verify that skills, templates, commands, and their prerequisites keep the structure the agents depend on.
 

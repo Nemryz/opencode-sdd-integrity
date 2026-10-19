@@ -1,0 +1,61 @@
+name: Install
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up the install variables
+        run: |
+          echo "INSTALL_REF=${{ github.head_ref || github.ref_name }}" >> "$GITHUB_ENV"
+          echo "INSTALL_DIR=$RUNNER_TEMP/kit-install" >> "$GITHUB_ENV"
+
+      - name: Install once
+        run: bash install.sh --ref "$INSTALL_REF" --dir "$INSTALL_DIR" --skip-deps
+
+      - name: Verify the surface
+        run: bash tools/test/install/verify-install.sh "$INSTALL_DIR"
+
+      - name: Edit the installation as a user would
+        run: |
+          printf '\n<!-- user edit -->\n' >> "$INSTALL_DIR/AGENTS.md"
+          printf '// user config\n' >> "$INSTALL_DIR/opencode.jsonc"
+
+      - name: Install again
+        run: bash install.sh --ref "$INSTALL_REF" --dir "$INSTALL_DIR" --skip-deps
+
+      - name: Verify the backup and the preserved config
+        run: bash tools/test/install/verify-install.sh "$INSTALL_DIR" --backup
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up the install variables
+        run: |
+          "INSTALL_REF=${{ github.head_ref || github.ref_name }}" >> $env:GITHUB_ENV
+          "INSTALL_DIR=$env:RUNNER_TEMP\kit-install" >> $env:GITHUB_ENV
+
+      - name: Install once
+        run: pwsh -File install.ps1 -Ref "$env:INSTALL_REF" -Dir "$env:INSTALL_DIR" -SkipDeps
+
+      - name: Verify the surface
+        run: pwsh -File tools/test/install/verify-install.ps1 "$env:INSTALL_DIR"
+
+      - name: Edit the installation as a user would
+        run: |
+          Add-Content -Path "$env:INSTALL_DIR\AGENTS.md" -Value "<!-- user edit -->"
+          Add-Content -Path "$env:INSTALL_DIR\opencode.jsonc" -Value "// user config"
+
+      - name: Install again
+        run: pwsh -File install.ps1 -Ref "$env:INSTALL_REF" -Dir "$env:INSTALL_DIR" -SkipDeps
+
+      - name: Verify the backup and the preserved config
+        run: pwsh -File tools/test/install/verify-install.ps1 "$env:INSTALL_DIR" -Backup

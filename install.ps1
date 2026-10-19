@@ -1,39 +1,71 @@
 # speckit-sdd Installer — Windows PowerShell 5.1+
 # Usage: irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.ps1 | iex
-# Or:    .\install.ps1
+# Or:    .\install.ps1 [-Ref <branch|tag>] [-Dir <path>] [-SkipDeps]
+# Options:
+#   -Ref <branch|tag>   Git ref to install, defaults to master and accepts V2 for the OpenCode 2 toolkit
+#   -Dir <path>         Configuration directory, defaults to $env:USERPROFILE\.config\opencode
+#   -SkipDeps           Copy the files without running npm install
 
-$Repo     = "Nemryz/opencode-sdd-kit"
-$Branch   = "master"
-$ConfigDir = "$env:USERPROFILE\.config\opencode"
-$TmpDir   = "$env:TEMP\opencode-sdd-kit-install"
+param(
+    [string]$Ref = "master",
+    [string]$Dir = "$env:USERPROFILE\.config\opencode",
+    [switch]$SkipDeps
+)
+
+$Repo      = "Nemryz/opencode-sdd-kit"
+$ConfigDir = $Dir
+$TmpDir    = Join-Path ([System.IO.Path]::GetTempPath()) "opencode-sdd-kit-install"
+$CloneDir  = Join-Path $TmpDir "opencode-sdd-kit"
 
 if (Test-Path $TmpDir) { Remove-Item -Recurse -Force $TmpDir }
 New-Item -ItemType Directory -Path $TmpDir -Force | Out-Null
 
-Write-Host "==> Cloning opencode-sdd-kit ($Branch)..."
-git clone --depth 1 --branch $Branch "https://github.com/$Repo.git" "$TmpDir\opencode-sdd-kit"
+Write-Host "==> Cloning opencode-sdd-kit ($Ref)..."
+git clone --depth 1 --branch $Ref "https://github.com/$Repo.git" $CloneDir
 
 Write-Host "==> Installing files..."
 New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
-Copy-Item -Force "$TmpDir\opencode-sdd-kit\AGENTS.md" "$ConfigDir\AGENTS.md"
-if (-not (Test-Path "$ConfigDir\opencode.jsonc")) {
-    Copy-Item "$TmpDir\opencode-sdd-kit\opencode.jsonc.example" "$ConfigDir\opencode.jsonc"
+
+# Copies every file this run is about to replace into a timestamped backup folder.
+$Items     = "AGENTS.md", "package.json", "package-lock.json", "agents", "commands", "templates", "skills", "tools", "plugins", "docs"
+$BackupDir = $null
+foreach ($item in $Items) {
+    $existing = Join-Path $ConfigDir $item
+    if (-not (Test-Path $existing)) { continue }
+    if (-not $BackupDir) {
+        $stamp     = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
+        $BackupDir = Join-Path (Join-Path $ConfigDir ".install-backups") "$stamp-$([guid]::NewGuid().ToString('N').Substring(0, 6))"
+        New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
+    }
+    Copy-Item -Recurse -Force $existing (Join-Path $BackupDir $item)
 }
-Copy-Item -Force "$TmpDir\opencode-sdd-kit\package.json" "$ConfigDir\package.json"
-Copy-Item -Force "$TmpDir\opencode-sdd-kit\package-lock.json" "$ConfigDir\package-lock.json" -ErrorAction SilentlyContinue
+if ($BackupDir) {
+    Write-Host "    Previous files saved to $BackupDir"
+}
 
-Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\agents" "$ConfigDir"
-Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\commands" "$ConfigDir"
-Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\templates" "$ConfigDir"
-Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\skills" "$ConfigDir"
-Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\tools" "$ConfigDir"
-Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\plugins" "$ConfigDir"
-Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\docs" "$ConfigDir"
+Copy-Item -Force (Join-Path $CloneDir "AGENTS.md") (Join-Path $ConfigDir "AGENTS.md")
+if (-not (Test-Path (Join-Path $ConfigDir "opencode.jsonc"))) {
+    Copy-Item (Join-Path $CloneDir "opencode.jsonc.example") (Join-Path $ConfigDir "opencode.jsonc")
+}
+Copy-Item -Force (Join-Path $CloneDir "package.json") (Join-Path $ConfigDir "package.json")
+Copy-Item -Force (Join-Path $CloneDir "package-lock.json") (Join-Path $ConfigDir "package-lock.json") -ErrorAction SilentlyContinue
 
-Write-Host "==> Installing dependencies..."
-Push-Location $ConfigDir
-npm install --ignore-scripts 2>$null
-Pop-Location
+Copy-Item -Recurse -Force (Join-Path $CloneDir "agents") $ConfigDir
+Copy-Item -Recurse -Force (Join-Path $CloneDir "commands") $ConfigDir
+Copy-Item -Recurse -Force (Join-Path $CloneDir "templates") $ConfigDir
+Copy-Item -Recurse -Force (Join-Path $CloneDir "skills") $ConfigDir
+Copy-Item -Recurse -Force (Join-Path $CloneDir "tools") $ConfigDir
+Copy-Item -Recurse -Force (Join-Path $CloneDir "plugins") $ConfigDir
+Copy-Item -Recurse -Force (Join-Path $CloneDir "docs") $ConfigDir
+
+if ($SkipDeps) {
+    Write-Host "==> Skipping dependencies (-SkipDeps)"
+} else {
+    Write-Host "==> Installing dependencies..."
+    Push-Location $ConfigDir
+    npm install --ignore-scripts 2>$null
+    Pop-Location
+}
 
 Remove-Item -Recurse -Force $TmpDir
 
