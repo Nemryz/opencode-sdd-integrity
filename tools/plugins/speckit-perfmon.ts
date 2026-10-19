@@ -1,4 +1,5 @@
-import type { Plugin } from "@opencode-ai/plugin"
+import type { Plugin as V1Plugin } from "@opencode-ai/plugin"
+import type { Plugin as V2Plugin } from "@opencode/plugin"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { markPluginLoaded, stripBom } from "../shared/io"
@@ -44,7 +45,39 @@ function generateRecommendations(stats: PerfStats[]): string[] {
   return recommendations
 }
 
-const perfPlugin: Plugin = async (input) => {
+// Folds one finished tool call into the stored percentiles for that tool.
+async function recordToolCall(perfPath: string, tool: string, duration: number): Promise<void> {
+  let perf: PerfData = { lastUpdated: new Date().toISOString(), stats: [] }
+  try {
+    const existing = await fs.readFile(perfPath, "utf-8")
+    perf = JSON.parse(stripBom(existing))
+  } catch {
+    // File doesn't exist yet, use default
+  }
+
+  let toolStats = perf.stats.find(s => s.tool === tool)
+  if (!toolStats) {
+    toolStats = { tool, calls: 0, totalTime: 0, times: [], p50: 0, p95: 0, p99: 0, avg: 0 }
+    perf.stats.push(toolStats)
+  }
+
+  toolStats.calls++
+  toolStats.totalTime += duration
+  toolStats.times.push(duration)
+
+  const sorted = [...toolStats.times].sort((a, b) => a - b)
+  toolStats.p50 = calculatePercentile(sorted, 0.5)
+  toolStats.p95 = calculatePercentile(sorted, 0.95)
+  toolStats.p99 = calculatePercentile(sorted, 0.99)
+  toolStats.avg = Math.round(toolStats.totalTime / toolStats.calls)
+
+  perf.lastUpdated = new Date().toISOString()
+
+  await fs.mkdir(path.dirname(perfPath), { recursive: true })
+  await fs.writeFile(perfPath, JSON.stringify(perf, null, 2))
+}
+
+const perfmonPlugin: V1Plugin = async (input) => {
   const projectRoot = pickProjectRoot(input) ?? input.worktree
   const perfPath = path.join(projectRoot, ".opencode", "perf.json")
   await markPluginLoaded(projectRoot, "speckit-perfmon")
@@ -64,34 +97,7 @@ const perfPlugin: Plugin = async (input) => {
       const duration = Date.now() - data.start
       activeCalls.delete(toolInput.callID)
 
-      let perf: PerfData = { lastUpdated: new Date().toISOString(), stats: [] }
-      try {
-        const existing = await fs.readFile(perfPath, "utf-8")
-        perf = JSON.parse(stripBom(existing))
-      } catch {
-        // File doesn't exist yet, use default
-      }
-
-      let toolStats = perf.stats.find(s => s.tool === toolInput.tool)
-      if (!toolStats) {
-        toolStats = { tool: toolInput.tool, calls: 0, totalTime: 0, times: [], p50: 0, p95: 0, p99: 0, avg: 0 }
-        perf.stats.push(toolStats)
-      }
-
-      toolStats.calls++
-      toolStats.totalTime += duration
-      toolStats.times.push(duration)
-
-      const sorted = [...toolStats.times].sort((a, b) => a - b)
-      toolStats.p50 = calculatePercentile(sorted, 0.5)
-      toolStats.p95 = calculatePercentile(sorted, 0.95)
-      toolStats.p99 = calculatePercentile(sorted, 0.99)
-      toolStats.avg = Math.round(toolStats.totalTime / toolStats.calls)
-
-      perf.lastUpdated = new Date().toISOString()
-
-      await fs.mkdir(path.dirname(perfPath), { recursive: true })
-      await fs.writeFile(perfPath, JSON.stringify(perf, null, 2))
+      await recordToolCall(perfPath, toolInput.tool, duration)
     },
   }
 }
@@ -106,5 +112,27 @@ export function calculatePercentileExport(sorted: number[], percentile: number):
 
 export default {
   id: "speckit-perfmon",
-  server: perfPlugin,
+  async setup(ctx: V2Plugin.Context): Promise<void> {
+    const projectRoot = ctx.location.project.canonical
+    const perfPath = path.join(projectRoot, ".opencode", "perf.json")
+    await markPluginLoaded(projectRoot, "speckit-perfmon")
+
+    await ctx.tool.hook("execute.before", (event) => {
+      activeCalls.set(event.id, {
+        start: Date.now(),
+        args: event.input,
+      })
+    })
+
+    await ctx.tool.hook("execute.after", async (event) => {
+      const data = activeCalls.get(event.id)
+      if (!data) return
+
+      const duration = Date.now() - data.start
+      activeCalls.delete(event.id)
+
+      await recordToolCall(perfPath, event.tool, duration)
+    })
+  },
+  server: perfmonPlugin,
 }

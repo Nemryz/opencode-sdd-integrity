@@ -41,6 +41,7 @@
   },
   "devDependencies": {
     "@fast-check/vitest": "^0.4.1",
+    "@opencode/plugin": "2.0.32",
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/typescript-checker": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",

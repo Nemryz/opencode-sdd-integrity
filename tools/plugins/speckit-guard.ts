@@ -1,4 +1,5 @@
-import type { Plugin } from "@opencode-ai/plugin"
+import type { Plugin as V1Plugin } from "@opencode-ai/plugin"
+import type { Plugin as V2Plugin } from "@opencode/plugin"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { z } from "zod"
@@ -90,6 +91,7 @@ export function cloneConfig(config: GuardConfig): GuardConfig {
 }
 
 const FILE_TOOLS = ["write", "edit", "apply_patch", "patch"]
+const SHELL_TOOLS = ["bash", "shell"]
 
 export function normalizeGuardPath(p: string): string {
   const unified = p.replace(/\\/g, "/")
@@ -185,8 +187,15 @@ export function addDenial(config: GuardConfig, file: string, reason: string): vo
   }
 }
 
-const guardPlugin: Plugin = async (input) => {
-  const projectRoot = pickProjectRoot(input) ?? input.worktree
+type GuardOps = {
+  readConfig: () => Promise<GuardConfig>
+  writeConfig: (config: GuardConfig) => Promise<void>
+  evaluatePath: (rawPath: string, config: GuardConfig) => Promise<string | null>
+  recordDenial: (config: GuardConfig, displayPath: string, reason: string, label: "DENIED" | "BLOCKED") => Promise<void>
+}
+
+// Binds the guard state helpers to one project root so both runtimes share the same logic.
+async function createGuardOps(projectRoot: string): Promise<GuardOps> {
   const configPath = path.join(projectRoot, ".opencode", "guard.json")
   await markPluginLoaded(projectRoot, "speckit-guard")
 
@@ -254,53 +263,57 @@ const guardPlugin: Plugin = async (input) => {
     return isProtectedByPhase(normalized, spec.phase, config)
   }
 
-  async function deny(config: GuardConfig, output: { status: "ask" | "deny" | "allow" }, displayPath: string, reason: string): Promise<void> {
-    output.status = "deny"
+  async function recordDenial(config: GuardConfig, displayPath: string, reason: string, label: "DENIED" | "BLOCKED"): Promise<void> {
     config.stats.denied++
     addDenial(config, displayPath, reason)
     if (config.debug) {
-      console.log(`[Guard] DENIED: ${displayPath} - ${reason}`)
+      console.log(`[Guard] ${label}: ${displayPath} - ${reason}`)
     }
     await writeConfig(config)
   }
 
-  async function block(config: GuardConfig, displayPath: string, reason: string): Promise<never> {
-    config.stats.denied++
-    addDenial(config, displayPath, reason)
-    if (config.debug) {
-      console.log(`[Guard] BLOCKED: ${displayPath} - ${reason}`)
-    }
-    await writeConfig(config)
-    throw new Error(`Guard blocked protected file: ${displayPath} (${reason})`)
+  return { readConfig, writeConfig, evaluatePath, recordDenial }
+}
+
+async function blockPath(ops: GuardOps, config: GuardConfig, displayPath: string, reason: string): Promise<never> {
+  await ops.recordDenial(config, displayPath, reason, "BLOCKED")
+  throw new Error(`Guard blocked protected file: ${displayPath} (${reason})`)
+}
+
+// Inspects one tool call before execution, throwing when a protected path or shell redirect target is touched.
+async function inspectToolCall(ops: GuardOps, tool: string, args: Record<string, unknown>, shellTools: string[]): Promise<void> {
+  const config = await ops.readConfig()
+  if (!config.enabled) return
+
+  if (FILE_TOOLS.includes(tool)) {
+    const rawPath = args.filePath ?? args.path
+    if (typeof rawPath !== "string" || rawPath.length === 0) return
+    const reason = await ops.evaluatePath(rawPath, config)
+    if (reason) await blockPath(ops, config, rawPath, reason)
+    return
   }
+
+  if (shellTools.includes(tool)) {
+    const command = typeof args.command === "string" ? args.command : ""
+    for (const target of extractRedirectTargets(command)) {
+      const reason = await ops.evaluatePath(target, config)
+      if (reason) await blockPath(ops, config, target, `shell redirect target: ${reason}`)
+    }
+  }
+}
+
+const guardPlugin: V1Plugin = async (input) => {
+  const projectRoot = pickProjectRoot(input) ?? input.worktree
+  const ops = await createGuardOps(projectRoot)
 
   return {
     "tool.execute.before": async (toolInput, toolOutput) => {
-      const config = await readConfig()
-      if (!config.enabled) return
-
       const args = (toolOutput?.args ?? {}) as Record<string, unknown>
-      const tool = toolInput?.tool
-
-      if (FILE_TOOLS.includes(tool)) {
-        const rawPath = args.filePath ?? args.path
-        if (typeof rawPath !== "string" || rawPath.length === 0) return
-        const reason = await evaluatePath(rawPath, config)
-        if (reason) await block(config, rawPath, reason)
-        return
-      }
-
-      if (tool === "bash") {
-        const command = typeof args.command === "string" ? args.command : ""
-        for (const target of extractRedirectTargets(command)) {
-          const reason = await evaluatePath(target, config)
-          if (reason) await block(config, target, `shell redirect target: ${reason}`)
-        }
-      }
+      await inspectToolCall(ops, toolInput?.tool, args, ["bash"])
     },
 
     "permission.ask": async (permission, output) => {
-      const config = await readConfig()
+      const config = await ops.readConfig()
       if (!config.enabled) return
 
       const patterns = permission.pattern
@@ -310,18 +323,20 @@ const guardPlugin: Plugin = async (input) => {
 
       if (permission.type === "edit") {
         config.stats.asked++
-        const reason = await evaluatePath(patterns[0], config)
+        const reason = await ops.evaluatePath(patterns[0], config)
         if (reason) {
-          await deny(config, output, patterns[0], reason)
+          output.status = "deny"
+          await ops.recordDenial(config, patterns[0], reason, "DENIED")
           return
         }
       } else if (permission.type === "bash") {
         config.stats.asked++
         for (const command of patterns) {
           for (const target of extractRedirectTargets(command)) {
-            const reason = await evaluatePath(target, config)
+            const reason = await ops.evaluatePath(target, config)
             if (reason) {
-              await deny(config, output, target, `shell redirect target: ${reason}`)
+              output.status = "deny"
+              await ops.recordDenial(config, target, `shell redirect target: ${reason}`, "DENIED")
               return
             }
           }
@@ -334,12 +349,63 @@ const guardPlugin: Plugin = async (input) => {
       if (config.debug) {
         console.log(`[Guard] ALLOWED: ${permission.type}`)
       }
-      await writeConfig(config)
+      await ops.writeConfig(config)
     },
   }
 }
 
 export default {
   id: "speckit-guard",
+  async setup(ctx: V2Plugin.Context): Promise<void> {
+    const projectRoot = ctx.location.project.canonical
+    const ops = await createGuardOps(projectRoot)
+
+    await ctx.tool.hook("execute.before", async (event) => {
+      const args = (event.input ?? {}) as Record<string, unknown>
+      await inspectToolCall(ops, event.tool, args, SHELL_TOOLS)
+    })
+
+    await ctx.permission.hook("evaluate", async (event) => {
+      const config = await ops.readConfig()
+      if (!config.enabled) return
+
+      const resources = event.resources ?? []
+      if (resources.length === 0) return
+
+      if (event.action === "edit") {
+        config.stats.asked++
+        for (const resource of resources) {
+          const reason = await ops.evaluatePath(resource, config)
+          if (reason) {
+            event.effect = "deny"
+            event.message = reason
+            await ops.recordDenial(config, resource, reason, "DENIED")
+            return
+          }
+        }
+      } else if (event.action === "shell") {
+        config.stats.asked++
+        for (const command of resources) {
+          for (const target of extractRedirectTargets(command)) {
+            const reason = await ops.evaluatePath(target, config)
+            if (reason) {
+              event.effect = "deny"
+              event.message = reason
+              await ops.recordDenial(config, target, `shell redirect target: ${reason}`, "DENIED")
+              return
+            }
+          }
+        }
+      } else {
+        return
+      }
+
+      config.stats.allowed++
+      if (config.debug) {
+        console.log(`[Guard] ALLOWED: ${event.action}`)
+      }
+      await ops.writeConfig(config)
+    })
+  },
   server: guardPlugin,
 }
