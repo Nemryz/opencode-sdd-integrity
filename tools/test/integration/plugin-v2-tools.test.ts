@@ -3,7 +3,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import os from "node:os"
 import { createTempWorktree, destroyTempWorktree, removeDirWithRetry } from "../helpers/setup"
-import speckitTools from "../../plugins/speckit-tools"
+import speckitTools, { toPluginContent } from "../../plugins/speckit-tools"
 
 type RegisteredTool = {
   name: string
@@ -135,5 +135,48 @@ describe("speckit-tools V2 registration", () => {
     const result = await status.execute({ confirmed: true, unexpected: "value" }, runtimeContext)
 
     expect(result.content).toContain("No features yet")
+  })
+
+  it("keeps registered tool metadata free of undefined values", async () => {
+    const selfheal = toolNamed(registered, "speckit-selfheal")
+    const result = await selfheal.execute({ fix: false }, runtimeContext)
+
+    expect(result.metadata).toBeDefined()
+    expect(JSON.parse(JSON.stringify(result.metadata))).toStrictEqual(result.metadata)
+  })
+})
+
+describe("toPluginContent metadata sanitization", () => {
+  it("drops undefined values that would stall the V2 runtime part", () => {
+    const result = toPluginContent({
+      title: "Stub",
+      output: "out",
+      metadata: { total: 1, ghost: undefined, nested: { gone: undefined, kept: "x" }, list: [undefined, 2] },
+    })
+
+    expect(result.content).toBe("out")
+    expect(result.metadata).toEqual({ total: 1, nested: { kept: "x" }, list: [null, 2], title: "Stub" })
+    expect("ghost" in (result.metadata ?? {})).toBe(false)
+    expect(JSON.parse(JSON.stringify(result.metadata))).toStrictEqual(result.metadata)
+  })
+
+  it("keeps clean metadata intact and never overwrites an existing title", () => {
+    const result = toPluginContent({ title: "Stub", output: "o", metadata: { a: "b", title: "original" } })
+
+    expect(result.metadata).toEqual({ a: "b", title: "original" })
+  })
+
+  it("falls back to the raw metadata when serialization fails", () => {
+    const meta: Record<string, unknown> = {}
+    meta.self = meta
+
+    const result = toPluginContent({ output: "o", metadata: meta })
+
+    expect(result.metadata).toBe(meta)
+  })
+
+  it("returns the string form and the metadata-free shape unchanged", () => {
+    expect(toPluginContent("plain")).toEqual({ content: "plain" })
+    expect(toPluginContent({ output: "only" })).toEqual({ content: "only" })
   })
 })

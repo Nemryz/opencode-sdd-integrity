@@ -4,7 +4,7 @@ import path from "node:path"
 import validateTool from "../../speckit-validate"
 import scaffoldTool from "../../speckit-scaffold"
 import { mockContext, createTempWorktree, destroyTempWorktree, createConstitution } from "../helpers/setup"
-import { readSpecJson, writeSpecJson, makeSpecJson } from "../../shared/types"
+import { readSpecJson, writeSpecJson, makeSpecJson, readSession } from "../../shared/types"
 
 let worktree: string
 let ctx: ReturnType<typeof mockContext>
@@ -73,6 +73,22 @@ describe("validate with features", () => {
     const result = await validateTool.execute({ featureDir: "999-nonexistent" }, ctx)
     expect(result.metadata?.phase).toBe("spec")
   })
+})
+
+describe("validate featureDir safety", () => {
+  it.each(["specs/001-auth", "../escape", "a/b", "a\\b", ""])(
+    "rejects the malformed featureDir %s without touching the session",
+    async (bad) => {
+      await createConstitution(worktree)
+      await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
+      const before = await readSession(worktree)
+      const result = await validateTool.execute({ featureDir: bad }, ctx)
+
+      expect(result.title).toBe("Error")
+      expect(result.output).toContain("Invalid featureDir:")
+      expect(await readSession(worktree)).toStrictEqual(before)
+    },
+  )
 })
 
 describe("validate spec.json phase mismatches", () => {

@@ -194,3 +194,31 @@ Sessions whose tool-context `worktree` was `/` resolved every state path to the 
 **Fix:** `stripBom()` in `shared/io.ts` applied to every JSON parse site (session, config, spec.json, deltas index, guard config, perf, package.json, backup readers, plugin reads).
 
 **Test coverage:** `bom-tolerance.test.ts` reads BOM-prefixed config/session/spec.json and asserts no corruption warnings.
+
+### R-13: Undefined metadata values leave the V2 tool part stuck in running
+
+**Introduced in:** the health scan findings of `speckit-selfheal`
+**Fixed in:** current
+
+On OpenCode 2 a tool whose result metadata carries an `undefined` value never completes its tool part. The part stays `running` forever, the stream emits no tool event, and the model receives the synthetic text "Tool result missing", so `speckit-selfheal` looked broken even though it executed in roughly fifteen milliseconds (perfmon recorded every call and its duration).
+
+**Root cause:** the V2 runtime drops the part update when it serializes metadata that contains undefined values, and the audit loop built findings with `file: f.file as string | undefined`, leaving the key present with an undefined value whenever audit reported a finding without a file.
+
+**Evidence:** payload bisection against the real CLI during the capability verification. A stub result and the JSON-cleaned findings payload complete; the raw findings payload and a minimal `{ total, ghost: undefined }` both stall.
+
+**Fix:** findings only carry a file when audit reported one, and `toPluginContent` in `tools/plugins/speckit-tools.ts` JSON-cleans metadata before it reaches the runtime.
+
+**Test coverage:** `selfheal.test.ts` asserts metadata survives a JSON round trip and the steering finding carries no file key; `plugin-v2-tools.test.ts` covers top level, nested and array undefined values.
+
+### R-14: validate accepted a malformed featureDir and corrupted the session reference
+
+**Introduced in:** the `featureDir` argument of `speckit-validate`
+**Fixed in:** current
+
+Passing `featureDir: "specs/001-name"`, a natural habit for models, produced a false "spec missing | plan missing | tasks missing" report and persisted the broken value into `session.json`, downgrading the stored phase from `impl` to `spec`. Re-running validate with the bare `001-name` restored both values.
+
+**Root cause:** unlike `speckit-delta`, validate never checked the name with `isSafeFeatureDirName` before joining it to the specs directory and writing the session.
+
+**Fix:** validate rejects a path shaped `featureDir` with `Invalid featureDir: ...` before any session write, mirroring delta.
+
+**Test coverage:** `validate.test.ts` rejects prefixed, traversing, separator bearing and empty names, and asserts the session file stays untouched.

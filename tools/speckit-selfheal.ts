@@ -84,16 +84,20 @@ export default tool({
       const auditFindings = (auditResult.metadata?.findings ?? []) as Array<Record<string, unknown>>
       for (const f of auditFindings) {
         const cat = categorize(String(f.category ?? ""), String(f.severity ?? "info"))
-        findings.push({
+        const finding: SelfHealFinding = {
           id: `A-${findings.length + 1}`,
           source: "audit",
           severity: cat.severity,
           category: cat.category,
           message: String(f.message ?? ""),
-          file: f.file as string | undefined,
           originalSeverity: String(f.severity ?? ""),
           originalCategory: String(f.category ?? ""),
-        })
+        }
+        // Leaves the file out when audit reported none, since an undefined metadata value stalls the V2 runtime part.
+        if (typeof f.file === "string" && f.file.length > 0) {
+          finding.file = f.file
+        }
+        findings.push(finding)
       }
       auditOutput = auditResult.output
 

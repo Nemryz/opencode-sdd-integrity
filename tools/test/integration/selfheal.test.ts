@@ -65,6 +65,17 @@ describe("selfheal health scan", () => {
     }
   })
 
+  it("keeps metadata JSON-tight so the runtime can persist the tool part", async () => {
+    await scaffoldTool.execute({ featureName: "TestProj", template: "constitution" }, ctx)
+    const result = await selfhealTool.execute({}, ctx)
+    const meta = result.metadata as Record<string, unknown>
+    expect(JSON.parse(JSON.stringify(meta))).toStrictEqual(meta)
+    const findings = meta.findings as Array<Record<string, unknown>>
+    const noSteering = findings.find(f => f.message === "No steering directory (optional)")
+    expect(noSteering).toBeDefined()
+    expect("file" in (noSteering as Record<string, unknown>)).toBe(false)
+  })
+
   it("orders findings by severity (HIGH first)", async () => {
     await scaffoldTool.execute({ featureName: "TestProj", template: "constitution" }, ctx)
     const result = await selfhealTool.execute({}, ctx)

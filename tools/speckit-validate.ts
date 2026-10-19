@@ -21,6 +21,7 @@ import {
   sessionPath,
   withLock,
   clearCorruptionWarnings,
+  isSafeFeatureDirName,
 } from "./shared/types"
 
 export default tool({
@@ -51,6 +52,10 @@ export default tool({
           output: `Parent project detected at ${parentProject} without session. Do you want to continue?`,
           metadata: { parentProject, requiresConfirmation: true },
         }
+      }
+      // Mirrors the delta guard so a path shaped name never becomes the session feature reference.
+      if (args.featureDir !== undefined && !isSafeFeatureDirName(args.featureDir)) {
+        return { title: "Error", output: `Invalid featureDir: ${args.featureDir}` }
       }
       const toolResult = await withLock(sessionPath(projectRoot), async () => {
         const s = await readSession(projectRoot)

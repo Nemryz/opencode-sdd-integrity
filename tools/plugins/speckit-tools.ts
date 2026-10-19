@@ -37,11 +37,21 @@ const REGISTERED_TOOLS: ReadonlyArray<{ name: string; def: ToolDefinition }> = [
   { name: "speckit-validate", def: speckitValidate },
 ]
 
+// Drops undefined values that would leave the V2 runtime tool part stuck in running forever.
+function jsonSafeMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
+  try {
+    const clean = JSON.parse(JSON.stringify(metadata))
+    return clean !== null && typeof clean === "object" && !Array.isArray(clean) ? clean : {}
+  } catch {
+    return metadata
+  }
+}
+
 // Turns a V1 tool result into the structured content the V2 runtime expects.
-function toPluginContent(result: unknown): { content: string; metadata?: Record<string, unknown> } {
+export function toPluginContent(result: unknown): { content: string; metadata?: Record<string, unknown> } {
   if (typeof result === "string") return { content: result }
   const value = (result ?? {}) as { title?: string; output?: string; metadata?: Record<string, unknown> }
-  const metadata: Record<string, unknown> = { ...(value.metadata ?? {}) }
+  const metadata: Record<string, unknown> = jsonSafeMetadata(value.metadata ?? {})
   if (typeof value.title === "string" && value.title.length > 0 && metadata.title === undefined) {
     metadata.title = value.title
   }
