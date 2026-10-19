@@ -1,4 +1,4 @@
-# Tech Steering: opencode SDD Kit
+# Tech Steering: OpenCode SDD Integrity
 
 ## Stack
 

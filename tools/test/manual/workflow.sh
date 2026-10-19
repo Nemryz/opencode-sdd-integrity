@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Manual SDD workflow test — Linux / macOS / Git Bash
-# Run from the opencode-sdd-kit root directory:
+# Run from the OpenCode SDD Integrity root directory:
 #   bash tools/test/manual/workflow.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,7 +12,7 @@ cd "$KIT_DIR"
 
 echo ""
 echo "========================================"
-echo "  SDD Kit — Manual Workflow Test"
+echo "  OpenCode SDD Integrity — Manual Workflow Test"
 echo "========================================"
 echo ""
 

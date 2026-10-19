@@ -1,4 +1,4 @@
-# Product Steering: opencode SDD Kit
+# Product Steering: OpenCode SDD Integrity
 
 ## Purpose
 

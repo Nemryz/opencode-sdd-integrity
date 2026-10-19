@@ -4,7 +4,7 @@ on:
   push:
     branches: ["*"]
   pull_request:
-    branches: [master, main]
+    branches: [master, main, V1, V2]
 
 jobs:
   smoke:

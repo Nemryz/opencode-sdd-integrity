@@ -1,26 +1,26 @@
-# speckit-sdd Installer — Windows PowerShell 5.1+
-# Usage: irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.ps1 | iex
+# OpenCode SDD Integrity Installer — Windows PowerShell 5.1+
+# Usage: irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-integrity/V2/install.ps1 | iex
 # Or:    .\install.ps1 [-Ref <branch|tag>] [-Dir <path>] [-SkipDeps]
 # Options:
-#   -Ref <branch|tag>   Git ref to install, defaults to master and accepts V2 for the OpenCode 2 toolkit
+#   -Ref <branch|tag>   Git ref to install, defaults to V2 and accepts V1 for the OpenCode 1 toolkit
 #   -Dir <path>         Configuration directory, defaults to $env:USERPROFILE\.config\opencode
 #   -SkipDeps           Copy the files without running npm install
 
 param(
-    [string]$Ref = "master",
+    [string]$Ref = "V2",
     [string]$Dir = "$env:USERPROFILE\.config\opencode",
     [switch]$SkipDeps
 )
 
-$Repo      = "Nemryz/opencode-sdd-kit"
+$Repo      = "Nemryz/opencode-sdd-integrity"
 $ConfigDir = $Dir
-$TmpDir    = Join-Path ([System.IO.Path]::GetTempPath()) "opencode-sdd-kit-install"
-$CloneDir  = Join-Path $TmpDir "opencode-sdd-kit"
+$TmpDir    = Join-Path ([System.IO.Path]::GetTempPath()) "opencode-sdd-integrity-install"
+$CloneDir  = Join-Path $TmpDir "opencode-sdd-integrity"
 
 if (Test-Path $TmpDir) { Remove-Item -Recurse -Force $TmpDir }
 New-Item -ItemType Directory -Path $TmpDir -Force | Out-Null
 
-Write-Host "==> Cloning opencode-sdd-kit ($Ref)..."
+Write-Host "==> Cloning opencode-sdd-integrity ($Ref)..."
 git clone --depth 1 --branch $Ref "https://github.com/$Repo.git" $CloneDir
 
 Write-Host "==> Installing files..."
@@ -70,5 +70,5 @@ if ($SkipDeps) {
 Remove-Item -Recurse -Force $TmpDir
 
 Write-Host ""
-Write-Host "==> Done! opencode-sdd-kit installed to $ConfigDir"
+Write-Host "==> Done! opencode-sdd-integrity installed to $ConfigDir"
 Write-Host "    Restart opencode and run /status to verify."

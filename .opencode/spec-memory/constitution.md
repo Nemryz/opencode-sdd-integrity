@@ -1,6 +1,6 @@
 # Project Constitution
 
-> Governing principles for opencode-sdd-kit
+> Governing principles for opencode-sdd-integrity
 
 ## Article I: Simplicity First
 

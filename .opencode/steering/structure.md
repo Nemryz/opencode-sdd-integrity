@@ -1,4 +1,4 @@
-# Structure Steering: opencode SDD Kit
+# Structure Steering: OpenCode SDD Integrity
 
 ## Repository Layout
 

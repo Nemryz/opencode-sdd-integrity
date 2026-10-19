@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# speckit-sdd Installer — Linux / macOS / Git Bash
-# Usage: curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.sh | bash -s -- [options]
+# OpenCode SDD Integrity Installer — Linux / macOS / Git Bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-integrity/V2/install.sh | bash -s -- [options]
 # Or:   ./install.sh [options]
 # Options:
-#   --ref <branch|tag>   Git ref to install, defaults to master and accepts V2 for the OpenCode 2 toolkit
+#   --ref <branch|tag>   Git ref to install, defaults to V2 and accepts V1 for the OpenCode 1 toolkit
 #   --dir <path>         Configuration directory, defaults to ~/.config/opencode
 #   --skip-deps          Copy the files without running npm install
 #   -h, --help           Print this usage block
 
-REPO="Nemryz/opencode-sdd-kit"
-REF="master"
+REPO="Nemryz/opencode-sdd-integrity"
+REF="V2"
 CONFIG_DIR="${HOME}/.config/opencode"
 SKIP_DEPS=0
 TMP_DIR=$(mktemp -d)
@@ -36,8 +36,8 @@ CONFIG_DIR="${CONFIG_DIR/#\~/$HOME}"
 cleanup() { rm -rf "$TMP_DIR"; }
 trap cleanup EXIT
 
-echo "==> Cloning opencode-sdd-kit (${REF})..."
-git clone --depth 1 --branch "${REF}" "https://github.com/${REPO}.git" "${TMP_DIR}/opencode-sdd-kit"
+echo "==> Cloning opencode-sdd-integrity (${REF})..."
+git clone --depth 1 --branch "${REF}" "https://github.com/${REPO}.git" "${TMP_DIR}/opencode-sdd-integrity"
 
 echo "==> Installing files..."
 mkdir -p "${CONFIG_DIR}"
@@ -57,20 +57,20 @@ if [ -n "${BACKUP_DIR}" ]; then
   echo "    Previous files saved to ${BACKUP_DIR}"
 fi
 
-cp "${TMP_DIR}/opencode-sdd-kit/AGENTS.md" "${CONFIG_DIR}/AGENTS.md"
+cp "${TMP_DIR}/opencode-sdd-integrity/AGENTS.md" "${CONFIG_DIR}/AGENTS.md"
 if [ ! -f "${CONFIG_DIR}/opencode.jsonc" ]; then
-  cp "${TMP_DIR}/opencode-sdd-kit/opencode.jsonc.example" "${CONFIG_DIR}/opencode.jsonc"
+  cp "${TMP_DIR}/opencode-sdd-integrity/opencode.jsonc.example" "${CONFIG_DIR}/opencode.jsonc"
 fi
-cp "${TMP_DIR}/opencode-sdd-kit/package.json" "${CONFIG_DIR}/package.json"
-cp "${TMP_DIR}/opencode-sdd-kit/package-lock.json" "${CONFIG_DIR}/package-lock.json" 2>/dev/null || true
+cp "${TMP_DIR}/opencode-sdd-integrity/package.json" "${CONFIG_DIR}/package.json"
+cp "${TMP_DIR}/opencode-sdd-integrity/package-lock.json" "${CONFIG_DIR}/package-lock.json" 2>/dev/null || true
 
-cp -r "${TMP_DIR}/opencode-sdd-kit/agents" "${CONFIG_DIR}/"
-cp -r "${TMP_DIR}/opencode-sdd-kit/commands" "${CONFIG_DIR}/"
-cp -r "${TMP_DIR}/opencode-sdd-kit/templates" "${CONFIG_DIR}/"
-cp -r "${TMP_DIR}/opencode-sdd-kit/skills" "${CONFIG_DIR}/"
-cp -r "${TMP_DIR}/opencode-sdd-kit/tools" "${CONFIG_DIR}/"
-cp -r "${TMP_DIR}/opencode-sdd-kit/plugins" "${CONFIG_DIR}/"
-cp -r "${TMP_DIR}/opencode-sdd-kit/docs" "${CONFIG_DIR}/"
+cp -r "${TMP_DIR}/opencode-sdd-integrity/agents" "${CONFIG_DIR}/"
+cp -r "${TMP_DIR}/opencode-sdd-integrity/commands" "${CONFIG_DIR}/"
+cp -r "${TMP_DIR}/opencode-sdd-integrity/templates" "${CONFIG_DIR}/"
+cp -r "${TMP_DIR}/opencode-sdd-integrity/skills" "${CONFIG_DIR}/"
+cp -r "${TMP_DIR}/opencode-sdd-integrity/tools" "${CONFIG_DIR}/"
+cp -r "${TMP_DIR}/opencode-sdd-integrity/plugins" "${CONFIG_DIR}/"
+cp -r "${TMP_DIR}/opencode-sdd-integrity/docs" "${CONFIG_DIR}/"
 
 if [ "${SKIP_DEPS}" = "1" ]; then
   echo "==> Skipping dependencies (--skip-deps)"
@@ -81,5 +81,5 @@ else
 fi
 
 echo ""
-echo "==> Done! opencode-sdd-kit installed to ${CONFIG_DIR}"
+echo "==> Done! opencode-sdd-integrity installed to ${CONFIG_DIR}"
 echo "    Restart opencode and run /status to verify."

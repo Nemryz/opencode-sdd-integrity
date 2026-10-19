@@ -1,6 +1,6 @@
 # OpenCode SDD Niche Positioning
 
-This document compares opencode SDD Kit with the other spec-driven development kits a user could adopt inside OpenCode, so the comparison stays with the code instead of living in a chat log.
+This document compares OpenCode SDD Integrity with the other spec-driven development kits a user could adopt inside OpenCode, so the comparison stays with the code instead of living in a chat log.
 All numbers were collected on 2026-10-19 from public repositories, the npm registry, and PyPI.
 Competitor capabilities are quoted from their own public documentation, and the statements about this toolkit come from the capability verification described near the end of the document.
 
@@ -15,7 +15,7 @@ Three groups matter when a user chooses an SDD workflow for OpenCode.
 
 | Kit | Stars | Weekly installs | Distribution | State and recovery | Gates and enforcement | Verification |
 |-----|-------|-----------------|--------------|--------------------|-----------------------|--------------|
-| opencode SDD Kit (this repository) | 1 | Not on npm | Shell installer plus plugin wiring | Zod-validated session and spec state with atomic writes and hashes, checksummed backups, verifiable snapshots with restore drills and journal | Per-artifact approvals with explicit confirmation, file guard that blocks editor and shell writes to state, per-phase pre-validation | 2,990 tests, CI on three operating systems, install and smoke end-to-end jobs, Stryker mutation testing, V1 and V2 wiring from one package with V2 verified end to end in a real 2.0.32 runtime |
+| OpenCode SDD Integrity (this repository) | 1 | Not on npm | Shell installer plus plugin wiring | Zod-validated session and spec state with atomic writes and hashes, checksummed backups, verifiable snapshots with restore drills and journal | Per-artifact approvals with explicit confirmation, file guard that blocks editor and shell writes to state, per-phase pre-validation | 3,153 tests, CI on three operating systems, install and smoke end-to-end jobs, Stryker mutation testing, V1 and V2 wiring from one package with V2 verified end to end in a real 2.0.32 runtime |
 | GoopSpec | 50 | 1 | npm plugin and Bun CLI | SQLite state, checkpoints, background daemon, cross-project memory | Two mandatory human contract gates, a specialist agent orchestration layer | 1,660 tests as published, dual V1 and V2 plugin contract declared, repository quiet since 2026-08-12 |
 | Conductor | 131 | 54 | npm plugin (v1.32) | Per-track metadata file and git-aware revert | Context, spec, plan, implement lifecycle without a state integrity layer | No visible suite, last push 2026-03-02 |
 | opencode-sdd | 4 | 14 | npm plugin with an install wizard | Markdown artifacts without a documented recovery layer | Six subagents, a clean session per phase, retry-capped auto-implement, recorded human decisions | Mock-LLM end-to-end suite plus manual QA with frontier models, active |

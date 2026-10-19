@@ -1,5 +1,5 @@
 # Manual SDD workflow test — Windows PowerShell 5.1+
-# Run from the opencode-sdd-kit root directory:
+# Run from the OpenCode SDD Integrity root directory:
 #   .\tools\test\manual\workflow.ps1
 
 $KitDir = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
@@ -8,7 +8,7 @@ Push-Location $KitDir
 
 Write-Host ""
 Write-Host "========================================"
-Write-Host "  SDD Kit - Manual Workflow Test"
+Write-Host "  OpenCode SDD Integrity - Manual Workflow Test"
 Write-Host "========================================"
 Write-Host ""
 

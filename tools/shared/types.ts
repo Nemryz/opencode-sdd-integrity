@@ -98,7 +98,7 @@ export async function getProjectRootWarnings(root: string): Promise<ProjectRootW
   if (normalizedFolded === kitDirFolded || normalizedFolded.startsWith(kitDirFolded + "/")) {
     warnings.push({
       type: "kit-installation",
-      message: "You are running from the opencode-sdd-kit installation directory. This may cause unexpected behavior because the kit could modify its own configuration files. Do you want to continue?",
+      message: "You are running from the opencode-sdd-integrity installation directory. This may cause unexpected behavior because the kit could modify its own configuration files. Do you want to continue?",
     })
   }
 

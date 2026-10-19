@@ -36,6 +36,15 @@ async function existsInRepo(relPath: string): Promise<boolean> {
   return fs.stat(path.join(REPO_ROOT, ...relPath.split("/"))).then(() => true).catch(() => false)
 }
 
+async function readPkgName(): Promise<string> {
+  const pkg = JSON.parse(await readRepoFile("package.json")) as { name: string }
+  return pkg.name
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
 // Repo hygiene checks only make sense inside a git checkout because they rely on the tracked file list.
 const hasGit = ownedRepoFiles().size > 0
 
@@ -144,11 +153,12 @@ describe("shipped surface stays consistent", () => {
       "docs",
     ])
 
+    const slug = await readPkgName()
     const shell = await readRepoFile("install.sh")
     const copyLines = shell.split("\n").filter(line => /^\s*cp\b/.test(line))
     expect(copyLines.length).toBeGreaterThan(0)
     for (const line of copyLines) {
-      const match = line.match(/opencode-sdd-kit[\\/]([\w.-]+)/)
+      const match = line.match(new RegExp(`${escapeRegExp(slug)}[\\\\/]([\\w.-]+)`))
       if (!match) continue
       expect(allowed.has(match[1]), `install.sh copies unexpected path: ${match[1]}`).toBe(true)
     }
@@ -162,8 +172,9 @@ describe("shipped surface stays consistent", () => {
   })
 
   it("install scripts ship the plugins directory", async () => {
+    const slug = await readPkgName()
     const shell = await readRepoFile("install.sh")
-    expect(shell, "install.sh must copy the plugins directory").toMatch(/opencode-sdd-kit[\\/]plugins"/)
+    expect(shell, "install.sh must copy the plugins directory").toMatch(new RegExp(`${escapeRegExp(slug)}[\\\\/]plugins"`))
 
     const powershell = await readRepoFile("install.ps1")
     expect(powershell, "install.ps1 must copy the plugins directory").toContain('Join-Path $CloneDir "plugins"')
@@ -205,6 +216,7 @@ describe("shipped surface stays consistent", () => {
       "--skip-deps", "-SkipDeps",
       "verify-install.sh", "verify-install.ps1",
       "--backup", "-Backup",
+      "tools/install/cli.mjs", "npm-linux", "npm-windows",
     ]
     for (const marker of markers) {
       expect(workflow, `install.yml must mention ${marker}`).toContain(marker)
@@ -217,6 +229,31 @@ describe("shipped surface stays consistent", () => {
     expect(readme).toContain("discovers every direct plugin file inside the plugins folder of the configuration directory")
     // The plugins array only accepts directories and packages, because file paths are skipped with a warning.
     expect(readme).toContain("directories or package names, because file paths are ignored")
+  })
+})
+
+describe("naming hygiene keeps one canonical identity", () => {
+  it.skipIf(!hasGit)("tracked files never mention the retired slug", async () => {
+    const retired = ["opencode", "sdd", "kit"].join("-")
+    const offenders: string[] = []
+    for (const file of [...ownedRepoFiles()]) {
+      const content = await readRepoFile(file)
+      if (content.includes(retired)) offenders.push(file)
+    }
+    expect(offenders, `the retired slug survives in: ${offenders.join(", ")}`).toEqual([])
+  })
+
+  it("installers, the README and the root warning point at the package name", async () => {
+    const slug = await readPkgName()
+    expect(await readRepoFile("install.sh")).toContain(`REPO="Nemryz/${slug}"`)
+    expect(await readRepoFile("install.ps1")).toContain(`Nemryz/${slug}`)
+    expect(await readRepoFile("README.md")).toContain(`github.com/Nemryz/${slug}`)
+    expect(await readRepoFile("tools/shared/types.ts")).toContain(`${slug} installation directory`)
+  })
+
+  it("installers default to the V2 branch", async () => {
+    expect(await readRepoFile("install.sh")).toContain('REF="V2"')
+    expect(await readRepoFile("install.ps1")).toContain('[string]$Ref = "V2"')
   })
 })
 

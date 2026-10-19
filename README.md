@@ -1,8 +1,8 @@
-# opencode SDD Kit
+# OpenCode SDD Integrity
 
-[![CI](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml)
+[![CI](https://github.com/Nemryz/opencode-sdd-integrity/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-integrity/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-3122-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-3153-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -12,7 +12,7 @@ The system operates through sequential artifacts, phase gates, and automated qua
 
 ## What Is This
 
-opencode SDD Kit is a comprehensive development framework built as a collection of TypeScript tools, runtime plugins, and agent orchestration rules. It transforms the opencode CLI into a complete specification-driven development environment.
+OpenCode SDD Integrity is a comprehensive development framework built as a collection of TypeScript tools, runtime plugins, and agent orchestration rules. It transforms the opencode CLI into a complete specification-driven development environment.
 
 The toolkit manages the entire lifecycle of a software feature, from the moment you describe what you want to build, through the planning and task breakdown phases, until the implementation is complete and tested. Along the way, it maintains state, creates backups, validates consistency, and ensures that nothing falls through the cracks.
 
@@ -182,7 +182,8 @@ The toolkit organizes its components into a clear directory hierarchy that separ
   tools/                 TypeScript tool modules (16 files)
   tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot/)
   tools/plugins/         Runtime plugins (3 files)
-  tools/test/            Test suite (112 test files)
+  tools/install/         npm installer CLI and its surface contract
+  tools/test/            Test suite (113 test files)
   templates/             Artifact templates (12 templates)
   docs/                  Reference documentation
 ```
@@ -200,6 +201,8 @@ The toolkit organizes its components into a clear directory hierarchy that separ
 **tools/shared/** provides the foundation modules used by all tools, including file I/O operations with backup and checksum support, Zod schemas for data validation, and TypeScript type definitions.
 
 **tools/plugins/** houses the runtime plugins that extend the toolkit's functionality through event interception and automatic processing, together with the OpenCode 2 registration that exposes the seventeen tools through the plugin API.
+
+**tools/install/** carries the npm installer CLI, which is plain ESM so the published package runs it without a build step, and `surface.json`, which owns the copy sets and the verify paths that the install scripts, the verify scripts and the CLI must all agree on.
 
 **tools/test/** contains the complete test suite organized into unit, integration, and mutation test categories.
 
@@ -402,7 +405,7 @@ The toolkit requires opencode to be installed first. Follow the instructions at 
 Clone this repository into your opencode configuration directory:
 
 ```
-git clone https://github.com/Nemryz/opencode-sdd-kit.git ~/.config/opencode
+git clone https://github.com/Nemryz/opencode-sdd-integrity.git ~/.config/opencode
 cd ~/.config/opencode && npm install
 ```
 
@@ -413,26 +416,26 @@ Both scripts clone the repository into the configuration directory, keep the pre
 **Windows PowerShell:**
 
 ```
-irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.ps1 | iex
+irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-integrity/V2/install.ps1 | iex
 ```
 
 **Linux or macOS:**
 
 ```
-curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-integrity/V2/install.sh | bash
 ```
 
-The scripts accept the same options, and the example pair below installs the branch that supports OpenCode 2:
+The scripts accept the same options and default to the V2 branch, which supports OpenCode 2. The example pair below installs the OpenCode 1 toolkit instead:
 
 | Option | PowerShell | Shell | Default | Purpose |
 |--------|------------|-------|---------|---------|
-| Git ref | `-Ref` | `--ref` | `master` | Branch or tag to install, such as `V2` |
+| Git ref | `-Ref` | `--ref` | `V2` | Branch or tag to install, such as `V1` for the OpenCode 1 toolkit |
 | Config dir | `-Dir` | `--dir` | `~/.config/opencode` | Directory that receives the toolkit |
 | Skip deps | `-SkipDeps` | `--skip-deps` | off | Copy the files without running `npm install` |
 
 ```
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/V2/install.ps1))) -Ref V2
-curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/V2/install.sh | bash -s -- --ref V2
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-integrity/V2/install.ps1))) -Ref V1
+curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-integrity/V2/install.sh | bash -s -- --ref V1
 ```
 
 ### Verification
@@ -670,7 +673,7 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 3122 automated tests distributed across 112 test files, and every layer answers a different question about the same system.
+The project includes 3153 automated tests distributed across 113 test files, and every layer answers a different question about the same system.
 `docs/testing.md` holds the conventions, the per module matrix inventory, and the stability rules that this section only summarizes.
 
 ### Test Types
@@ -689,7 +692,7 @@ The project includes 3122 automated tests distributed across 112 test files, and
 | Mutation | `*-mutation.test.ts` and `*-kill-survivors.test.ts` | Do the tests notice when the logic changes |
 | Shipped surface | `tools/test/integration/shipped-surface.test.ts` | Does the packaging still describe the repository truthfully |
 | Smoke | `tools/test/smoke/` | Does the real OpenCode 2 CLI load the shipped wiring |
-| Install | `tools/test/install/` | Do the installers leave the promised surface and back up what they replace |
+| Install | `tools/test/install/` | Do the installers and the npm CLI leave the promised surface and back up what they replace |
 
 Content assertion and phase gate tests live in the unit and integration directories, where they verify that skills, templates, commands, and their prerequisites keep the structure the agents depend on.
 
