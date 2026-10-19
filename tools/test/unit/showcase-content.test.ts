@@ -12,6 +12,11 @@ import { DEFAULT_CONFIG, isProtectedFile } from "../../plugins/speckit-guard"
 const SHOWCASE = repoPath("docs", "showcase.md")
 const DEMO = "001-showcase-demo"
 
+// Git checks out the doc with CRLF on Windows runners, so assertions compare LF-normalized text.
+async function readShowcase(): Promise<string> {
+  return (await fs.readFile(SHOWCASE, "utf-8")).replace(/\r\n/g, "\n")
+}
+
 let worktree: string
 let ctx: ReturnType<typeof mockContext>
 
@@ -46,7 +51,7 @@ afterAll(async () => {
 
 describe("showcase content", () => {
   it("keeps the advertised interface counts in sync with the repository", async () => {
-    const doc = await fs.readFile(SHOWCASE, "utf-8")
+    const doc = await readShowcase()
     const registered: Array<{ name: string }> = []
     await speckitTools.setup({
       location: { directory: worktree, project: { id: "showcase", directory: worktree, canonical: worktree } },
@@ -64,7 +69,7 @@ describe("showcase content", () => {
   })
 
   it("matches the captured evidence status output", async () => {
-    const doc = await fs.readFile(SHOWCASE, "utf-8")
+    const doc = await readShowcase()
     const status = await evidenceTool.execute({ command: "status", featureDir: DEMO }, ctx)
 
     expect(status.output).toBe(
@@ -78,7 +83,7 @@ describe("showcase content", () => {
   })
 
   it("matches the captured evidence audit findings", async () => {
-    const doc = await fs.readFile(SHOWCASE, "utf-8")
+    const doc = await readShowcase()
     const result = await auditTool.execute({}, ctx)
     const findings = ((result.metadata?.findings ?? []) as AuditFinding[])
       .filter(finding => finding.category.startsWith("evidence-"))
@@ -91,14 +96,14 @@ describe("showcase content", () => {
   })
 
   it("matches the captured doom loop messages", async () => {
-    const doc = await fs.readFile(SHOWCASE, "utf-8")
+    const doc = await readShowcase()
 
     expect(doc).toContain(warningMessage("bash", 3, 5))
     expect(doc).toContain(blockMessage("bash", 5))
   })
 
   it("matches the captured guard reason", async () => {
-    const doc = await fs.readFile(SHOWCASE, "utf-8")
+    const doc = await readShowcase()
     const target = `specs/${DEMO}/spec.json`
     const reason = isProtectedFile(target, DEFAULT_CONFIG)
 
@@ -107,7 +112,7 @@ describe("showcase content", () => {
   })
 
   it("matches the captured corrupt evidence refusal", async () => {
-    const doc = await fs.readFile(SHOWCASE, "utf-8")
+    const doc = await readShowcase()
     await fs.writeFile(path.join(worktree, "specs", DEMO, "evidence.json"), "{broken", "utf-8")
     const result = await evidenceTool.execute({ command: "status", featureDir: DEMO }, ctx)
 
