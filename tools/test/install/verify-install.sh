@@ -42,8 +42,11 @@ expect_path templates/spec-template.md
 expect_path templates/constitution-template.md
 expect_path skills/speckit-constitution/SKILL.md
 expect_path tools/speckit-status.ts
+expect_path tools/speckit-evidence.ts
 expect_path plugins/speckit-tools.ts
+expect_path plugins/speckit-doom-loop.ts
 expect_path docs/testing.md
+expect_path docs/showcase.md
 
 if [ "${MODE}" = "--backup" ]; then
   BACKUP_DIR=""

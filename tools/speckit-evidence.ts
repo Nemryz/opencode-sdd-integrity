@@ -54,10 +54,18 @@ function corruptEvidenceError(featureDir: string) {
   }
 }
 
-async function writeEvidenceFile(file: EvidenceFile, featureDir: string, projectRoot: string): Promise<void> {
+type AppendResult = { ok: true; file: EvidenceFile } | { ok: false }
+
+// Serializes the whole read, append and write so parallel task records cannot lose entries.
+async function appendEvidence(featureDir: string, projectRoot: string, entry: EvidenceEntry): Promise<AppendResult> {
   const fp = evidencePath(featureDir)
-  await withLock(fp, async () => {
-    await writeWithBackup(fp, JSON.stringify(file, null, 2), projectRoot)
+  return withLock(fp, async () => {
+    const read = await readEvidenceFile(featureDir)
+    if (!read.ok) return { ok: false }
+    const entries = trimEvidenceEntries([...read.file.entries, entry], EVIDENCE_MAX_ENTRIES)
+    const updated: EvidenceFile = { feature: read.file.feature, updated_at: entry.at, entries }
+    await writeWithBackup(fp, JSON.stringify(updated, null, 2), projectRoot)
+    return { ok: true, file: updated }
   })
 }
 
@@ -73,8 +81,6 @@ async function handleRecord(featureDir: string, projectRoot: string, args: Recor
   if (!testCommand) {
     return { title: "Error", output: "testCommand is required. Pass the exact command that was run." }
   }
-  const read = await readEvidenceFile(featureDir)
-  if (!read.ok) return corruptEvidenceError(featureDir)
 
   const entry: EvidenceEntry = {
     task: (args.task ?? "feature").trim() || "feature",
@@ -84,15 +90,16 @@ async function handleRecord(featureDir: string, projectRoot: string, args: Recor
   }
   if (args.note && args.note.trim()) entry.note = args.note.trim()
 
-  const entries = trimEvidenceEntries([...read.file.entries, entry], EVIDENCE_MAX_ENTRIES)
-  const updated: EvidenceFile = { feature: read.file.feature, updated_at: entry.at, entries }
-  await writeEvidenceFile(updated, featureDir, projectRoot)
+  const appended = await appendEvidence(featureDir, projectRoot, entry)
+  if (!appended.ok) return corruptEvidenceError(featureDir)
+  const entries = appended.file.entries
 
   const sj = await readSpecJson(featureDir)
   const next = approvalAwareNextStep(sj, sj?.phase === "complete" ? "/review or start a new feature" : "/impl (continue)")
+  const entryLabel = entries.length === 1 ? "entry" : "entries"
   return {
     title: `Evidence: ${entry.task}`,
-    output: `${entry.task}: ${testCommand} recorded with exit ${entry.exit_code} (${entries.length} entries).  Next: ${next}`,
+    output: `${entry.task}: ${testCommand} recorded with exit ${entry.exit_code} (${entries.length} ${entryLabel}).  Next: ${next}`,
     metadata: { task: entry.task, exitCode: entry.exit_code, entries: entries.length },
   }
 }
@@ -116,7 +123,7 @@ async function handleStatus(featureDir: string, featureName: string) {
   if (taskIds.length === 0) {
     return {
       title: `Evidence: ${featureName}`,
-      output: `Evidence: ${entries.length} entries, no task IDs found in tasks.md`,
+      output: `Evidence: ${entries.length} ${entries.length === 1 ? "entry" : "entries"}, no task IDs found in tasks.md`,
       metadata: { entries: entries.length, tasks: 0 },
     }
   }
@@ -135,7 +142,7 @@ async function handleStatus(featureDir: string, featureName: string) {
     if (last.exit_code !== 0) failing.push(`${id} (${last.test_command}, exit ${last.exit_code})`)
   }
 
-  const lines = [`Evidence: ${covered}/${taskIds.length} tasks covered (${entries.length} entries)`]
+  const lines = [`Evidence: ${covered}/${taskIds.length} tasks covered (${entries.length} ${entries.length === 1 ? "entry" : "entries"})`]
   if (missing.length > 0) lines.push(`  missing: ${missing.join(", ")}`)
   if (failing.length > 0) lines.push(`  failing latest: ${failing.join(" | ")}`)
 

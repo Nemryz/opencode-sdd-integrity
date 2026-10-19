@@ -342,7 +342,7 @@ Examples:
 5. If the user asks for implementation while in the `spec` agent, suggest switching to `build`.
 6. All artifacts are written in English by default.
 7. The `[NEEDS CLARIFICATION]` marker means stop and ask the user before proceeding.
-8. NEVER edit `spec.json`, `session.json`, `config.json` or `guard.json` by hand. Use the suite tools; the guard blocks direct edits to critical state files. The constitution is editable only while it still contains template placeholders — once filled it is protected, and editing it again requires `speckit-guard remove` with `confirmed: true` after the user approves. `speckit-guard off`/`remove` always require asking the user first, then re-invoking with `confirmed: true`.
+8. NEVER edit `spec.json`, `session.json`, `config.json`, `guard.json` or a feature's `evidence.json` by hand. Use the suite tools; the guard blocks direct edits to critical state files. The constitution is editable only while it still contains template placeholders — once filled it is protected, and editing it again requires `speckit-guard remove` with `confirmed: true` after the user approves. `speckit-guard off`/`remove` always require asking the user first, then re-invoking with `confirmed: true`.
 9. If a phase gate blocks, tell the user which `/approve <artifact>` to run. Never self-approve — approval requires explicit user confirmation.
 10. Resolve the model per session. `agent.<name>.model` is only a preference for when the agent is selected; switching agents does not change an existing session's model.
 

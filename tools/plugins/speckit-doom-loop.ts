@@ -205,7 +205,7 @@ function safeInspect(tracker: DoomLoopTracker, sessionID: string, tool: string, 
   }
 }
 
-const doomLoopServer: V1Plugin = async (input, options) => {
+const doomLoopServer: V1Plugin = async (input, options): Promise<Awaited<ReturnType<V1Plugin>>> => {
   const projectRoot = pickProjectRoot(input) ?? input.worktree
   await markPluginLoaded(projectRoot, "speckit-doom-loop")
 

@@ -75,7 +75,7 @@ OpenSpec takes the opposite stance on purpose, with an explicit philosophy again
 [INF] steering: No steering directory (optional)
 [INF] features: 1 feature(s) found: 001-showcase-demo
 [WRN] evidence-failing: 001-showcase-demo: latest evidence for T-002 is a failing run (npx vitest run, exit 1)
-[INF] evidence-gap: 001-showcase-demo: 1 task(s) have no test evidence (T-003)
+[INF] evidence-gap: 001-showcase-demo: 1 task has no test evidence (T-003)
 ```
 
 `/snapshot create` ends by naming the verification command that proves the snapshot is usable.

@@ -9,6 +9,8 @@ import {
   isProtectedByPhase,
   addDenial,
   DEFAULT_CONFIG,
+  GUARD_CONFIG_VERSION,
+  migrateGuardConfig,
   type GuardConfig,
 } from "../../plugins/speckit-guard"
 
@@ -220,6 +222,41 @@ describe("speckit-guard unit", () => {
       const config: GuardConfig = { ...DEFAULT_CONFIG, denials: [] }
       addDenial(config, "test.md", "reason")
       expect(config.denials[0].timestamp).toBeDefined()
+    })
+  })
+
+  describe("migrateGuardConfig", () => {
+    it("adds evidence protection to a v1 config and bumps the version", () => {
+      const legacy: GuardConfig = {
+        ...DEFAULT_CONFIG,
+        version: 1,
+        protectedFiles: DEFAULT_CONFIG.protectedFiles.filter(file => file !== "evidence.json"),
+      }
+
+      const migrated = migrateGuardConfig(legacy)
+
+      expect(migrated.version).toBe(GUARD_CONFIG_VERSION)
+      expect(migrated.protectedFiles).toContain("evidence.json")
+      expect(legacy.protectedFiles).not.toContain("evidence.json")
+    })
+
+    it("does not duplicate evidence.json when the v1 config already lists it", () => {
+      const legacy: GuardConfig = { ...DEFAULT_CONFIG, version: 1 }
+      const migrated = migrateGuardConfig(legacy)
+
+      expect(migrated.protectedFiles.filter(file => file === "evidence.json")).toHaveLength(1)
+    })
+
+    it("honors a v2 config that removed evidence protection", () => {
+      const current: GuardConfig = {
+        ...DEFAULT_CONFIG,
+        protectedFiles: DEFAULT_CONFIG.protectedFiles.filter(file => file !== "evidence.json"),
+      }
+
+      const migrated = migrateGuardConfig(current)
+
+      expect(migrated.version).toBe(GUARD_CONFIG_VERSION)
+      expect(migrated.protectedFiles).not.toContain("evidence.json")
     })
   })
 })

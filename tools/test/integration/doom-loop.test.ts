@@ -183,6 +183,16 @@ describe("doom loop option parsing", () => {
       { warnAt: 2.9, blockAt: 4.7 },
       { ...DEFAULT_DOOM_LOOP_OPTIONS, warnAt: 2, blockAt: 4 },
     ],
+    [
+      "non finite numbers",
+      { warnAt: Number.NaN, blockAt: Number.POSITIVE_INFINITY, resetAfterMs: Number.NEGATIVE_INFINITY },
+      DEFAULT_DOOM_LOOP_OPTIONS,
+    ],
+    [
+      "numeric strings",
+      { warnAt: "3", blockAt: "5", resetAfterMs: "1000", maxEntries: "4" },
+      DEFAULT_DOOM_LOOP_OPTIONS,
+    ],
     ["a non boolean enabled flag", { enabled: "yes" }, DEFAULT_DOOM_LOOP_OPTIONS],
   ])("reads %s", (_label, raw, expected) => {
     expect(parseDoomLoopOptions(raw)).toEqual(expected)

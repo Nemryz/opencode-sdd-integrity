@@ -8,6 +8,7 @@ import {
   cloneConfig,
   guardBasename,
   isProtectedFile,
+  migrateGuardConfig,
   normalizeGuardPath,
   type GuardConfig,
 } from "./plugins/speckit-guard"
@@ -90,7 +91,7 @@ export default tool({
           return cloneConfig(DEFAULT_CONFIG)
         }
         const result = GuardConfigSchema.safeParse({ ...DEFAULT_CONFIG, ...(parsed as object) })
-        return result.success ? result.data : cloneConfig(DEFAULT_CONFIG)
+        return result.success ? migrateGuardConfig(result.data) : cloneConfig(DEFAULT_CONFIG)
       }
 
       async function writeConfig(config: GuardConfig): Promise<void> {

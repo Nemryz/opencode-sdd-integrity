@@ -229,6 +229,7 @@ async function auditFeature(
           })
         } else {
           const taskIds = collectTaskIds(tasksContent)
+          const taskSet = new Set(taskIds)
           const missing: string[] = []
           for (const id of taskIds) {
             const own = file.entries.filter(e => e.task === id)
@@ -252,7 +253,17 @@ async function auditFeature(
             findings.push({
               severity: "info",
               category: "evidence-gap",
-              message: `${dirName}: ${missing.length} task(s) have no test evidence (${shown}${suffix})`,
+              message: `${dirName}: ${missing.length} ${missing.length === 1 ? "task has" : "tasks have"} no test evidence (${shown}${suffix})`,
+              file: evidenceFp,
+            })
+          }
+          const featureEntries = file.entries.filter(e => !taskSet.has(e.task))
+          const lastFeature = featureEntries[featureEntries.length - 1]
+          if (lastFeature && lastFeature.exit_code !== 0) {
+            findings.push({
+              severity: "warn",
+              category: "evidence-failing",
+              message: `${dirName}: latest feature-level evidence is a failing run (${lastFeature.test_command}, exit ${lastFeature.exit_code})`,
               file: evidenceFp,
             })
           }

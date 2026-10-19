@@ -61,6 +61,8 @@ describe("matrix: isProtectedFile", () => {
     ["config", ".opencode/spec-memory/config.json", true],
     ["guard config", ".opencode/guard.json", true],
     ["feature spec.json", "specs/001-a/spec.json", true],
+    ["feature evidence.json", "specs/001-a/evidence.json", true],
+    ["windows feature evidence", "specs\\001-a\\evidence.json", true],
     ["absolute constitution", "C:/dev/app/.opencode/spec-memory/constitution.md", true],
     ["windows feature spec", "specs\\001-a\\spec.json", true],
     ["unrelated source file", "src/index.ts", false],

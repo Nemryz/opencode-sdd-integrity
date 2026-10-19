@@ -36,8 +36,10 @@ type SpecJson = {
   }
 }
 
+export const GUARD_CONFIG_VERSION = 2
+
 export const DEFAULT_CONFIG: GuardConfig = {
-  version: 1,
+  version: GUARD_CONFIG_VERSION,
   enabled: true,
   debug: false,
   protectedFiles: [
@@ -46,6 +48,7 @@ export const DEFAULT_CONFIG: GuardConfig = {
     ".opencode/spec-memory/config.json",
     ".opencode/guard.json",
     "spec.json",
+    "evidence.json",
   ],
   protectedAfterApproval: ["spec.json", "spec.md", "plan.md", "tasks.md"],
   protectedByPhase: {
@@ -88,6 +91,14 @@ export function cloneConfig(config: GuardConfig): GuardConfig {
     stats: { ...config.stats },
     denials: config.denials.map(d => ({ ...d })),
   }
+}
+
+// Upgrades a stored v1 config once so the evidence log gains protection on existing installs.
+export function migrateGuardConfig(config: GuardConfig): GuardConfig {
+  if (config.version >= GUARD_CONFIG_VERSION) return config
+  const protectedFiles = [...config.protectedFiles]
+  if (!protectedFiles.includes("evidence.json")) protectedFiles.push("evidence.json")
+  return { ...config, version: GUARD_CONFIG_VERSION, protectedFiles }
 }
 
 const FILE_TOOLS = ["write", "edit", "apply_patch", "patch"]
@@ -207,7 +218,7 @@ async function createGuardOps(projectRoot: string): Promise<GuardOps> {
       return cloneConfig(DEFAULT_CONFIG)
     }
     const result = GuardConfigSchema.safeParse({ ...DEFAULT_CONFIG, ...(parsed as object) })
-    return result.success ? result.data : cloneConfig(DEFAULT_CONFIG)
+    return result.success ? migrateGuardConfig(result.data) : cloneConfig(DEFAULT_CONFIG)
   }
 
   async function writeConfig(config: GuardConfig): Promise<void> {

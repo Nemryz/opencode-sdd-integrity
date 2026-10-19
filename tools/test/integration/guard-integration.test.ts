@@ -3,6 +3,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import os from "node:os"
 import guardTool from "../../speckit-guard"
+import { DEFAULT_CONFIG } from "../../plugins/speckit-guard"
 
 describe("speckit-guard integration", () => {
   let tmpDir: string
@@ -38,6 +39,32 @@ describe("speckit-guard integration", () => {
     it("shows enabled by default", async () => {
       const result = await runTool({ subcommand: "status" })
       expect(result.output).toContain("ENABLED")
+    })
+
+    it("protects evidence.json when upgrading a v1 config", async () => {
+      const legacy = {
+        ...DEFAULT_CONFIG,
+        version: 1,
+        protectedFiles: DEFAULT_CONFIG.protectedFiles.filter(file => file !== "evidence.json"),
+      }
+      await fs.writeFile(path.join(tmpDir, ".opencode", "guard.json"), JSON.stringify(legacy), "utf-8")
+
+      const result = await runTool({ subcommand: "status" })
+
+      expect(result.output).toContain("evidence.json")
+    })
+
+    it("honors a v2 config that intentionally removed evidence.json", async () => {
+      const current = {
+        ...DEFAULT_CONFIG,
+        version: 2,
+        protectedFiles: DEFAULT_CONFIG.protectedFiles.filter(file => file !== "evidence.json"),
+      }
+      await fs.writeFile(path.join(tmpDir, ".opencode", "guard.json"), JSON.stringify(current), "utf-8")
+
+      const result = await runTool({ subcommand: "status" })
+
+      expect(result.output).not.toContain("evidence.json")
     })
   })
 

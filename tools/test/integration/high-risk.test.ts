@@ -9,6 +9,7 @@ import cleanTool from "../../speckit-clean"
 import statusTool from "../../speckit-status"
 import configTool from "../../speckit-config"
 import complexityTool from "../../speckit-complexity"
+import evidenceTool from "../../speckit-evidence"
 import {
   mockContext,
   createTempWorktree,
@@ -50,6 +51,12 @@ describe("C-1: no worktree path", () => {
     const result = await cleanTool.execute({}, { worktree: "" })
     expect(result.title).toBe("Error")
     expect(result.output).toContain("worktree")
+  })
+
+  it("evidence returns error when no worktree", async () => {
+    const result = await evidenceTool.execute({ command: "status" }, { worktree: "" })
+    expect(result.title).toBe("Error")
+    expect(result.output.toLowerCase()).toContain("worktree")
   })
 })
 
@@ -104,6 +111,20 @@ describe("C-2: corrupt JSON handling", () => {
       expect(result.title).not.toBe("Error")
       expect(result.metadata?.total).toBe(1)
     })
+
+    it("evidence record still works when spec.json is corrupt", async () => {
+      const fd = await createFeature("test-corrupt")
+      await corruptSpecJson(fd)
+
+      const result = await evidenceTool.execute(
+        { command: "record", task: "T-001", testCommand: "npm test", featureDir: fd },
+        ctx,
+      )
+
+      expect(result.title).not.toBe("Error")
+      const raw = await fs.readFile(path.join(specsDirPath(worktree), fd, "evidence.json"), "utf-8")
+      expect(JSON.parse(raw).entries).toHaveLength(1)
+    })
   })
 
   describe("corrupt session.json", () => {
@@ -130,6 +151,16 @@ describe("C-2: corrupt JSON handling", () => {
       await corruptSession()
       const result = await cleanTool.execute({}, ctx)
       expect(result.title).not.toBe("Error")
+    })
+
+    it("evidence falls back to the latest feature when the session is corrupt", async () => {
+      await scaffoldTool.execute({ featureName: "test-session", template: "spec" }, ctx)
+      await corruptSession()
+
+      const result = await evidenceTool.execute({ command: "status" }, ctx)
+
+      expect(result.title).toBe("Evidence: 001-test-session")
+      expect(result.output).toContain("No test evidence recorded yet")
     })
   })
 
@@ -211,6 +242,12 @@ describe("C-3: invalid project root (missing .opencode/spec-memory/)", () => {
     expect(result.title).toBe("Error")
     expect(result.output).toContain("Not a valid project directory")
   })
+
+  it("evidence returns error for invalid project root", async () => {
+    const result = await evidenceTool.execute({ command: "status" }, ctx)
+    expect(result.title).toBe("Error")
+    expect(result.output).toContain("Not a valid project directory")
+  })
 })
 
 describe("C-4: spec.json exists but directory is missing", () => {
@@ -257,6 +294,12 @@ describe("C-4: spec.json exists but directory is missing", () => {
     const result = await cleanTool.execute({}, ctx)
     expect(result.title).not.toBe("Error")
     expect(result.metadata?.total).toBeDefined()
+  })
+
+  it("evidence reports a ghost feature instead of crashing", async () => {
+    const result = await evidenceTool.execute({ command: "status" }, ctx)
+    expect(result.title).toBe("Error")
+    expect(result.output).toContain("has no spec.md")
   })
 })
 
@@ -329,6 +372,27 @@ describe("C-6: stale lock on session.json", () => {
     expect(result.title).not.toBe("Error")
     expect(result.metadata?.featureNumber).toBe(1)
   })
+
+  it("evidence recovers from a stale evidence lock held by dead process", async () => {
+    const scaffold = await scaffoldTool.execute({ featureName: "test", template: "spec" }, ctx)
+    const fd = scaffold.metadata?.featureDir as string
+    const lockDir = path.join(specsDirPath(worktree), fd, "evidence.json.lock")
+    await fs.mkdir(lockDir, { recursive: true })
+    await fs.writeFile(
+      path.join(lockDir, "lock.json"),
+      JSON.stringify({ pid: 999999, createdAt: new Date().toISOString() }),
+      "utf-8",
+    )
+
+    const result = await evidenceTool.execute(
+      { command: "record", task: "T-001", testCommand: "npm test", featureDir: fd },
+      ctx,
+    )
+
+    expect(result.title).not.toBe("Error")
+    const raw = await fs.readFile(path.join(specsDirPath(worktree), fd, "evidence.json"), "utf-8")
+    expect(JSON.parse(raw).entries).toHaveLength(1)
+  })
 })
 
 describe("C-7: truncated session.json on disk", () => {
@@ -351,5 +415,14 @@ describe("C-7: truncated session.json on disk", () => {
     await fs.writeFile(sp, '{"phase": "spec", "history": "trunc', "utf-8")
     const result = await statusTool.execute({}, ctx)
     expect(result.title).not.toBe("Error")
+  })
+
+  it("evidence does not crash when session.json is truncated", async () => {
+    await scaffoldTool.execute({ featureName: "test", template: "spec" }, ctx)
+    const sp = sessionPath(worktree)
+    await fs.writeFile(sp, '{"phase": "spec", "history": "trunc', "utf-8")
+    const result = await evidenceTool.execute({ command: "status" }, ctx)
+    expect(result.title).not.toBe("Error")
+    expect(result.title).toContain("001-test")
   })
 })

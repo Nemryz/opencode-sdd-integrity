@@ -164,6 +164,52 @@ describe("evidence recording", () => {
     expect(file.entries).toHaveLength(1)
     await expect(fs.access(path.join(worktree, "specs", "001-demo", "evidence.json"))).rejects.toThrow()
   })
+
+  it("keeps every entry when parallel tasks record at the same time", async () => {
+    const dir = await createFeature()
+    const tasks = ["T-001", "T-002", "T-003", "T-004", "T-005"]
+    const results = await Promise.all(
+      tasks.map(task => evidenceTool.execute({ command: "record", task, testCommand: "npm test" }, ctx)),
+    )
+
+    expect(results.every(result => result.title !== "Error")).toBe(true)
+    const file = await readEvidence(dir)
+    expect(file.entries.map(entry => entry.task).sort()).toEqual(tasks)
+  })
+
+  it("caps the log by dropping the oldest recorded entry", async () => {
+    const dir = await createFeature()
+    const seeded = Array.from({ length: 500 }, (_, index) => ({
+      task: `T-${String(index + 1).padStart(3, "0")}`,
+      test_command: "npm test",
+      exit_code: 0,
+      at: new Date(2026, 0, 1, 0, 0, index).toISOString(),
+    }))
+    await fs.writeFile(
+      path.join(dir, "evidence.json"),
+      JSON.stringify({ feature: "001-demo", updated_at: seeded[0].at, entries: seeded }, null, 2),
+      "utf-8",
+    )
+
+    await evidenceTool.execute({ command: "record", task: "T-999", testCommand: "npm test" }, ctx)
+
+    const file = await readEvidence(dir)
+    expect(file.entries).toHaveLength(500)
+    expect(file.entries[0].task).not.toBe("T-001")
+    expect(file.entries[file.entries.length - 1].task).toBe("T-999")
+  })
+
+  it("truncates fractional exit codes and keeps unicode notes", async () => {
+    const dir = await createFeature()
+    await evidenceTool.execute(
+      { command: "record", task: "T-001", testCommand: "npm test", exitCode: 1.9, note: "prueba ñandú 漢字" },
+      ctx,
+    )
+
+    const file = await readEvidence(dir)
+    expect(file.entries[0].exit_code).toBe(1)
+    expect(file.entries[0].note).toBe("prueba ñandú 漢字")
+  })
 })
 
 describe("evidence status", () => {
@@ -205,7 +251,7 @@ describe("evidence status", () => {
 
     const result = await evidenceTool.execute({ command: "status" }, ctx)
 
-    expect(result.output).toContain("0/3 tasks covered (1 entries)")
+    expect(result.output).toContain("0/3 tasks covered (1 entry)")
     expect(result.output).toContain("missing: T-001, T-002, T-003")
   })
 
@@ -227,6 +273,20 @@ describe("evidence status", () => {
     expect(result.title).toBe("Error")
     expect(result.output).toContain("corrupt or invalid")
   })
+
+  it("reads a byte order mark in the evidence file", async () => {
+    const dir = await createFeature()
+    const payload = JSON.stringify({
+      feature: "001-demo",
+      updated_at: "2026-10-19T00:00:00.000Z",
+      entries: [{ task: "T-001", test_command: "npm test", exit_code: 0, at: "2026-10-19T00:00:00.000Z" }],
+    })
+    await fs.writeFile(path.join(dir, "evidence.json"), "\uFEFF" + payload, "utf-8")
+
+    const result = await evidenceTool.execute({ command: "status" }, ctx)
+
+    expect(result.output).toContain("1/3 tasks covered (1 entry)")
+  })
 })
 
 describe("evidence helpers", () => {
@@ -240,6 +300,7 @@ describe("evidence helpers", () => {
     ["an inline mention only", "See T-007 for details.", []],
     ["a lowercase identifier only", "### t-008 lower", []],
     ["four digit numbers", "### T-1234 wide", ["T-1234"]],
+    ["windows line endings", "### T-009 first\r\n### T-010 second\r\n", ["T-009", "T-010"]],
   ])("collectTaskIds reads %s", (_label, content, expected) => {
     expect(collectTaskIds(content)).toEqual(expected)
   })
@@ -308,7 +369,7 @@ describe("audit evidence findings", () => {
     const gap = findingsFor(result, "evidence-gap")
     expect(gap).toHaveLength(1)
     expect(gap[0].severity).toBe("info")
-    expect(gap[0].message).toContain("2 task(s) have no test evidence (T-002, T-003)")
+    expect(gap[0].message).toContain("2 tasks have no test evidence (T-002, T-003)")
   })
 
   it("truncates the missing list after five identifiers", async () => {
@@ -318,7 +379,7 @@ describe("audit evidence findings", () => {
     const result = await auditTool.execute({}, ctx)
 
     const gap = findingsFor(result, "evidence-gap")
-    expect(gap[0].message).toContain("7 task(s) have no test evidence (T-002, T-003, T-004, T-005, T-006 and more)")
+    expect(gap[0].message).toContain("7 tasks have no test evidence (T-002, T-003, T-004, T-005, T-006 and more)")
   })
 
   it("warns about a corrupt evidence file", async () => {
@@ -329,5 +390,17 @@ describe("audit evidence findings", () => {
     const corrupt = findingsFor(result, "evidence-corrupt")
     expect(corrupt).toHaveLength(1)
     expect(corrupt[0].severity).toBe("warn")
+  })
+
+  it("warns about a failing feature level run and clears it with a green rerun", async () => {
+    await createFeature()
+    await evidenceTool.execute({ command: "record", task: "phase-1", testCommand: "npm run test:all", exitCode: 2 }, ctx)
+
+    const failing = findingsFor(await auditTool.execute({}, ctx), "evidence-failing")
+    expect(failing).toHaveLength(1)
+    expect(failing[0].message).toContain("latest feature-level evidence is a failing run (npm run test:all, exit 2)")
+
+    await evidenceTool.execute({ command: "record", task: "phase-1", testCommand: "npm run test:all", exitCode: 0 }, ctx)
+    expect(findingsFor(await auditTool.execute({}, ctx), "evidence-failing")).toHaveLength(0)
   })
 })

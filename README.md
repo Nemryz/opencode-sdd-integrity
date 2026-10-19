@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-3091-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-3122-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -182,7 +182,7 @@ The toolkit organizes its components into a clear directory hierarchy that separ
   tools/                 TypeScript tool modules (16 files)
   tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot/)
   tools/plugins/         Runtime plugins (3 files)
-  tools/test/            Test suite (111 test files)
+  tools/test/            Test suite (112 test files)
   templates/             Artifact templates (12 templates)
   docs/                  Reference documentation
 ```
@@ -569,7 +569,7 @@ The toolkit maintains state through several interconnected files that track work
 
 **config.json** maintains SDD-specific configuration settings including default technology stack, express mode preference, auto versioning toggle, and user preferences. This file persists your choices across sessions.
 
-**guard.json** stores permission rules for file protection including always-protected files, post-approval files, phase-based restrictions, denial logs, and protection statistics. This file accumulates rules as you approve files through the guard tool.
+**guard.json** stores permission rules for file protection including always-protected files, post-approval files, phase-based restrictions, denial logs, and protection statistics. This file accumulates rules as you approve files through the guard tool. Config version 2 protects each feature's evidence.json alongside spec.json; a stored version 1 config gains that protection when the guard reads it, and the upgrade is persisted the next time the guard writes its config.
 
 **perf.json** records performance statistics for all tool executions including call counts, execution times, percentile calculations, and historical trends. This file enables the performance monitoring plugin to track system health over time.
 
@@ -670,7 +670,7 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 3091 automated tests distributed across 111 test files, and every layer answers a different question about the same system.
+The project includes 3122 automated tests distributed across 112 test files, and every layer answers a different question about the same system.
 `docs/testing.md` holds the conventions, the per module matrix inventory, and the stability rules that this section only summarizes.
 
 ### Test Types

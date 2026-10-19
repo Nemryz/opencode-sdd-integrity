@@ -93,6 +93,29 @@ describe("speckit-guard V2 entrypoint", () => {
     ).rejects.toThrow("Guard blocked protected file")
   })
 
+  it("protects evidence.json after migrating a stored v1 config", async () => {
+    const legacy = {
+      version: 1,
+      enabled: true,
+      debug: false,
+      protectedFiles: ["spec.json"],
+      protectedAfterApproval: [],
+      protectedByPhase: {},
+      stats: { denied: 0, allowed: 0, asked: 0 },
+      denials: [],
+    }
+    await fs.writeFile(path.join(worktree, ".opencode", "guard.json"), JSON.stringify(legacy))
+    const hooks = await loadGuardHooks()
+
+    await expect(
+      hooks.toolBefore!({ tool: "edit", input: { path: "specs/001-demo/evidence.json" } }),
+    ).rejects.toThrow("Always protected: evidence.json")
+
+    const config = await readGuardConfig()
+    expect(config.version).toBe(2)
+    expect(config.protectedFiles).toContain("evidence.json")
+  })
+
   it("allows an edit of a regular project file", async () => {
     const hooks = await loadGuardHooks()
 

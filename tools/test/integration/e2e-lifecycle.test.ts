@@ -7,6 +7,9 @@ import validateTool from "../../speckit-validate"
 import statusTool from "../../speckit-status"
 import auditTool from "../../speckit-audit"
 import cleanTool from "../../speckit-clean"
+import phaseTool from "../../speckit-phase"
+import evidenceTool from "../../speckit-evidence"
+import snapshotTool from "../../speckit-snapshot"
 import { mockContext, createTempWorktree, destroyTempWorktree, createConstitution } from "../helpers/setup"
 import { readSpecJson, readSession, specsDirPath, sessionPath } from "../../shared/types"
 
@@ -210,5 +213,57 @@ describe("full E2E lifecycle: spec, plan, tasks, validate, status, audit", () =>
     const r2 = await scaffoldTool.execute({ featureName: longName, template: "spec" }, ctx)
     expect(r2.metadata?.truncated).toBe(true)
     expect(r2.metadata?.featureDir!.length).toBeLessThan(90)
+  })
+
+  it("records implementation evidence and restores it from a snapshot", async () => {
+    await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
+    await approveTool.execute({ artifact: "spec", confirmed: true }, ctx)
+    await scaffoldTool.execute({ featureName: "Auth", template: "plan" }, ctx)
+    await approveTool.execute({ artifact: "plan", confirmed: true }, ctx)
+    await scaffoldTool.execute({ featureName: "Auth", template: "tasks" }, ctx)
+    await approveTool.execute({ artifact: "tasks", confirmed: true }, ctx)
+
+    const featureDir = path.join(worktree, "specs", "001-auth")
+    await fs.writeFile(
+      path.join(featureDir, "tasks.md"),
+      "# Tasks\n\n### T-001 Add endpoint\n\n### T-002 Add UI\n",
+      "utf-8",
+    )
+    const phase = await phaseTool.execute({ phase: "impl" }, ctx)
+    expect(phase.title).not.toBe("Error")
+
+    const evidenceFindings = (result: { metadata?: Record<string, unknown> }) =>
+      ((result.metadata?.findings ?? []) as Array<{ category: string }>).filter(finding =>
+        finding.category.startsWith("evidence-"),
+      )
+    expect(evidenceFindings(await auditTool.execute({}, ctx))).toHaveLength(1)
+
+    for (const task of ["T-001", "T-002"]) {
+      const recorded = await evidenceTool.execute(
+        { command: "record", task, testCommand: "npm test -- --run", exitCode: 0, featureDir: "001-auth" },
+        ctx,
+      )
+      expect(recorded.title).not.toBe("Error")
+    }
+    expect(evidenceFindings(await auditTool.execute({}, ctx))).toHaveLength(0)
+
+    const status = await evidenceTool.execute({ command: "status" }, ctx)
+    expect(status.output).toContain("2/2 tasks covered (2 entries)")
+
+    const snapshot = await snapshotTool.execute({ subcommand: "create", label: "with evidence" }, ctx)
+    const snapshotId = snapshot.metadata?.snapshotId as string
+    expect(snapshotId).toBeTruthy()
+
+    await evidenceTool.execute(
+      { command: "record", task: "T-003", testCommand: "npm test -- --run", featureDir: "001-auth" },
+      ctx,
+    )
+    const restored = await snapshotTool.execute({ subcommand: "restore", id: snapshotId, confirmed: true }, ctx)
+    expect(restored.title).toBe("Restore Complete")
+
+    const evidence = JSON.parse(await fs.readFile(path.join(featureDir, "evidence.json"), "utf-8")) as {
+      entries: Array<{ task: string }>
+    }
+    expect(evidence.entries.map(entry => entry.task)).toEqual(["T-001", "T-002"])
   })
 })

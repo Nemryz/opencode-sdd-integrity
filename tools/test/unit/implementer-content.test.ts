@@ -152,4 +152,10 @@ describe("speckit-implementer SKILL.md content", () => {
   it("has metadata with shared-rules in frontmatter", () => {
     expect(content).toMatch(/shared-rules:/)
   })
+
+  it("records task and phase evidence through speckit-evidence", () => {
+    expect(content).toContain('speckit-evidence` with `command: "record"')
+    expect(content).toMatch(/phase verification with `speckit-evidence`/i)
+    expect(content).toMatch(/failing runs too/i)
+  })
 })

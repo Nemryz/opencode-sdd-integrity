@@ -38,8 +38,11 @@ Expect-Path "templates/spec-template.md"
 Expect-Path "templates/constitution-template.md"
 Expect-Path "skills/speckit-constitution/SKILL.md"
 Expect-Path "tools/speckit-status.ts"
+Expect-Path "tools/speckit-evidence.ts"
 Expect-Path "plugins/speckit-tools.ts"
+Expect-Path "plugins/speckit-doom-loop.ts"
 Expect-Path "docs/testing.md"
+Expect-Path "docs/showcase.md"
 
 if ($Backup) {
     $backupRoot = Join-Path $Target ".install-backups"
