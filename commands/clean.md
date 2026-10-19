@@ -2,7 +2,7 @@
 description: Scan all features and fix artifacts inconsistencies
 ---
 
-> If you are running in the built-in plan agent (read-only), ask the user to switch to the build agent (Tab) before running write tools.
+> If you are running in the built-in plan agent (read-only), ask the user to switch to the build agent (Shift+Tab on OpenCode 2, Tab on OpenCode 1) before running write tools.
 
 $ARGUMENTS (use `--dry-run` for report only)
 

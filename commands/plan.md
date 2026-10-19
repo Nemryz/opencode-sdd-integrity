@@ -2,7 +2,7 @@
 description: Create a technical implementation plan from a specification
 ---
 
-> If you are running in the built-in plan agent (read-only), ask the user to switch to the build agent (Tab) before running write tools.
+> If you are running in the built-in plan agent (read-only), ask the user to switch to the build agent (Shift+Tab on OpenCode 2, Tab on OpenCode 1) before running write tools.
 
 You are now in **Planning Mode**. Use the `speckit-plan-engineer` skill.
 

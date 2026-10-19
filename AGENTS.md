@@ -127,23 +127,23 @@ The combined row covers the batch boundary in `mutation-batches.json`, so it is 
 
 ---
 
-## Agent Roles — Tab-Switchable
+## Agent Roles — Switchable
 
-### `build` (default) — Tab 1
+### `build` (default) — cycle 1
 Full access. Implements code, runs commands, edits files.
 Use for: implementation, testing, debugging, refactoring.
 
-### `plan` (built-in) — Tab 2
+### `plan` (built-in) — cycle 2
 Read-only. All edits and bash commands require approval.
 Use for: architecture review, planning sessions, code analysis without changes.
 
-### `spec` (custom) — Tab 3
+### `spec` (custom) — cycle 3
 Read + skill access. Bash denied. Edit requires approval.
 Use for: requirements analysis, specification writing, artifact review.
 The `spec` agent has these skills available: `speckit-constitution`, `speckit-spec-writer`, `speckit-plan-engineer`, `speckit-task-decomposer`, `speckit-reviewer`.
 It can invoke subagents `@speckit-reviewer` and `@explore`.
 
-Switch with Tab. If you are in the wrong agent for the task, tell the user.
+Switch with Shift+Tab on OpenCode 2, or Tab on OpenCode 1. If you are in the wrong agent for the task, tell the user.
 
 ### Agent Model Tiers (Recommended)
 
