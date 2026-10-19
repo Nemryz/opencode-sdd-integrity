@@ -130,9 +130,10 @@ The system follows a plugin-based architecture where each tool operates as a sel
 |  + speckit-snapshot                                                  |
 |  + shared/ (io.ts, schemas.ts, types.ts, snapshot.ts)               |
 +---------------------------------------------------------------------+
-|  Plugins Layer (2 runtime plugins)                                   |
+|  Plugins Layer (3 runtime plugins)                                   |
 |  + speckit-perfmon (performance monitoring)                          |
 |  + speckit-guard (permission protection)                             |
+|  + speckit-tools (V2 tool registration)                              |
 +---------------------------------------------------------------------+
 |  State Layer                                                         |
 |  + session.json (workflow state)                                     |
@@ -151,7 +152,7 @@ The system follows a plugin-based architecture where each tool operates as a sel
 
 **Tools Layer.** Houses the TypeScript modules that implement the actual functionality. Each tool is a self-contained module that can be invoked independently through the opencode command system. The shared directory provides common I/O operations, Zod schemas for validation, and type definitions used across all tools.
 
-**Plugins Layer.** Contains runtime plugins that intercept system events and add functionality transparently. Unlike tools, which require explicit invocation, plugins operate automatically in the background, monitoring performance, caching data, and protecting files without user intervention.
+**Plugins Layer.** Contains runtime plugins that intercept system events and add functionality transparently. Unlike tools, which require explicit invocation, plugins operate automatically in the background, monitoring performance, caching data, and protecting files without user intervention. On OpenCode 2 the layer also registers the sixteen tools, because that runtime reaches custom tools through the plugin API.
 
 **State Layer.** Maintains all persistent data including workflow state, feature metadata, configuration settings, backup files, and point-in-time snapshots. This layer ensures continuity across sessions and provides the foundation for the resilience mechanisms.
 
@@ -166,7 +167,7 @@ The toolkit organizes its components into a clear directory hierarchy that separ
   skills/                Skill instructions (6 skills plus shared rules)
   tools/                 TypeScript tool modules (15 files)
   tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot.ts)
-  tools/plugins/         Runtime plugins (2 files)
+  tools/plugins/         Runtime plugins (3 files)
   tools/test/            Test suite (99 test files)
   templates/             Artifact templates (12 templates)
   docs/                  Reference documentation
@@ -184,7 +185,7 @@ The toolkit organizes its components into a clear directory hierarchy that separ
 
 **tools/shared/** provides the foundation modules used by all tools, including file I/O operations with backup and checksum support, Zod schemas for data validation, and TypeScript type definitions.
 
-**tools/plugins/** houses the runtime plugins that extend the toolkit's functionality through event interception and automatic processing.
+**tools/plugins/** houses the runtime plugins that extend the toolkit's functionality through event interception and automatic processing, together with the OpenCode 2 registration that exposes the sixteen tools through the plugin API.
 
 **tools/test/** contains the complete test suite organized into unit, integration, and mutation test categories.
 
@@ -276,16 +277,19 @@ The opencode runtime provides several hook points where plugins can intercept ev
 
 **command.execute.before** fires before a command is processed. Plugins can use this to validate inputs, modify arguments, or prevent command execution.
 
+OpenCode 2 exposes the same interception points through domain hooks registered inside `setup`, namely `ctx.tool.hook("execute.before")`, `ctx.tool.hook("execute.after")`, `ctx.permission.hook("evaluate")`, and `ctx.event.subscribe()`. Tool definitions are added with `ctx.tool.transform()`.
+
 When multiple plugins register for the same hook, they execute in registration order. Each plugin receives the same event data and can modify the processing pipeline. This chain of handlers allows plugins to compose and layer functionality.
 
 ### Available Plugins
 
-The toolkit includes two production-ready plugins that address common development needs:
+The toolkit includes three production-ready plugins that address common development needs:
 
 | Plugin | Hooks | Purpose | Configuration |
 |--------|-------|---------|---------------|
 | speckit-perfmon | tool.execute.before, tool.execute.after | Performance monitoring and statistics | perf.json |
 | speckit-guard | permission.ask | File protection with permission tiers | guard.json |
+| speckit-tools | tool.transform (OpenCode 2) | Registers the sixteen speckit tools | none |
 
 ### Plugin Configuration
 
@@ -295,18 +299,21 @@ Plugins register through the opencode.jsonc configuration file. Copy the templat
 cp opencode.jsonc.example opencode.jsonc
 ```
 
-The plugin array defines which plugins are active, as a list of module paths:
+The plugins array defines which plugins are active, as a list of module paths that resolve relative to the configuration file:
 
 ```json
 {
-  "plugin": [
+  "plugins": [
     "./tools/plugins/speckit-perfmon.ts",
-    "./tools/plugins/speckit-guard.ts"
+    "./tools/plugins/speckit-guard.ts",
+    "./tools/plugins/speckit-tools.ts"
   ]
 }
 ```
 
-To disable a plugin, remove its entry from the plugin array. The toolkit continues functioning normally with any combination of plugins enabled or disabled.
+OpenCode 1 uses the singular `plugin` field instead, and its tools load directly from the tools directory, so the `speckit-tools` entry only applies to OpenCode 2. OpenCode 2 additionally discovers the direct plugin files inside the plugins folder of the configuration directory, which covers a cloned installation.
+
+To disable a plugin, remove its entry from the plugins array. The toolkit continues functioning normally with any combination of plugins enabled or disabled.
 
 Each plugin maintains its own configuration file in the .opencode directory. These files store runtime state, accumulated statistics, and user-defined rules. The plugins manage these files automatically, but you can edit them directly if needed.
 
@@ -335,15 +342,19 @@ const yourPlugin: Plugin = async (input) => {
 export default { id: "speckit-yourplugin", server: yourPlugin }
 ```
 
-**Step 3: Register the plugin.** Add your plugin to the plugin array in opencode.jsonc:
+On OpenCode 2 the same export adds a `setup` function, which registers hooks, transforms, and tools through the plugin context. The shipped plugins under tools/plugins show both entrypoints together.
+
+**Step 3: Register the plugin.** Add your plugin to the plugins array in opencode.jsonc:
 
 ```json
 {
-  "plugin": [
+  "plugins": [
     "./tools/plugins/speckit-yourplugin.ts"
   ]
 }
 ```
+
+On OpenCode 1 the field is the singular `plugin`.
 
 **Step 4: Test your plugin.** Create unit tests for individual hook handlers and integration tests that verify the plugin interacts correctly with the opencode runtime.
 

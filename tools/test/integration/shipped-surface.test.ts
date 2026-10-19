@@ -154,10 +154,11 @@ describe("shipped surface stays consistent", () => {
     }
   })
 
-  it("README documents how to register both runtime plugins", async () => {
+  it("README documents how to register the shipped plugins", async () => {
     const readme = await readRepoFile("README.md")
     expect(readme).toContain("./tools/plugins/speckit-perfmon.ts")
     expect(readme).toContain("./tools/plugins/speckit-guard.ts")
+    expect(readme).toContain("./tools/plugins/speckit-tools.ts")
   })
 })
 

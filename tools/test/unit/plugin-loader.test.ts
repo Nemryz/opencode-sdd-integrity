@@ -4,6 +4,7 @@ import path from "node:path"
 import { repoPath } from "../helpers/setup"
 import guardShim from "../../../plugins/speckit-guard"
 import perfmonShim from "../../../plugins/speckit-perfmon"
+import toolsShim from "../../../plugins/speckit-tools"
 
 const PLUGINS_DIR = repoPath("plugins")
 
@@ -18,6 +19,12 @@ describe("local plugin loading shims", () => {
     expect(typeof perfmonShim.server).toBe("function")
   })
 
+  it("speckit-tools shim exposes the V2 setup and a V1 server", () => {
+    expect(toolsShim.id).toBe("speckit-tools")
+    expect(typeof toolsShim.setup).toBe("function")
+    expect(typeof toolsShim.server).toBe("function")
+  })
+
   it("plugins directory only contains loadable TypeScript shims", async () => {
     const entries = await fs.readdir(PLUGINS_DIR)
     for (const entry of entries) {
@@ -25,5 +32,6 @@ describe("local plugin loading shims", () => {
     }
     expect(entries).toContain("speckit-guard.ts")
     expect(entries).toContain("speckit-perfmon.ts")
+    expect(entries).toContain("speckit-tools.ts")
   })
 })
