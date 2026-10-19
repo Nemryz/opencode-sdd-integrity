@@ -1,0 +1,35 @@
+name: Smoke
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      SMOKE_KEEP: "1"
+      SMOKE_TMP: ${{ runner.temp }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install OpenCode 2
+        run: npm install -g @opencode/cli@2.0.32
+
+      - name: Run the smoke test
+        run: bash tools/test/smoke/v2-smoke.sh
+
+      - name: Upload the smoke workspace when a check fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-workspace
+          path: ${{ runner.temp }}/sdd-smoke-*
+          if-no-files-found: ignore
