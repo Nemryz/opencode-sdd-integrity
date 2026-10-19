@@ -27,7 +27,7 @@ Write-Host "==> Installing files..."
 New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
 
 # Copies every file this run is about to replace into a timestamped backup folder.
-$Items     = "AGENTS.md", "package.json", "package-lock.json", "agents", "commands", "templates", "skills", "tools", "plugins", "docs"
+$Items     = "AGENTS.md", "package.json", "npm-shrinkwrap.json", "agents", "commands", "templates", "skills", "tools", "plugins", "docs"
 $BackupDir = $null
 foreach ($item in $Items) {
     $existing = Join-Path $ConfigDir $item
@@ -48,7 +48,7 @@ if (-not (Test-Path (Join-Path $ConfigDir "opencode.jsonc"))) {
     Copy-Item (Join-Path $CloneDir "opencode.jsonc.example") (Join-Path $ConfigDir "opencode.jsonc")
 }
 Copy-Item -Force (Join-Path $CloneDir "package.json") (Join-Path $ConfigDir "package.json")
-Copy-Item -Force (Join-Path $CloneDir "package-lock.json") (Join-Path $ConfigDir "package-lock.json") -ErrorAction SilentlyContinue
+Copy-Item -Force (Join-Path $CloneDir "npm-shrinkwrap.json") (Join-Path $ConfigDir "npm-shrinkwrap.json") -ErrorAction SilentlyContinue
 
 Copy-Item -Recurse -Force (Join-Path $CloneDir "agents") $ConfigDir
 Copy-Item -Recurse -Force (Join-Path $CloneDir "commands") $ConfigDir

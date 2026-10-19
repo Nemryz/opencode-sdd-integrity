@@ -43,7 +43,7 @@ Expect-Path "plugins/speckit-tools.ts"
 Expect-Path "plugins/speckit-doom-loop.ts"
 Expect-Path "docs/testing.md"
 Expect-Path "docs/showcase.md"
-Expect-Path "package-lock.json"
+Expect-Path "npm-shrinkwrap.json"
 
 if ($Backup) {
     $backupRoot = Join-Path $Target ".install-backups"

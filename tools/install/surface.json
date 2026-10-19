@@ -2,7 +2,7 @@
   "copyFiles": [
     "AGENTS.md",
     "package.json",
-    "package-lock.json"
+    "npm-shrinkwrap.json"
   ],
   "copyDirs": [
     "agents",
@@ -32,9 +32,8 @@
     "plugins/speckit-tools.ts",
     "plugins/speckit-doom-loop.ts",
     "docs/testing.md",
-    "docs/showcase.md"
+    "docs/showcase.md",
+    "npm-shrinkwrap.json"
   ],
-  "optionalPaths": [
-    "package-lock.json"
-  ]
+  "optionalPaths": []
 }

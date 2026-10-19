@@ -143,7 +143,7 @@ describe("shipped surface stays consistent", () => {
       "AGENTS.md",
       "opencode.jsonc.example",
       "package.json",
-      "package-lock.json",
+      "npm-shrinkwrap.json",
       "agents",
       "commands",
       "templates",

@@ -407,7 +407,7 @@ This was regressed in `readConfig` (returned `merged` instead of `result.data`) 
 
 ### CI must use `npm ci`, not `npm install`
 
-All CI workflows MUST use `npm ci` instead of `npm install --ignore-scripts`. The `npm ci` command is stricter — it installs exactly from `package-lock.json` and fails if the lockfile is out of sync with `package.json`. This guarantees reproducible builds across platforms and avoids CI-only failures.
+All CI workflows MUST use `npm ci` instead of `npm install --ignore-scripts`. The `npm ci` command is stricter — it installs exactly from the committed lockfile (`npm-shrinkwrap.json`) and fails if that lockfile is out of sync with `package.json`. This guarantees reproducible builds across platforms and avoids CI-only failures.
 
 ### Display-only phases must not be persisted to session.json
 

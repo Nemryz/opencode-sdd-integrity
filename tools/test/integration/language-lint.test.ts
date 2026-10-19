@@ -6,7 +6,7 @@ import { ownedRepoFiles, repoPath } from "../helpers/setup"
 // Scanned text files are the ones where prose or comments live, so binaries and locks are skipped.
 const SCANNED_EXTENSIONS = [".ts", ".tsx", ".js", ".mjs", ".md", ".jsonc", ".yml", ".yaml", ".sh", ".ps1"]
 
-const SKIPPED_FILES = ["package-lock.json"]
+const SKIPPED_FILES = ["npm-shrinkwrap.json"]
 
 // Ranges cover Cyrillic, kana, CJK ideographs, Hangul and fullwidth forms which never belong in English source.
 const FORBIDDEN_RANGES: Array<[string, number, number]> = [

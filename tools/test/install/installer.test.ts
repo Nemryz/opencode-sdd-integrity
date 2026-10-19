@@ -94,11 +94,11 @@ describe("surface contract", () => {
     expect(powershellPaths).toEqual(expected)
   })
 
-  it("the surface copies the lock file and treats it as optional, because npm pack strips it", async () => {
+  it("the surface ships the shrinkwrap lock file as a required path, because npm pack keeps it", async () => {
     const surface = await readSurface()
-    expect(surface.copyFiles).toContain("package-lock.json")
-    expect(surface.optionalPaths).toContain("package-lock.json")
-    expect(surface.verifyPaths).not.toContain("package-lock.json")
+    expect(surface.copyFiles).toContain("npm-shrinkwrap.json")
+    expect(surface.verifyPaths).toContain("npm-shrinkwrap.json")
+    expect(surface.optionalPaths).toEqual([])
   })
 
   it("the shell installer copies exactly the surface copy sets", async () => {
@@ -161,7 +161,7 @@ describe("install lifecycle", () => {
     for (const relPath of surface.verifyPaths) {
       expect(await exists(path.join(target, ...relPath.split("/"))), `missing after install: ${relPath}`).toBe(true)
     }
-    expect(await exists(path.join(target, "package-lock.json"))).toBe(true)
+    expect(await exists(path.join(target, "npm-shrinkwrap.json"))).toBe(true)
   })
 
   it("installs into a directory whose name carries spaces", async () => {
@@ -236,10 +236,10 @@ describe("verifyInstall", () => {
       copyDirs: [],
       exampleFile: { source: "example.json", target: "opencode.jsonc" },
       verifyPaths: [],
-      optionalPaths: ["package-lock.json"],
+      optionalPaths: ["npm-shrinkwrap.json"],
     }
     const result = await verifyInstall({ targetDir: target, surface })
-    const lock = result.checks.find((check) => check.path === "package-lock.json")
+    const lock = result.checks.find((check) => check.path === "npm-shrinkwrap.json")
     expect(result.ok).toBe(true)
     expect(lock?.optional).toBe(true)
     expect(lock?.ok).toBe(false)

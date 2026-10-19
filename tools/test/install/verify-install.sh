@@ -47,7 +47,7 @@ expect_path plugins/speckit-tools.ts
 expect_path plugins/speckit-doom-loop.ts
 expect_path docs/testing.md
 expect_path docs/showcase.md
-expect_path package-lock.json
+expect_path npm-shrinkwrap.json
 
 if [ "${MODE}" = "--backup" ]; then
   BACKUP_DIR=""

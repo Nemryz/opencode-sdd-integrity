@@ -43,7 +43,7 @@ echo "==> Installing files..."
 mkdir -p "${CONFIG_DIR}"
 
 # Copies every file this run is about to replace into a timestamped backup folder.
-ITEMS="AGENTS.md package.json package-lock.json agents commands templates skills tools plugins docs"
+ITEMS="AGENTS.md package.json npm-shrinkwrap.json agents commands templates skills tools plugins docs"
 BACKUP_DIR=""
 for item in $ITEMS; do
   [ -e "${CONFIG_DIR}/${item}" ] || continue
@@ -62,7 +62,7 @@ if [ ! -f "${CONFIG_DIR}/opencode.jsonc" ]; then
   cp "${TMP_DIR}/opencode-sdd-integrity/opencode.jsonc.example" "${CONFIG_DIR}/opencode.jsonc"
 fi
 cp "${TMP_DIR}/opencode-sdd-integrity/package.json" "${CONFIG_DIR}/package.json"
-cp "${TMP_DIR}/opencode-sdd-integrity/package-lock.json" "${CONFIG_DIR}/package-lock.json" 2>/dev/null || true
+cp "${TMP_DIR}/opencode-sdd-integrity/npm-shrinkwrap.json" "${CONFIG_DIR}/npm-shrinkwrap.json" 2>/dev/null || true
 
 cp -r "${TMP_DIR}/opencode-sdd-integrity/agents" "${CONFIG_DIR}/"
 cp -r "${TMP_DIR}/opencode-sdd-integrity/commands" "${CONFIG_DIR}/"

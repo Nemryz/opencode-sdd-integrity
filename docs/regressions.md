@@ -235,3 +235,16 @@ Passing `featureDir: "specs/001-name"`, a natural habit for models, produced a f
 **Fix:** `phaseFromArtifacts(specOk, planOk, tasksOk, tasksApproved)` in `tools/shared/types.ts` derives the milestone phase. Clean now flags only genuine drift, keeps an `impl` or `complete` phase when every file exists, records session repairs in the trace with a no-op apply so the run still reports them, and targets the authoritative `liveSj.phase` when it realigns the session. Audit computes its repair target inside the lock from the freshly read spec.json.
 
 **Test coverage:** `clean.test.ts` covers mid-workflow features, no advancement on fix, stale session realignment and the rule that a fix never promotes the phase without the tasks approval; `audit.test.ts` pins the exact repair target and the lost-artifact repair; `snapshot-triggers.test.ts` and `e2e-workflow-snapshots.test.ts` pin the repaired states; the new `property-phase-machine.test.ts` restates the coherence rules as invariants over generated command sequences.
+
+### R-16: A fresh dependency resolution crashed the packed install on npm 10.9.8
+
+**Introduced in:** the npm installer dependency step, which resolved the runtime tree inside the target directory
+**Fixed in:** current
+
+Installing the packed tarball with its dependencies enabled failed with `npm error Cannot read properties of null (reading 'edgesOut')`, raised inside `#loadPeerSet` in Arborist. `npx opencode-sdd-integrity@2.0.0 install` failed the same way on npm 10.9.8 while npm 11.16 succeeded, and replaying the install against npm 10.9.8 showed the failure on every run without a lockfile and a pass with either a lockfile present or `--legacy-peer-deps`, which pinned it to the fresh peer resolution of `@opencode-ai/plugin@1.17.8` and its optional `@opentui/*` peers.
+
+**Root cause:** `npm pack` strips `package-lock.json`, so the published tarball shipped no lock and the dependency install resolved the whole peer set from the registry, walking the npm 10.9.8 Arborist code path that dereferences a null peer set.
+
+**Fix:** the repository lock is committed as `npm-shrinkwrap.json`, which `npm pack` keeps, and the surface ships it as a required copy and verify path, so the dependency install resolves from that lock on every npm version.
+
+**Test coverage:** the `npm-linux` job installs the tarball produced by `npm pack` with its dependencies enabled on Node 22, where the bundled npm raised the Arborist error, and `installer.test.ts` pins the surface contract around the shrinkwrap.
