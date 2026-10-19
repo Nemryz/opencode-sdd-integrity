@@ -277,9 +277,14 @@ export async function writeWithBackup(fp: string, data: string, root: string): P
   if (existing !== null) {
     const backupDir = path.join(root, ".opencode", BACKUP_DIR_NAME)
     const sourceKey = backupSourceKey(fp)
-    const timestamp = Date.now()
-    const bakFile = path.join(backupDir, `${sourceKey}.${timestamp}.bak`)
     await fs.mkdir(backupDir, { recursive: true })
+    let timestamp = Date.now()
+    let bakFile = path.join(backupDir, `${sourceKey}.${timestamp}.bak`)
+    // Two writes in the same millisecond would share a backup name, so the stamp advances until the slot is free.
+    while (await fs.access(bakFile).then(() => true).catch(() => false)) {
+      timestamp += 1
+      bakFile = path.join(backupDir, `${sourceKey}.${timestamp}.bak`)
+    }
     
     await fs.writeFile(bakFile, existing, "utf-8")
     await writeChecksumFile(bakFile, existing)

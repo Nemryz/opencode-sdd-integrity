@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { createTempWorktree, destroyTempWorktree, mockContext } from "./setup"
@@ -212,6 +212,19 @@ describe("assertions: backup counting", () => {
     await writeWithBackup(projectPath(worktree, ".opencode/guard.json"), "{\"version\":3}", worktree)
     expect(await countBackupsFor(worktree, ".opencode/guard.json")).toBe(2)
     expect(await countBackupsFor(worktree, ".opencode/config.json")).toBe(0)
+  })
+
+  it("keeps both backups when two writes share a millisecond", async () => {
+    await writeProjectFile(worktree, ".opencode/config.json", "{\"version\":1}")
+    const { writeWithBackup } = await import("../../shared/io")
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1700000000000)
+    try {
+      await writeWithBackup(projectPath(worktree, ".opencode/config.json"), "{\"version\":2}", worktree)
+      await writeWithBackup(projectPath(worktree, ".opencode/config.json"), "{\"version\":3}", worktree)
+    } finally {
+      clock.mockRestore()
+    }
+    expect(await countBackupsFor(worktree, ".opencode/config.json")).toBe(2)
   })
 })
 
