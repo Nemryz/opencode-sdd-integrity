@@ -1,6 +1,6 @@
 {
   "name": "opencode-sdd-integrity",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Spec-Driven Development workflow for opencode with phased specs, plans, tasks, approval gates, and verification tooling",
   "license": "MIT",
   "repository": {
