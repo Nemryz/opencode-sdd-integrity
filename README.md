@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-2949-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-2975-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -112,7 +112,7 @@ The system follows a plugin-based architecture where each tool operates as a sel
 |  + speckit-reviewer                                                  |
 |  + rules/ (design principles, spec standards, task guidelines)       |
 +---------------------------------------------------------------------+
-|  Tools Layer (15 TypeScript modules)                                 |
+|  Tools Layer (16 TypeScript modules)                                 |
 |  + speckit-scaffold                                                  |
 |  + speckit-validate                                                  |
 |  + speckit-audit                                                     |
@@ -128,7 +128,8 @@ The system follows a plugin-based architecture where each tool operates as a sel
 |  + speckit-approve                                                   |
 |  + speckit-phase                                                     |
 |  + speckit-snapshot                                                  |
-|  + shared/ (io.ts, schemas.ts, types.ts, snapshot.ts)               |
+|  + speckit-mutation                                                  |
+|  + shared/ (io.ts, schemas.ts, types.ts, snapshot/)                  |
 +---------------------------------------------------------------------+
 |  Plugins Layer (3 runtime plugins)                                   |
 |  + speckit-perfmon (performance monitoring)                          |
@@ -163,12 +164,12 @@ The toolkit organizes its components into a clear directory hierarchy that separ
 ```
 ~/.config/opencode/
   AGENTS.md              Workflow orchestration and agent definitions
-  commands/              CLI command handlers (15 files)
+  commands/              CLI command handlers (17 files)
   skills/                Skill instructions (6 skills plus shared rules)
-  tools/                 TypeScript tool modules (15 files)
-  tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot.ts)
+  tools/                 TypeScript tool modules (16 files)
+  tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot/)
   tools/plugins/         Runtime plugins (3 files)
-  tools/test/            Test suite (99 test files)
+  tools/test/            Test suite (108 test files)
   templates/             Artifact templates (12 templates)
   docs/                  Reference documentation
 ```
@@ -637,7 +638,7 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 2949 automated tests distributed across 106 test files, and every layer answers a different question about the same system.
+The project includes 2975 automated tests distributed across 108 test files, and every layer answers a different question about the same system.
 `docs/testing.md` holds the conventions, the per module matrix inventory, and the stability rules that this section only summarizes.
 
 ### Test Types
@@ -655,6 +656,7 @@ The project includes 2949 automated tests distributed across 106 test files, and
 | Snapshot | `tools/test/snapshot/` | Does a command produce exactly this output |
 | Mutation | `*-mutation.test.ts` and `*-kill-survivors.test.ts` | Do the tests notice when the logic changes |
 | Shipped surface | `tools/test/integration/shipped-surface.test.ts` | Does the packaging still describe the repository truthfully |
+| Smoke | `tools/test/smoke/` | Does the real OpenCode 2 CLI load the shipped wiring |
 
 Content assertion and phase gate tests live in the unit and integration directories, where they verify that skills, templates, commands, and their prerequisites keep the structure the agents depend on.
 
@@ -682,6 +684,15 @@ Case insensitive matching and Windows error formatting cannot be reproduced on L
 
 Transient rename failures are retried, teardown tolerates the Windows busy codes, parallel filesystem mutations stay sequential, and global state is cleared between tests.
 A stable suite is confirmed by running it more than once and by running it without file parallelism, which is how hidden order dependence was ruled out during the campaign.
+
+### Smoke Run
+
+```bash
+tools/test/smoke/v2-smoke.sh
+```
+
+The script installs the kit into an isolated config home, boots the OpenCode 2 CLI, and grades the plugin markers, the tool registry, and the guard denial.
+It expects the OpenCode 2 CLI on the PATH and treats the model evidence as a warning unless SMOKE_LLM_REQUIRED=1 is set.
 
 ### Language Lint
 

@@ -28,6 +28,7 @@ Each type answers a different question, and the directory layout tells you which
 | Snapshot | `tools/test/snapshot/` | Does a command produce exactly this output |
 | Mutation | `*-mutation.test.ts` and `*-kill-survivors.test.ts` | Do the tests notice when the logic changes |
 | Shipped surface | `tools/test/integration/shipped-surface.test.ts` | Does the packaging still describe the repository truthfully |
+| Smoke | `tools/test/smoke/` | Does the real OpenCode 2 CLI load the shipped wiring |
 
 ## The multi-value matrix convention
 
@@ -80,6 +81,14 @@ Matrices are grouped by the layer they exercise, because a pure function test an
 |--------|-------------|----------------|
 | `shared/snapshot` | `integration/matrix-snapshot.test.ts` | Trigger slugs, timestamp format, same second collisions, pin labels, drill results, listing status, and retention priority above the caps |
 
+### OpenCode 2 plugin surface
+
+| Module | File | What it covers |
+|--------|------|----------------|
+| `plugins/speckit-tools` | `integration/plugin-v2-tools.test.ts` | The registration shape of the sixteen tools, the direct exposure flag, and the argument schemas |
+| `plugins/speckit-guard` | `integration/plugin-v2-adapters.test.ts` | The V2 entrypoint that wires the tool and permission hooks and mirrors the server behavior |
+| `plugins/speckit-perfmon` | `integration/plugin-v2-adapters.test.ts` | The V2 entrypoint that wires the execution timing hooks and writes the load marker |
+
 ### Schema surfaces
 
 | Module | File | What it varies |
@@ -122,6 +131,14 @@ The six snapshot suites (`snapshot.test.ts`, `snapshot-restore.test.ts`, `snapsh
 - An interrupted restore is reported by both health and status, recovered by the repair run, and leaves the journal cleared on disk.
 - A restore returns the feature to an earlier milestone, removes the artifacts created later, and the workflow continues from there.
 - A destructive operation refuses to change state when the recovery point cannot be created, and the validation gate keeps working.
+
+## Smoke coverage
+
+`tools/test/smoke/v2-smoke.sh` grades the wiring inside the real runtime, because plugin discovery, tool exposure, and the guard hooks only exist there.
+It installs a copy of the kit into an isolated config home the same way `install.sh` does, boots OpenCode 2 with `--standalone`, and grades the plugin markers, the tool registry, and the guard denial.
+`tools/test/smoke/smoke-probe.ts` is copied in as an extra plugin, and it records `ctx.tool.list()` right after the setups run, which turns the direct exposure rule into an assertion that needs no model.
+The model evidence is graded as a warning unless `SMOKE_LLM_REQUIRED=1` is set, because the free model tier can be unavailable while the wiring itself is healthy.
+`.github/workflows/smoke.yml` runs the script on every push against a pinned CLI version.
 
 ## Platform-dependent tests
 
