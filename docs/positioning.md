@@ -15,7 +15,7 @@ Three groups matter when a user chooses an SDD workflow for OpenCode.
 
 | Kit | Stars | Weekly installs | Distribution | State and recovery | Gates and enforcement | Verification |
 |-----|-------|-----------------|--------------|--------------------|-----------------------|--------------|
-| OpenCode SDD Integrity (this repository) | 1 | Not on npm | Shell installer plus plugin wiring | Zod-validated session and spec state with atomic writes and hashes, checksummed backups, verifiable snapshots with restore drills and journal | Per-artifact approvals with explicit confirmation, file guard that blocks editor and shell writes to state, per-phase pre-validation | 3,153 tests, CI on three operating systems, install and smoke end-to-end jobs, Stryker mutation testing, V1 and V2 wiring from one package with V2 verified end to end in a real 2.0.32 runtime |
+| OpenCode SDD Integrity (this repository) | 1 | 0, first day | npm installer CLI plus shell scripts and plugin wiring | Zod-validated session and spec state with atomic writes and hashes, checksummed backups, verifiable snapshots with restore drills and journal | Per-artifact approvals with explicit confirmation, file guard that blocks editor and shell writes to state, per-phase pre-validation | 3,153 tests, CI on three operating systems, install and smoke end-to-end jobs, Stryker mutation testing, V1 and V2 wiring from one package with V2 verified end to end in a real 2.0.32 runtime |
 | GoopSpec | 50 | 1 | npm plugin and Bun CLI | SQLite state, checkpoints, background daemon, cross-project memory | Two mandatory human contract gates, a specialist agent orchestration layer | 1,660 tests as published, dual V1 and V2 plugin contract declared, repository quiet since 2026-08-12 |
 | Conductor | 131 | 54 | npm plugin (v1.32) | Per-track metadata file and git-aware revert | Context, spec, plan, implement lifecycle without a state integrity layer | No visible suite, last push 2026-03-02 |
 | opencode-sdd | 4 | 14 | npm plugin with an install wizard | Markdown artifacts without a documented recovery layer | Six subagents, a clean session per phase, retry-capped auto-implement, recorded human decisions | Mock-LLM end-to-end suite plus manual QA with frontier models, active |
@@ -41,7 +41,7 @@ The honest summary is first by rigor and last by reach, which is a distribution 
 
 ## Gaps and follow-ups
 
-1. Distribution. Every native competitor installs through npm with a wizard or CLI, and this toolkit uses a shell script, so an npm-based installer is planned as part of the V2 formalization.
+1. Distribution. Closed on 2026-10-19, when the 2.0.0 release published the package with an installer CLI, so the toolkit now installs through npm the way its native competitors do, and the shell scripts remain as a fallback. The reach half stays open, because a new package starts at zero downloads and zero directory listings.
 2. Visibility. The toolkit is not listed in awesome-opencode or in third-party directories, so a listing request, a demo, and a short comparison section would close part of the gap.
 3. Memory across features. Steering context covers project knowledge, but nothing carries lessons from finished features into the next one, which GoopSpec, BMAD, and the memory add-ons all ship in some form.
 4. Process breadth. Convergence and checklists from Spec Kit and exploration and archiving from OpenSpec are the most used parts of those kits that this toolkit lacks.

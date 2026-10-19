@@ -144,9 +144,9 @@ An entry marked as not documented means the public documentation reviewed for th
 | BMAD | Agent personas and one command per skill | Documentation and workflows | Workflow documents, with Python and uv required for setup |
 | cc-sdd | Skills for eight harnesses with steering context | Documentation and skills, autonomous implementation after approval | Steering context |
 
-Distribution flips the comparison in the other direction.
-Every native competitor installs through npm with a wizard or a CLI, and this toolkit still installs through a shell script, with an npm-based installer planned as part of the V2 formalization.
-Interface rigor is a reason to adopt today and not yet a reason to find the project, which is the distribution gap named in `docs/positioning.md`.
+Distribution used to flip the comparison in the other direction, and the 2.0.0 release closes that half.
+Every native competitor installs through npm with a wizard or a CLI, and this toolkit now ships an npm installer CLI next to the shell scripts, backed by the same surface contract the scripts verify.
+Interface rigor is a reason to adopt today, and reach is the half of the distribution gap that stays open in `docs/positioning.md`, because a new package starts at zero downloads.
 
 ## Reproducing the gallery
 
