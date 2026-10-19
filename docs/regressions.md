@@ -222,3 +222,16 @@ Passing `featureDir: "specs/001-name"`, a natural habit for models, produced a f
 **Fix:** validate rejects a path shaped `featureDir` with `Invalid featureDir: ...` before any session write, mirroring delta.
 
 **Test coverage:** `validate.test.ts` rejects prefixed, traversing, separator bearing and empty names, and asserts the session file stays untouched.
+
+### R-15: clean and audit repaired the phase with next-step semantics and flagged healthy mid-workflow features
+
+**Introduced in:** the phase detection of `speckit-clean` and the auto-repair path of both tools
+**Fixed in:** current
+
+`/clean` reported the stored phase as different from reality for every healthy feature that had not finished the workflow yet, so a spec only or spec plus plan feature was flagged as drift and `clean --fix` advanced the stored phase past the artifacts that were still being written. `audit --fix` and the clean repair also wrote the next-step phase into spec.json, so a feature that stored `tasks` produced a mismatch against itself on the next run, reported as "says tasks but tasks.md is missing".
+
+**Root cause:** `detectPhaseFromFiles` answers which phase runs next from the artifacts on disk, while the stored phase means the last milestone reached. The clean detection, the clean repair and the audit repair all reused the next-step answer as if it were the milestone answer.
+
+**Fix:** `phaseFromArtifacts(specOk, planOk, tasksOk, tasksApproved)` in `tools/shared/types.ts` derives the milestone phase. Clean now flags only genuine drift, keeps an `impl` or `complete` phase when every file exists, records session repairs in the trace with a no-op apply so the run still reports them, and targets the authoritative `liveSj.phase` when it realigns the session. Audit computes its repair target inside the lock from the freshly read spec.json.
+
+**Test coverage:** `clean.test.ts` covers mid-workflow features, no advancement on fix, stale session realignment and the rule that a fix never promotes the phase without the tasks approval; `audit.test.ts` pins the exact repair target and the lost-artifact repair; `snapshot-triggers.test.ts` and `e2e-workflow-snapshots.test.ts` pin the repaired states; the new `property-phase-machine.test.ts` restates the coherence rules as invariants over generated command sequences.

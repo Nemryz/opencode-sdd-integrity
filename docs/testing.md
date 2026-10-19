@@ -100,6 +100,8 @@ Matrices are grouped by the layer they exercise, because a pure function test an
 `property/property-snapshot.test.ts` generates the inputs and asserts the invariants that must hold for every case, namely byte exact round trips, removal of artifacts created after the snapshot, idempotent trigger reuse, a fresh snapshot whenever the scope changes, and retention that never removes the newest or a pinned snapshot while respecting both caps.
 Every property case builds its own worktree, because a shared worktree lets one case inherit the snapshots of the previous one.
 
+`property/property-phase-machine.test.ts` runs the workflow as a model-based state machine, generating sequences of scaffold, approve, phase and validate commands and asserting after every command that spec.json and session.json stay schema valid, that the stored phase, the approvals and the ready flag never contradict each other, and that validate reads the state without rewriting spec.json.
+
 `chaos/chaos-snapshots.test.ts` injects the failures that a real filesystem produces, namely running out of space while copying, denied permissions while creating the folder, a copy that does not match the manifest hash, a read failure during a drill, an apply that fails once, and a rollback that fails as well.
 The suite asserts the transactional promises of the engine, where a failed creation leaves no folder behind, a failed drill records the error in its sidecar, a failed apply rolls back and clears the journal, and a failed rollback keeps the journal so the next attempt can recover.
 

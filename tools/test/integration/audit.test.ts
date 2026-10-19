@@ -3,6 +3,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import auditTool, { AuditFinding } from "../../speckit-audit"
 import scaffoldTool from "../../speckit-scaffold"
+import approveTool from "../../speckit-approve"
 import { mockContext, createTempWorktree, destroyTempWorktree, createConstitution } from "../helpers/setup"
 import { readSpecJson, writeSpecJson, steeringDirPath, PATHS } from "../../shared/types"
 import { computeBodyChecksum } from "../../shared/io"
@@ -373,7 +374,27 @@ describe("audit auto-fix", () => {
     const fixed = findings.filter((f: AuditFinding) => f.message.includes("auto-fixed"))
     expect(fixed.length).toBeGreaterThanOrEqual(1)
     const fixedSj = await readSpecJson(base)
-    expect(fixedSj?.phase).not.toBe("ready")
+    // A spec-only feature falls back to its spec milestone instead of advancing to the missing plan.
+    expect(fixedSj?.phase).toBe("spec")
+  })
+
+  it("repairs a lost artifact back to the last generated milestone", async () => {
+    await createConstitution(worktree)
+    await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
+    await scaffoldTool.execute({ featureName: "Auth", template: "plan" }, ctx)
+    await scaffoldTool.execute({ featureName: "Auth", template: "tasks" }, ctx)
+    await approveTool.execute({ artifact: "tasks", confirmed: true }, ctx)
+    const base = path.join(worktree, "specs", "001-auth")
+    await fs.rm(path.join(base, "tasks.md"))
+
+    const repair = await auditTool.execute({ fix: true }, ctx)
+    expect(repair.output).toContain("auto-fixed")
+    const repaired = (await readSpecJson(base))!
+    expect(repaired.phase).toBe("plan")
+    expect(repaired.ready_for_implementation).toBe(false)
+
+    const reaudit = await auditTool.execute({}, ctx)
+    expect(reaudit.metadata?.errorCount).toBe(0)
   })
 
   it("recalculates summary after fix so error count drops (F-4)", async () => {

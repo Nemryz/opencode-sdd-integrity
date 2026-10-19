@@ -16,8 +16,7 @@ import {
   steeringDirPath,
   specJsonPath,
   PATHS,
-  detectPhaseFromFiles,
-  parsePhase,
+  phaseFromArtifacts,
   withLock,
   corruptionWarnings,
   clearCorruptionWarnings,
@@ -422,11 +421,13 @@ export default tool({
                 const specOk = await exists(path.join(base, "spec.md"))
                 const planOk = await exists(path.join(base, "plan.md"))
                 const tasksOk = await exists(path.join(base, "tasks.md"))
-                const newPhase = detectPhaseFromFiles(specOk, planOk, tasksOk)
                 await withLock(specJsonPath(base), async () => {
                   const sjPrev = await readSpecJson(base)
-                  if (sjPrev && sjPrev.phase !== newPhase) {
-                    sjPrev.phase = parsePhase(newPhase)
+                  const newPhase = sjPrev
+                    ? phaseFromArtifacts(specOk, planOk, tasksOk, sjPrev.approvals.tasks.approved)
+                    : null
+                  if (sjPrev && newPhase && sjPrev.phase !== newPhase) {
+                    sjPrev.phase = newPhase
                     await writeSpecJson(sjPrev, base)
                     await syncFrontmatterFromSpecJson(base, sjPrev)
                     fixedBases.push(base)

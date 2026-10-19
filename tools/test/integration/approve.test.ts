@@ -3,6 +3,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import approveTool from "../../speckit-approve"
 import scaffoldTool from "../../speckit-scaffold"
+import phaseTool from "../../speckit-phase"
 import { mockContext, createTempWorktree, destroyTempWorktree } from "../helpers/setup"
 import { readSession, readSpecJson, writeSpecJson, specsDirPath, specJsonPath } from "../../shared/types"
 import { readFrontmatter } from "../../shared/io"
@@ -230,5 +231,41 @@ describe("approve tool", () => {
     const raw = JSON.parse(await fs.readFile(specJsonPath(await featureDirOf()), "utf-8"))
     expect(raw.approvals.spec.approved).toBe(true)
     expect(raw.updated_at).toBeDefined()
+  })
+})
+
+// The command layer enforces the spec to plan to tasks order, while the tool itself holds no such rule.
+describe("approve order pinning", () => {
+  it("approves a plan while the spec approval is still pending", async () => {
+    await scaffoldTool.execute({ featureName: "Test Feature", template: "spec" }, ctx)
+    await scaffoldTool.execute({ featureName: "Test Feature", template: "plan" }, ctx)
+
+    const result = await approveTool.execute({ artifact: "plan", confirmed: true }, ctx)
+
+    expect(result.title).toBe("plan approved")
+    const sj = await readSpecJson(await featureDirOf())
+    expect(sj?.approvals.plan.approved).toBe(true)
+    expect(sj?.approvals.spec.approved).toBe(false)
+    expect(sj?.phase).toBe("plan")
+  })
+
+  it("marks the feature ready when only tasks are approved", async () => {
+    await scaffoldTool.execute({ featureName: "Test Feature", template: "spec" }, ctx)
+    await scaffoldTool.execute({ featureName: "Test Feature", template: "plan" }, ctx)
+    await scaffoldTool.execute({ featureName: "Test Feature", template: "tasks" }, ctx)
+
+    const result = await approveTool.execute({ artifact: "tasks", confirmed: true }, ctx)
+
+    expect(result.title).toBe("tasks approved")
+    const sj = await readSpecJson(await featureDirOf())
+    expect(sj?.phase).toBe("ready")
+    expect(sj?.ready_for_implementation).toBe(true)
+    expect(sj?.approvals.spec.approved).toBe(false)
+    expect(sj?.approvals.plan.approved).toBe(false)
+
+    // The phase tool gates only on the tasks approval, so this sharp edge stays pinned until the command gates run.
+    const advanced = await phaseTool.execute({ phase: "impl" }, ctx)
+    expect(advanced.title).toBe("Phase: impl")
+    expect((await readSpecJson(await featureDirOf()))?.phase).toBe("impl")
   })
 })

@@ -114,11 +114,15 @@ describe("e2e workflow: specification to completion with verified recovery point
     const audit = await run(auditTool, {})
     expect(audit.metadata?.errorCount).toBeGreaterThan(0)
 
-    // The repair run must take a recovery point and then realign the stored phase.
+    // The repair run must take a recovery point and realign the stored phase with the artifacts that remain.
     const repair = await run(auditTool, { fix: true })
     expect(repair.output).toContain("auto-fixed")
     expect(await snapshotsFor("pre-fix:audit")).toBeGreaterThan(0)
-    await expectFeatureSpecJson(worktree, "001-billing", { phase: "tasks" })
+    await expectFeatureSpecJson(worktree, "001-billing", { phase: "plan", ready_for_implementation: false })
+
+    // A second audit run must find the repaired state coherent.
+    const reaudit = await run(auditTool, {})
+    expect(reaudit.metadata?.errorCount).toBe(0)
 
     // A clean sweep must agree with the repaired state and find nothing left to fix.
     const sweep = await run(cleanTool, {})

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-2990-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-3005-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -169,7 +169,7 @@ The toolkit organizes its components into a clear directory hierarchy that separ
   tools/                 TypeScript tool modules (16 files)
   tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot/)
   tools/plugins/         Runtime plugins (3 files)
-  tools/test/            Test suite (108 test files)
+  tools/test/            Test suite (109 test files)
   templates/             Artifact templates (12 templates)
   docs/                  Reference documentation
 ```
@@ -653,7 +653,7 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 2990 automated tests distributed across 108 test files, and every layer answers a different question about the same system.
+The project includes 3005 automated tests distributed across 109 test files, and every layer answers a different question about the same system.
 `docs/testing.md` holds the conventions, the per module matrix inventory, and the stability rules that this section only summarizes.
 
 ### Test Types

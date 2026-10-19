@@ -162,6 +162,7 @@ describe("Clean kill survivors - history truncation", () => {
     let session = await readSession(worktree)
     session.featureDir = "001-auth"
     session.featureNumber = 1
+    session.phase = "init"
     session.history = Array(19).fill("/spec")
     await writeSession(worktree, session)
     await cleanTool.execute({ fix: true }, ctx)
@@ -175,6 +176,7 @@ describe("Clean kill survivors - history truncation", () => {
     let session = await readSession(worktree)
     session.featureDir = "001-auth"
     session.featureNumber = 1
+    session.phase = "init"
     session.history = Array(25).fill("/spec")
     await writeSession(worktree, session)
     await cleanTool.execute({ fix: true }, ctx)
@@ -188,6 +190,7 @@ describe("Clean kill survivors - history truncation", () => {
     let session = await readSession(worktree)
     session.featureDir = "001-auth"
     session.featureNumber = 1
+    session.phase = "init"
     session.history = ["A", "B", "C", ...Array(22).fill("/spec")]
     await writeSession(worktree, session)
     await cleanTool.execute({ fix: true }, ctx)
@@ -264,7 +267,7 @@ describe("Clean kill survivors - reports.find correctness", () => {
     await writeSession(worktree, session)
     await cleanTool.execute({ fix: true }, ctx)
     const after = await readSession(worktree)
-    expect(after.phase).toBe("plan")
+    expect(after.phase).toBe("spec")
   })
 
   it("reports.find matches correct dir when second feature has mismatch", async () => {
@@ -281,7 +284,7 @@ describe("Clean kill survivors - reports.find correctness", () => {
     }
     await cleanTool.execute({ fix: true }, ctx)
     const fixed = await readSpecJson(billingBase)
-    expect(fixed?.phase).toBe("ready")
+    expect(fixed?.phase).toBe("tasks")
   })
 })
 
@@ -375,8 +378,8 @@ describe("Clean kill survivors - multi-feature phase fixes", () => {
     await cleanTool.execute({ fix: true }, ctx)
     const fixedAuth = await readSpecJson(authBase)
     const fixedBilling = await readSpecJson(billingBase)
-    expect(fixedAuth?.phase).toBe("plan")
-    expect(fixedBilling?.phase).toBe("ready")
+    expect(fixedAuth?.phase).toBe("spec")
+    expect(fixedBilling?.phase).toBe("tasks")
   })
 
   it("reports.find with dir filter uses correct report per entry", async () => {

@@ -4,7 +4,7 @@ import path from "node:path"
 import cleanTool from "../../speckit-clean"
 import scaffoldTool from "../../speckit-scaffold"
 import { mockContext, createTempWorktree, destroyTempWorktree, createConstitution } from "../helpers/setup"
-import { readSpecJson, writeSpecJson, readSession, specsDirPath, pushCorruptionWarning, clearCorruptionWarnings } from "../../shared/types"
+import { readSpecJson, writeSpecJson, readSession, writeSession, specsDirPath, pushCorruptionWarning, clearCorruptionWarnings } from "../../shared/types"
 
 let worktree: string
 let ctx: ReturnType<typeof mockContext>
@@ -144,9 +144,12 @@ describe("Phase 7: Clean Module - Mutation Score Improvement", () => {
     it("appends /clean to session history", async () => {
       await createConstitution(worktree)
       await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
-      const result = await cleanTool.execute({ fix: true }, ctx)
       const session = await readSession(worktree)
-      expect(session.history).toContain("/clean")
+      session.phase = "init"
+      await writeSession(worktree, session)
+      await cleanTool.execute({ fix: true }, ctx)
+      const after = await readSession(worktree)
+      expect(after.history).toContain("/clean")
     })
 
     it("truncates session history to 20 entries", async () => {
@@ -162,7 +165,10 @@ describe("Phase 7: Clean Module - Mutation Score Improvement", () => {
     it("sets lastResult during fix", async () => {
       await createConstitution(worktree)
       await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
-      const result = await cleanTool.execute({ fix: true }, ctx)
+      const stale = await readSession(worktree)
+      stale.phase = "init"
+      await writeSession(worktree, stale)
+      await cleanTool.execute({ fix: true }, ctx)
       const session = await readSession(worktree)
       expect(session.lastResult).toContain("repaired")
     })

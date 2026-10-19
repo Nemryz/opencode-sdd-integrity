@@ -4,6 +4,7 @@ import path from "node:path"
 import cleanTool from "../../speckit-clean"
 import scaffoldTool from "../../speckit-scaffold"
 import approveTool from "../../speckit-approve"
+import validateTool from "../../speckit-validate"
 import { mockContext, createTempWorktree, destroyTempWorktree, createConstitution } from "../helpers/setup"
 import { readSpecJson, writeSpecJson, readSession, writeSession, specsDirPath, pushCorruptionWarning, corruptionWarnings, clearCorruptionWarnings } from "../../shared/types"
 
@@ -105,6 +106,7 @@ describe("clean spec.json mismatch detection", () => {
     await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
     await scaffoldTool.execute({ featureName: "Auth", template: "plan" }, ctx)
     await scaffoldTool.execute({ featureName: "Auth", template: "tasks" }, ctx)
+    await approveTool.execute({ artifact: "tasks", confirmed: true }, ctx)
     const base = path.join(worktree, "specs", "001-auth")
     const sj = await readSpecJson(base)
     if (sj) {
@@ -168,6 +170,12 @@ describe("clean spec.json mismatch detection", () => {
     await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
     await scaffoldTool.execute({ featureName: "Auth", template: "plan" }, ctx)
     await scaffoldTool.execute({ featureName: "Auth", template: "tasks" }, ctx)
+    const base = path.join(worktree, "specs", "001-auth")
+    const sj = (await readSpecJson(base))!
+    sj.phase = "impl"
+    sj.approvals.tasks.approved = true
+    sj.ready_for_implementation = true
+    await writeSpecJson(sj, base)
     const session = await readSession(worktree)
     session.phase = "impl"
     session.nextStep = "/impl (continue)"
@@ -183,6 +191,12 @@ describe("clean spec.json mismatch detection", () => {
     await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
     await scaffoldTool.execute({ featureName: "Auth", template: "plan" }, ctx)
     await scaffoldTool.execute({ featureName: "Auth", template: "tasks" }, ctx)
+    const base = path.join(worktree, "specs", "001-auth")
+    const sj = (await readSpecJson(base))!
+    sj.phase = "complete"
+    sj.approvals.tasks.approved = true
+    sj.ready_for_implementation = true
+    await writeSpecJson(sj, base)
     const session = await readSession(worktree)
     session.phase = "complete"
     session.nextStep = "/review or start a new feature"
@@ -293,7 +307,7 @@ describe("clean auto-fix", () => {
     expect(session2.featureNumber).toBe(2)
   })
 
-  it("fixes session phase to match files phase when set wrong", async () => {
+  it("fixes session phase to match spec.json phase when set wrong", async () => {
     await createConstitution(worktree)
     await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
     let session = await readSession(worktree)
@@ -304,8 +318,77 @@ describe("clean auto-fix", () => {
     await writeSession(worktree, session)
     await cleanTool.execute({ fix: true }, ctx)
     const session2 = await readSession(worktree)
-    expect(session2.phase).toBe("plan")
-    expect(session2.nextStep).toBe("/plan <tech stack>")
+    expect(session2.phase).toBe("spec")
+    expect(session2.nextStep).toBe("/approve spec")
+  })
+
+  it("realigns a stale session phase with the authoritative spec.json phase", async () => {
+    await createConstitution(worktree)
+    await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
+    await scaffoldTool.execute({ featureName: "Auth", template: "plan" }, ctx)
+    await scaffoldTool.execute({ featureName: "Auth", template: "tasks" }, ctx)
+    await approveTool.execute({ artifact: "spec", confirmed: true }, ctx)
+    await approveTool.execute({ artifact: "plan", confirmed: true }, ctx)
+    await approveTool.execute({ artifact: "tasks", confirmed: true }, ctx)
+    const base = path.join(worktree, "specs", "001-auth")
+    const sj = (await readSpecJson(base))!
+    sj.phase = "impl"
+    await writeSpecJson(sj, base)
+    // The session lags behind spec.json exactly like a transition interrupted before the session write.
+    let session = await readSession(worktree)
+    session.featureDir = "001-auth"
+    session.featureNumber = 1
+    session.phase = "ready"
+    await writeSession(worktree, session)
+
+    await cleanTool.execute({ fix: true }, ctx)
+
+    const after = await readSession(worktree)
+    expect(after.phase).toBe("impl")
+    expect(after.nextStep).toBe("/impl (continue)")
+  })
+
+  it("keeps a mid-workflow feature free of phase issues", async () => {
+    await createConstitution(worktree)
+    await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
+    const specOnly = await cleanTool.execute({}, ctx)
+    expect((specOnly.metadata?.issues as string[]).filter(i => i.includes("spec.json"))).toHaveLength(0)
+
+    await scaffoldTool.execute({ featureName: "Auth", template: "plan" }, ctx)
+    const specPlan = await cleanTool.execute({}, ctx)
+    expect((specPlan.metadata?.issues as string[]).filter(i => i.includes("spec.json"))).toHaveLength(0)
+  })
+
+  it("does not advance the phase past the files when fixing a spec-only feature", async () => {
+    await createConstitution(worktree)
+    await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
+    const base = path.join(worktree, "specs", "001-auth")
+
+    const result = await cleanTool.execute({ fix: true }, ctx)
+
+    expect(((result.metadata?.issues ?? []) as string[]).some(i => i.includes("Fix blocked"))).toBe(false)
+    const fixed = (await readSpecJson(base))!
+    expect(fixed.phase).toBe("spec")
+    // The feature is still awaiting its plan, so validation must not report a phase mismatch.
+    const validated = await validateTool.execute({ featureDir: "001-auth" }, ctx)
+    expect(validated.metadata?.mismatch).toBe(false)
+  })
+
+  it("never promotes a feature to ready while tasks approval is missing", async () => {
+    await createConstitution(worktree)
+    await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
+    await scaffoldTool.execute({ featureName: "Auth", template: "plan" }, ctx)
+    await scaffoldTool.execute({ featureName: "Auth", template: "tasks" }, ctx)
+    const base = path.join(worktree, "specs", "001-auth")
+    const sj = (await readSpecJson(base))!
+    sj.phase = "spec"
+    await writeSpecJson(sj, base)
+
+    await cleanTool.execute({ fix: true }, ctx)
+
+    const fixed = (await readSpecJson(base))!
+    expect(fixed.phase).toBe("tasks")
+    expect(fixed.ready_for_implementation).toBe(false)
   })
 
   it("sets ready_for_implementation correctly when tasks approved and all files exist", async () => {
@@ -377,6 +460,9 @@ describe("clean auto-fix", () => {
     await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
     await scaffoldTool.execute({ featureName: "Auth", template: "plan" }, ctx)
     await scaffoldTool.execute({ featureName: "Auth", template: "tasks" }, ctx)
+    await approveTool.execute({ artifact: "spec", confirmed: true }, ctx)
+    await approveTool.execute({ artifact: "plan", confirmed: true }, ctx)
+    await approveTool.execute({ artifact: "tasks", confirmed: true }, ctx)
     let session = await readSession(worktree)
     session.featureDir = "001-auth"
     session.featureNumber = 77

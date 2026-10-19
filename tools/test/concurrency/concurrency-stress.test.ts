@@ -2,6 +2,14 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
 import os from "node:os"
+import scaffoldTool from "../../speckit-scaffold"
+import approveTool from "../../speckit-approve"
+import phaseTool from "../../speckit-phase"
+import validateTool from "../../speckit-validate"
+import cleanTool from "../../speckit-clean"
+import auditTool from "../../speckit-audit"
+import statusTool from "../../speckit-status"
+import { mockContext, createConstitution } from "../helpers/setup"
 import {
   writeSession,
   readSession,
@@ -372,5 +380,104 @@ describe("Concurrency: Audit + clean concurrent", () => {
 
     const finalConfig = await readConfig(tmpDir)
     expect(ConfigSchema.safeParse(finalConfig).success).toBe(true)
+  })
+})
+
+// Phase transitions under contention
+
+// Seeds a feature through the real tools so the burst works on genuine state files with genuine snapshots.
+async function seedTransitionFixture(approveTasks: boolean): Promise<string> {
+  await createConstitution(tmpDir)
+  const ctx = mockContext(tmpDir)
+  await scaffoldTool.execute({ featureName: "Conc", template: "spec" }, ctx)
+  await scaffoldTool.execute({ featureName: "Conc", template: "plan" }, ctx)
+  await scaffoldTool.execute({ featureName: "Conc", template: "tasks" }, ctx)
+  await approveTool.execute({ artifact: "spec", confirmed: true }, ctx)
+  await approveTool.execute({ artifact: "plan", confirmed: true }, ctx)
+  if (approveTasks) {
+    await approveTool.execute({ artifact: "tasks", confirmed: true }, ctx)
+  }
+  return path.join(tmpDir, "specs", "001-conc")
+}
+
+describe("Concurrency: phase transition burst", () => {
+  it("parallel approve tasks, phase impl, validate and status settle into a coherent state", { timeout: 30_000 }, async () => {
+    const featureDir = await seedTransitionFixture(false)
+    const ctx = mockContext(tmpDir)
+
+    const results = await Promise.allSettled([
+      approveTool.execute({ artifact: "tasks", confirmed: true }, ctx),
+      phaseTool.execute({ phase: "impl" }, ctx),
+      validateTool.execute({ featureDir: "001-conc" }, ctx),
+      statusTool.execute({}, ctx),
+    ])
+    expect(results.every(r => r.status === "fulfilled")).toBe(true)
+
+    const sj = await readSpecJson(featureDir)
+    expect(sj).not.toBeNull()
+    expect(SpecJsonSchema.safeParse(sj).success).toBe(true)
+    // The approval and the stored phase may land in either order but must never contradict each other.
+    expect(["tasks", "ready", "impl"]).toContain(sj!.phase)
+    if (sj!.phase !== "tasks") expect(sj!.approvals.tasks.approved).toBe(true)
+    expect(sj!.ready_for_implementation).toBe(sj!.approvals.tasks.approved)
+    expect(SessionStateSchema.safeParse(await readSession(tmpDir)).success).toBe(true)
+    const tasksFile = await fs.stat(path.join(featureDir, "tasks.md")).catch(() => null)
+    expect(tasksFile?.isFile()).toBe(true)
+
+    // One repair pass settles the session cache on the authoritative stored phase.
+    const settled = await validateTool.execute({ featureDir: "001-conc" }, ctx)
+    expect(settled.metadata?.mismatch).toBe(false)
+    expect((await readSession(tmpDir)).phase).toBe(sj!.phase)
+  })
+
+  it("parallel transition burst from ready keeps the stored state valid", { timeout: 30_000 }, async () => {
+    const featureDir = await seedTransitionFixture(true)
+    const ctx = mockContext(tmpDir)
+
+    const results = await Promise.allSettled([
+      phaseTool.execute({ phase: "impl" }, ctx),
+      phaseTool.execute({ phase: "impl" }, ctx),
+      validateTool.execute({ featureDir: "001-conc" }, ctx),
+      statusTool.execute({}, ctx),
+      auditTool.execute({ fix: true }, ctx),
+      cleanTool.execute({ fix: true }, ctx),
+    ])
+    expect(results.every(r => r.status === "fulfilled")).toBe(true)
+
+    const sj = await readSpecJson(featureDir)
+    expect(SpecJsonSchema.safeParse(sj).success).toBe(true)
+    expect(["ready", "impl"]).toContain(sj!.phase)
+    // The tasks approval was recorded before the burst and no participant may lose it.
+    expect(sj!.approvals.tasks.approved).toBe(true)
+    expect(SessionStateSchema.safeParse(await readSession(tmpDir)).success).toBe(true)
+
+    const settled = await validateTool.execute({ featureDir: "001-conc" }, ctx)
+    expect(settled.metadata?.mismatch).toBe(false)
+    expect((await readSession(tmpDir)).phase).toBe(sj!.phase)
+  })
+
+  it("parallel clean repair and validate converge on the same repaired phase", { timeout: 30_000 }, async () => {
+    const featureDir = await seedTransitionFixture(true)
+    const ctx = mockContext(tmpDir)
+    await fs.rm(path.join(featureDir, "tasks.md"))
+
+    const results = await Promise.allSettled([
+      cleanTool.execute({ fix: true }, ctx),
+      validateTool.execute({ featureDir: "001-conc" }, ctx),
+      statusTool.execute({}, ctx),
+    ])
+    expect(results.every(r => r.status === "fulfilled")).toBe(true)
+
+    // Whether or not the parallel repair landed, one more run must reach the same repaired state.
+    const fixed = await cleanTool.execute({ fix: true }, ctx)
+    const issues = (fixed.metadata?.issues ?? []) as string[]
+    expect(issues.some(i => i.includes("Fix blocked"))).toBe(false)
+    const sj = await readSpecJson(featureDir)
+    expect(sj?.phase).toBe("plan")
+    expect(sj?.ready_for_implementation).toBe(false)
+    expect((await readSession(tmpDir)).phase).toBe("plan")
+
+    const sweep = await auditTool.execute({}, ctx)
+    expect(sweep.metadata?.errorCount).toBe(0)
   })
 })

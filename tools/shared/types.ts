@@ -350,6 +350,19 @@ export function detectPhaseFromFiles(
   return "ready"
 }
 
+// Reports the stored phase implied by the artifacts on disk, where a feature without its plan is still at the spec milestone and tasks wait for approval before ready.
+// Stored phases name the last artifact milestone while detectPhaseFromFiles names the next one, so repairs must use this mapping to avoid advancing a phase past the files.
+export function phaseFromArtifacts(
+  specOk: boolean,
+  planOk: boolean,
+  tasksOk: boolean,
+  tasksApproved: boolean,
+): "spec" | "plan" | "tasks" | "ready" {
+  if (!specOk || !planOk) return "spec"
+  if (!tasksOk) return "plan"
+  return tasksApproved ? "ready" : "tasks"
+}
+
 export function approvalAwareNextStep(sj: SpecJson | null, fallback: string): string {
   if (!sj) return fallback
   if (sj.approvals.spec.generated && !sj.approvals.spec.approved) return "/approve spec"

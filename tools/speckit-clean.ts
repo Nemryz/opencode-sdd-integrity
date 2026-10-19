@@ -8,19 +8,19 @@ import {
   writeSpecJson,
   exists,
   parseNNN,
-  detectPhaseFromFiles,
-  detectPhase,
+  phaseFromArtifacts,
   getFeatureDirs,
   resolveProjectRoot,
   getProjectRootWarnings,
   detectParentProjectWithoutSession,
   reconstructFromFrontmatter,
   syncFrontmatterFromSpecJson,
+  approvalAwareNextStep,
+  PHASE_NEXT_STEP,
   constitutionPath,
   specsDirPath,
   specJsonPath,
   sessionPath,
-  parsePhase,
   withLock,
   SpecJsonSchema,
   corruptionWarnings,
@@ -146,16 +146,14 @@ export default tool({
           }
 
           if (sj) {
-            const filesPhase = detectPhaseFromFiles(specOk, planOk, tasksOk)
-            const isTasksNotApproved = sj.phase === "tasks" && filesPhase === "ready" && !sj.approvals.tasks.approved
-            const isCompleteNotDowngraded = sj.phase === "complete" && filesPhase === "ready"
-            const isImplNotDowngraded = sj.phase === "impl" && filesPhase === "ready"
-            if (sj.phase !== filesPhase && !isTasksNotApproved && !isCompleteNotDowngraded && !isImplNotDowngraded) {
-              issues.push(`${dir}: spec.json phase "${sj.phase}" ≠ reality "${filesPhase}"`)
+            const expectedPhase = phaseFromArtifacts(specOk, planOk, tasksOk, sj.approvals.tasks.approved)
+            const keepsImplOrComplete = (sj.phase === "impl" || sj.phase === "complete") && specOk && planOk && tasksOk
+            if (sj.phase !== expectedPhase && !keepsImplOrComplete) {
+              issues.push(`${dir}: spec.json phase "${sj.phase}" ≠ reality "${expectedPhase}"`)
               specJsonMismatches++
             }
-            if (sj.ready_for_implementation && filesPhase !== "ready") {
-              issues.push(`${dir}: marked ready_for_implementation but files show phase "${filesPhase}"`)
+            if (sj.ready_for_implementation && !(specOk && planOk && tasksOk)) {
+              issues.push(`${dir}: marked ready_for_implementation but files show phase "${expectedPhase}"`)
             }
           }
         }
@@ -176,16 +174,14 @@ export default tool({
           const base = path.join(specsDir, dir)
           const sj = await readSpecJson(base)
           if (!sj) continue
-          const filesPhase = detectPhaseFromFiles(report.spec, report.plan, report.tasks)
-          const isTasksNotApproved = sj.phase === "tasks" && filesPhase === "ready" && !sj.approvals.tasks.approved
-          const isCompleteNotDowngraded = sj.phase === "complete" && filesPhase === "ready"
-          const isImplNotDowngraded = sj.phase === "impl" && filesPhase === "ready"
+          const expectedPhase = phaseFromArtifacts(report.spec, report.plan, report.tasks, sj.approvals.tasks.approved)
+          const keepsImplOrComplete = (sj.phase === "impl" || sj.phase === "complete") && report.spec && report.plan && report.tasks
           let changed = false
-          if (sj.phase !== filesPhase && !isTasksNotApproved && !isCompleteNotDowngraded && !isImplNotDowngraded) {
-            sj.phase = parsePhase(filesPhase)
+          if (sj.phase !== expectedPhase && !keepsImplOrComplete) {
+            sj.phase = expectedPhase
             changed = true
           }
-          const correctRfi = filesPhase === "ready" && sj.approvals.tasks.approved
+          const correctRfi = report.spec && report.plan && report.tasks && sj.approvals.tasks.approved
           if (sj.ready_for_implementation !== correctRfi) {
             sj.ready_for_implementation = correctRfi
             changed = true
@@ -229,22 +225,15 @@ export default tool({
         }
         const sessionChanges: PendingSessionChange[] = []
 
-        const s = await readSession(projectRoot)
-        for (const dir of entries) {
-          const report = reports.find(r => r.dir === dir)
-          if (!report) continue
-          const base = path.join(specsDir, dir)
-          const sj = await readSpecJson(base)
-          if (sj) {
-            const filesPhase = detectPhaseFromFiles(report.spec, report.plan, report.tasks)
-            if (sj.phase !== filesPhase) {
-              sessionChanges.push({
-                field: `${dir}: phase → ${filesPhase}`,
-                apply: () => {},
-              })
-            }
-          }
+        // Records every repaired spec.json so the fix run leaves its trace in the session history.
+        for (const change of specChanges) {
+          sessionChanges.push({
+            field: `${change.dir}: phase → ${change.sj.phase}`,
+            apply: () => {},
+          })
         }
+
+        const s = await readSession(projectRoot)
 
         if (s.featureDir) {
           const stillExists = reports.some(r => r.dir === s.featureDir)
@@ -284,20 +273,19 @@ export default tool({
           const report = reports.find(r => r.dir === s.featureDir)
           if (report) {
             const constitutionExists = await exists(constitutionPath(projectRoot))
-            const { phase: filesPhase, nextStep: expectedNext } = detectPhase(
-              report.spec, report.plan, report.tasks, constitutionExists,
-            )
             const liveSj = await readSpecJson(path.join(specsDir, s.featureDir))
-            const tasksApproved = liveSj?.approvals.tasks.approved ?? false
-            const isTasksNotApproved = s.phase === "tasks" && filesPhase === "ready" && !tasksApproved
-            const isCompleteNotDowngraded = s.phase === "complete" && filesPhase === "ready"
-            const isImplNotDowngraded = s.phase === "impl" && filesPhase === "ready"
-            if (s.phase !== filesPhase && !isTasksNotApproved && !isCompleteNotDowngraded && !isImplNotDowngraded) {
+            // A project without its constitution starts at init, otherwise the session mirrors the authoritative spec.json phase.
+            const targetPhase = constitutionExists ? liveSj?.phase : "init"
+            if (targetPhase && s.phase !== targetPhase) {
+              const phase = targetPhase
+              const nextStep = phase === "init"
+                ? PHASE_NEXT_STEP.init
+                : approvalAwareNextStep(liveSj, PHASE_NEXT_STEP[phase] ?? "/review")
               sessionChanges.push({
                 field: "session phase",
                 apply: (sess) => {
-                  sess.phase = filesPhase
-                  sess.nextStep = expectedNext
+                  sess.phase = phase
+                  sess.nextStep = nextStep
                 },
               })
             }
