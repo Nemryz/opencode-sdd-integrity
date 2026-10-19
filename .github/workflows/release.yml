@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release, for example v2.0.2"
+        required: true
+        type: string
+      diagnose_oidc:
+        description: "Check the OIDC handshake with a dry-run publish and skip every release side effect"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -12,8 +23,25 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - name: Resolve the release tag
+        id: rel
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          INPUT_DIAGNOSE: ${{ github.event.inputs.diagnose_oidc }}
+        run: |
+          TAG="${INPUT_TAG:-${GITHUB_REF_NAME}}"
+          DIAGNOSE=false
+          if [ "$INPUT_DIAGNOSE" = "true" ]; then
+            DIAGNOSE=true
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "diagnose=${DIAGNOSE}" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "Releasing ${TAG} with diagnose=${DIAGNOSE}"
+
       - uses: actions/checkout@v4
         with:
+          ref: ${{ steps.rel.outputs.tag }}
           fetch-depth: 0
 
       - name: Use Node.js
@@ -21,6 +49,56 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Check the OIDC handshake with the npm registry
+        run: |
+          node - <<'NODE'
+          (async () => {
+            const requestUrl = process.env.ACTIONS_ID_TOKEN_REQUEST_URL
+            const requestToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN
+            console.log(`oidc: the id-token request environment is ${requestUrl && requestToken ? 'present' : 'missing'}`)
+            if (!requestUrl || !requestToken) {
+              console.error('oidc: GitHub actions did not expose the id-token environment, so trusted publishing cannot start')
+              process.exitCode = 1
+              return
+            }
+            const url = new URL(requestUrl)
+            url.searchParams.append('audience', 'npm:registry.npmjs.org')
+            const idResponse = await fetch(url, {
+              headers: { accept: 'application/json', authorization: `Bearer ${requestToken}` },
+            })
+            console.log(`oidc: the GitHub token request answered ${idResponse.status}`)
+            const idBody = await idResponse.json().catch(() => ({}))
+            if (!idBody.value) {
+              console.error('oidc: the GitHub token response carried no id_token')
+              process.exitCode = 1
+              return
+            }
+            const claims = JSON.parse(Buffer.from(idBody.value.split('.')[1], 'base64url').toString('utf8'))
+            for (const name of ['aud', 'repository', 'repository_visibility', 'ref', 'event_name', 'environment', 'job_workflow_ref', 'workflow_ref']) {
+              if (claims[name] !== undefined) {
+                console.log(`oidc: the ${name} claim is ${JSON.stringify(claims[name])}`)
+              }
+            }
+            const exchange = await fetch('https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/opencode-sdd-integrity', {
+              method: 'POST',
+              headers: {
+                accept: 'application/json',
+                authorization: `Bearer ${idBody.value}`,
+                'user-agent': 'npm/11 node/v22 linux x64',
+                'npm-command': 'publish',
+              },
+            })
+            console.log(`oidc: the npm token exchange answered ${exchange.status}`)
+            if (!exchange.ok) {
+              console.error(`oidc: the npm token exchange rejected the handshake with ${await exchange.text()}`)
+              process.exitCode = 1
+            }
+          })().catch((error) => {
+            console.error(`oidc: the handshake failed with ${error.message}`)
+            process.exitCode = 1
+          })
+          NODE
 
       - name: Install dependencies
         run: npm ci
@@ -36,18 +114,18 @@ jobs:
         run: |
           PREV_TAG=$(git tag --sort=-version:refname | head -n 2 | tail -n 1 || echo "")
           echo "previous_tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
-          echo "current_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "current_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Create release archive
         run: |
-          tar czf opencode-sdd-integrity-${{ github.ref_name }}.tar.gz \
+          tar czf "opencode-sdd-integrity-${RELEASE_TAG}.tar.gz" \
             AGENTS.md install.sh install.ps1 opencode.jsonc.example package.json \
             npm-shrinkwrap.json README.md LICENSE .github/ \
             agents/ commands/ templates/ skills/ tools/ plugins/ docs/
 
       - name: Verify release archive
         run: |
-          tar tzf opencode-sdd-integrity-${{ github.ref_name }}.tar.gz > /tmp/release-files.txt
+          tar tzf "opencode-sdd-integrity-${RELEASE_TAG}.tar.gz" > /tmp/release-files.txt
           node - <<'NODE'
           const fs = require('node:fs');
           const surface = require('./tools/install/surface.json');
@@ -65,31 +143,37 @@ jobs:
 
       - name: Generate checksum
         run: |
-          shasum -a 256 opencode-sdd-integrity-${{ github.ref_name }}.tar.gz > opencode-sdd-integrity-${{ github.ref_name }}.tar.gz.sha256
+          shasum -a 256 "opencode-sdd-integrity-${RELEASE_TAG}.tar.gz" > "opencode-sdd-integrity-${RELEASE_TAG}.tar.gz.sha256"
 
       - name: Check the tag matches the package version
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          if [ "v${PACKAGE_VERSION}" != "${GITHUB_REF_NAME}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match the package version ${PACKAGE_VERSION}"
+          if [ "v${PACKAGE_VERSION}" != "${RELEASE_TAG}" ]; then
+            echo "Tag ${RELEASE_TAG} does not match the package version ${PACKAGE_VERSION}"
             exit 1
           fi
-          echo "Tag ${GITHUB_REF_NAME} matches package version ${PACKAGE_VERSION}"
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: OpenCode SDD Integrity ${{ github.ref_name }}
-          generate_release_notes: true
-          files: |
-            opencode-sdd-integrity-${{ github.ref_name }}.tar.gz
-            opencode-sdd-integrity-${{ github.ref_name }}.tar.gz.sha256
-            install.sh
-            install.ps1
+          echo "Tag ${RELEASE_TAG} matches package version ${PACKAGE_VERSION}"
 
       - name: Use npm with trusted publishing support
         run: npm install --global npm@11
 
+      - name: Dry-run the publish with verbose OIDC logging
+        if: steps.rel.outputs.diagnose == 'true'
+        run: npm publish --access public --dry-run --loglevel verbose
+
+      - name: Create Release
+        if: steps.rel.outputs.diagnose != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.rel.outputs.tag }}
+          name: OpenCode SDD Integrity ${{ steps.rel.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            opencode-sdd-integrity-${{ steps.rel.outputs.tag }}.tar.gz
+            opencode-sdd-integrity-${{ steps.rel.outputs.tag }}.tar.gz.sha256
+            install.sh
+            install.ps1
+
       - name: Publish to npm
+        if: steps.rel.outputs.diagnose != 'true'
         run: npm publish --access public --provenance
