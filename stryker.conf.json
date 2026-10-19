@@ -34,7 +34,8 @@
     "tools/speckit-phase.ts",
     "tools/speckit-snapshot.ts",
     "tools/plugins/speckit-perfmon.ts",
-    "tools/plugins/speckit-guard.ts"
+    "tools/plugins/speckit-guard.ts",
+    "tools/plugins/speckit-tools.ts"
   ],
   "thresholds": {
     "high": 80,

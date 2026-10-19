@@ -60,6 +60,11 @@
       "id": "tools-config-guard",
       "description": "Configuration, the protected file guard and its plugin, which share the protected path list",
       "mutate": ["tools/speckit-config.ts", "tools/speckit-guard.ts", "tools/plugins/speckit-guard.ts"]
+    },
+    {
+      "id": "tools-registry",
+      "description": "The OpenCode 2 registrar that bridges the sixteen tool definitions into the runtime",
+      "mutate": ["tools/plugins/speckit-tools.ts"]
     }
   ]
 }
