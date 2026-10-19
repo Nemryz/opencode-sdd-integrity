@@ -9,9 +9,6 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    env:
-      SMOKE_KEEP: "1"
-      SMOKE_TMP: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@v4
 
@@ -24,6 +21,9 @@ jobs:
         run: npm install -g @opencode/cli@2.0.32
 
       - name: Run the smoke test
+        env:
+          SMOKE_KEEP: "1"
+          SMOKE_TMP: ${{ runner.temp }}
         run: bash tools/test/smoke/v2-smoke.sh
 
       - name: Upload the smoke workspace when a check fails
