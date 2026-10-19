@@ -132,7 +132,7 @@ describe("shipped surface stays consistent", () => {
   it("install scripts copy only kit-owned paths", async () => {
     const allowed = new Set([
       "AGENTS.md",
-      "opencode.jsonc",
+      "opencode.jsonc.example",
       "package.json",
       "package-lock.json",
       "agents",
@@ -140,6 +140,7 @@ describe("shipped surface stays consistent", () => {
       "templates",
       "skills",
       "tools",
+      "plugins",
       "docs",
     ])
     for (const script of ["install.sh", "install.ps1"]) {
@@ -151,6 +152,13 @@ describe("shipped surface stays consistent", () => {
         if (!match) continue
         expect(allowed.has(match[1]), `${script} copies unexpected path: ${match[1]}`).toBe(true)
       }
+    }
+  })
+
+  it("install scripts ship the plugins directory", async () => {
+    for (const script of ["install.sh", "install.ps1"]) {
+      const content = await readRepoFile(script)
+      expect(content, `${script} must copy the plugins directory`).toMatch(/opencode-sdd-kit[\\/]plugins"/)
     }
   })
 

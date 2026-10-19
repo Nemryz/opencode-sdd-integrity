@@ -1,5 +1,5 @@
 # speckit-sdd Installer — Windows PowerShell 5.1+
-# Usage: irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/main/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.ps1 | iex
 # Or:    .\install.ps1
 
 $Repo     = "Nemryz/opencode-sdd-kit"
@@ -16,7 +16,9 @@ git clone --depth 1 --branch $Branch "https://github.com/$Repo.git" "$TmpDir\ope
 Write-Host "==> Installing files..."
 New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
 Copy-Item -Force "$TmpDir\opencode-sdd-kit\AGENTS.md" "$ConfigDir\AGENTS.md"
-Copy-Item -Force "$TmpDir\opencode-sdd-kit\opencode.jsonc" "$ConfigDir\opencode.jsonc" -ErrorAction SilentlyContinue
+if (-not (Test-Path "$ConfigDir\opencode.jsonc")) {
+    Copy-Item "$TmpDir\opencode-sdd-kit\opencode.jsonc.example" "$ConfigDir\opencode.jsonc"
+}
 Copy-Item -Force "$TmpDir\opencode-sdd-kit\package.json" "$ConfigDir\package.json"
 Copy-Item -Force "$TmpDir\opencode-sdd-kit\package-lock.json" "$ConfigDir\package-lock.json" -ErrorAction SilentlyContinue
 
@@ -25,6 +27,7 @@ Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\commands" "$ConfigDir"
 Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\templates" "$ConfigDir"
 Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\skills" "$ConfigDir"
 Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\tools" "$ConfigDir"
+Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\plugins" "$ConfigDir"
 Copy-Item -Recurse -Force "$TmpDir\opencode-sdd-kit\docs" "$ConfigDir"
 
 Write-Host "==> Installing dependencies..."

@@ -311,7 +311,7 @@ The plugins array defines which plugins are active, as a list of module paths th
 }
 ```
 
-OpenCode 1 uses the singular `plugin` field instead, and its tools load directly from the tools directory, so the `speckit-tools` entry only applies to OpenCode 2. OpenCode 2 additionally discovers the direct plugin files inside the plugins folder of the configuration directory, which covers a cloned installation.
+OpenCode 1 uses the singular `plugin` field instead, and its tools load directly from the tools directory, so the `speckit-tools` entry only applies to OpenCode 2. OpenCode 2 additionally discovers the direct plugin files inside the plugins folder of the configuration directory, which covers both clone and script installations.
 
 To disable a plugin, remove its entry from the plugins array. The toolkit continues functioning normally with any combination of plugins enabled or disabled.
 
@@ -386,13 +386,13 @@ cd ~/.config/opencode && npm install
 **Windows PowerShell:**
 
 ```
-irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.ps1 | iex
 ```
 
 **Linux or macOS:**
 
 ```
-curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.sh | bash
 ```
 
 ### Verification

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # speckit-sdd Installer — Linux / macOS / Git Bash
-# Usage: curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/Nemryz/opencode-sdd-kit/master/install.sh | bash
 # Or:   ./install.sh
 
 REPO="Nemryz/opencode-sdd-kit"
@@ -19,7 +19,9 @@ git clone --depth 1 --branch "${BRANCH}" "https://github.com/${REPO}.git" "${TMP
 echo "==> Installing files..."
 mkdir -p "${CONFIG_DIR}"
 cp "${TMP_DIR}/opencode-sdd-kit/AGENTS.md" "${CONFIG_DIR}/AGENTS.md"
-cp "${TMP_DIR}/opencode-sdd-kit/opencode.jsonc" "${CONFIG_DIR}/opencode.jsonc" 2>/dev/null || true
+if [ ! -f "${CONFIG_DIR}/opencode.jsonc" ]; then
+  cp "${TMP_DIR}/opencode-sdd-kit/opencode.jsonc.example" "${CONFIG_DIR}/opencode.jsonc"
+fi
 cp "${TMP_DIR}/opencode-sdd-kit/package.json" "${CONFIG_DIR}/package.json"
 cp "${TMP_DIR}/opencode-sdd-kit/package-lock.json" "${CONFIG_DIR}/package-lock.json" 2>/dev/null || true
 
@@ -28,6 +30,7 @@ cp -r "${TMP_DIR}/opencode-sdd-kit/commands" "${CONFIG_DIR}/"
 cp -r "${TMP_DIR}/opencode-sdd-kit/templates" "${CONFIG_DIR}/"
 cp -r "${TMP_DIR}/opencode-sdd-kit/skills" "${CONFIG_DIR}/"
 cp -r "${TMP_DIR}/opencode-sdd-kit/tools" "${CONFIG_DIR}/"
+cp -r "${TMP_DIR}/opencode-sdd-kit/plugins" "${CONFIG_DIR}/"
 cp -r "${TMP_DIR}/opencode-sdd-kit/docs" "${CONFIG_DIR}/"
 
 echo "==> Installing dependencies..."
