@@ -1,7 +1,7 @@
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { PATHS, SpecJson, SessionState, specsDirPath, DeltasIndex, Delta } from "./schemas"
+import { PATHS, SpecJson, SessionState, specsDirPath, DeltasIndex, Delta, EvidenceEntry, EvidenceFile } from "./schemas"
 import { isENOENT, stripBom } from "./io"
 
 // Re-export everything from schemas and io for backward compatibility
@@ -448,6 +448,38 @@ export function makeDelta(
     created_at: now,
     updated_at: now,
   }
+}
+
+// ─────────────────────────── Evidence Utilities ───────────────────────────
+
+export function makeEvidenceFile(featureDirName: string): EvidenceFile {
+  return {
+    feature: featureDirName,
+    updated_at: new Date().toISOString(),
+    entries: [],
+  }
+}
+
+// Collects the task identifiers a tasks file declares so coverage checks know what to expect.
+export function collectTaskIds(content: string): string[] {
+  const ids: string[] = []
+  const seen = new Set<string>()
+  for (const line of content.split("\n")) {
+    const match = line.match(/^\s*#{2,6}\s+(?:\[P\]\s+)?(T-\d+)\b/)
+      ?? line.match(/^\s*-\s+\[[ xX]\]\s+(?:\[P\]\s+)?(T-\d+)\b/)
+    if (!match) continue
+    const id = match[1]
+    if (seen.has(id)) continue
+    seen.add(id)
+    ids.push(id)
+  }
+  return ids
+}
+
+// Keeps the evidence log bounded by dropping the oldest entries once the cap is exceeded.
+export function trimEvidenceEntries(entries: EvidenceEntry[], maxEntries: number): EvidenceEntry[] {
+  if (entries.length <= maxEntries) return entries
+  return entries.slice(entries.length - maxEntries)
 }
 
 // ─────────────────────────── Complexity Assessment ───────────────────────────

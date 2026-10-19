@@ -4,6 +4,7 @@ import path from "node:path"
 import { repoPath } from "../helpers/setup"
 import guardShim from "../../../plugins/speckit-guard"
 import perfmonShim from "../../../plugins/speckit-perfmon"
+import doomLoopShim from "../../../plugins/speckit-doom-loop"
 import toolsShim from "../../../plugins/speckit-tools"
 
 const PLUGINS_DIR = repoPath("plugins")
@@ -19,6 +20,11 @@ describe("local plugin loading shims", () => {
     expect(typeof perfmonShim.server).toBe("function")
   })
 
+  it("doom loop shim exposes id and server", () => {
+    expect(doomLoopShim.id).toBe("speckit-doom-loop")
+    expect(typeof doomLoopShim.server).toBe("function")
+  })
+
   it("speckit-tools shim exposes the V2 setup and a V1 server", () => {
     expect(toolsShim.id).toBe("speckit-tools")
     expect(typeof toolsShim.setup).toBe("function")
@@ -32,6 +38,7 @@ describe("local plugin loading shims", () => {
     }
     expect(entries).toContain("speckit-guard.ts")
     expect(entries).toContain("speckit-perfmon.ts")
+    expect(entries).toContain("speckit-doom-loop.ts")
     expect(entries).toContain("speckit-tools.ts")
   })
 })

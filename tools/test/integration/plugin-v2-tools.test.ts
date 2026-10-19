@@ -20,6 +20,7 @@ const EXPECTED_TOOLS = [
   "speckit-complexity",
   "speckit-config",
   "speckit-delta",
+  "speckit-evidence",
   "speckit-guard",
   "speckit-health",
   "speckit-mutation",

@@ -100,6 +100,11 @@ if grep -q '"speckit-perfmon"' "$PROJECT/.opencode/plugins-state.json" 2>/dev/nu
 else
   fail "the perfmon plugin did not mark itself in .opencode/plugins-state.json"
 fi
+if grep -q '"speckit-doom-loop"' "$PROJECT/.opencode/plugins-state.json" 2>/dev/null; then
+  pass "the doom loop plugin marked itself"
+else
+  fail "the doom loop plugin did not mark itself in .opencode/plugins-state.json"
+fi
 if grep -q "failed to load plugin" "$STATUS_LOG"; then
   fail "the server log reports a plugin that failed to load"
   grep "failed to load plugin" "$STATUS_LOG" | head -5
@@ -108,7 +113,7 @@ else
 fi
 
 echo "==> Checking the tool registry dump"
-EXPECTED_TOOLS="speckit-approve speckit-audit speckit-clean speckit-complexity speckit-config speckit-delta speckit-guard speckit-health speckit-mutation speckit-perf speckit-phase speckit-scaffold speckit-selfheal speckit-snapshot speckit-status speckit-validate"
+EXPECTED_TOOLS="speckit-approve speckit-audit speckit-clean speckit-complexity speckit-config speckit-delta speckit-evidence speckit-guard speckit-health speckit-mutation speckit-perf speckit-phase speckit-scaffold speckit-selfheal speckit-snapshot speckit-status speckit-validate"
 if SMOKE_TOOLS_JSON="$PROJECT/.opencode/smoke-tools.json" SMOKE_EXPECTED_TOOLS="$EXPECTED_TOOLS" node -e '
 const fs = require("node:fs")
 const expected = process.env.SMOKE_EXPECTED_TOOLS.split(" ")

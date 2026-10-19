@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-kit/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-3005-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-3091-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -93,6 +93,17 @@ The toolkit provides a complete set of capabilities that cover every aspect of t
 
 **Mutation Testing.** Continuous quality assurance through Stryker mutation testing, ensuring test suites catch real code changes and maintain high mutation scores across all source modules. This capability validates that the test suite itself is effective.
 
+## Interface Quality
+
+The interface is part of the contract. Errors name the cause and the next command, reports end in a decision, and every state change asks for confirmation with the impact already computed.
+
+```
+[Error] Tasks are not approved for 001-showcase-demo. Run /approve tasks first.
+[WRN] evidence-failing: 001-showcase-demo: latest evidence for T-002 is a failing run (npx vitest run, exit 1)
+```
+
+`docs/showcase.md` collects the full gallery, including the guard and doom-loop rails, and compares the surface with the mainstream SDD kits.
+
 ## Architecture
 
 The system follows a plugin-based architecture where each tool operates as a self-contained TypeScript module registered through the opencode plugin interface. Tools communicate via shared state files and coordinate through the orchestration layer defined in AGENTS.md.
@@ -112,7 +123,7 @@ The system follows a plugin-based architecture where each tool operates as a sel
 |  + speckit-reviewer                                                  |
 |  + rules/ (design principles, spec standards, task guidelines)       |
 +---------------------------------------------------------------------+
-|  Tools Layer (16 TypeScript modules)                                 |
+|  Tools Layer (17 TypeScript modules)                                 |
 |  + speckit-scaffold                                                  |
 |  + speckit-validate                                                  |
 |  + speckit-audit                                                     |
@@ -122,6 +133,7 @@ The system follows a plugin-based architecture where each tool operates as a sel
 |  + speckit-complexity                                                |
 |  + speckit-selfheal                                                  |
 |  + speckit-delta                                                     |
+|  + speckit-evidence                                                  |
 |  + speckit-perf                                                      |
 |  + speckit-health                                                    |
 |  + speckit-guard                                                     |
@@ -131,9 +143,10 @@ The system follows a plugin-based architecture where each tool operates as a sel
 |  + speckit-mutation                                                  |
 |  + shared/ (io.ts, schemas.ts, types.ts, snapshot/)                  |
 +---------------------------------------------------------------------+
-|  Plugins Layer (3 runtime plugins)                                   |
+|  Plugins Layer (4 runtime plugins)                                   |
 |  + speckit-perfmon (performance monitoring)                          |
 |  + speckit-guard (permission protection)                             |
+|  + speckit-doom-loop (repeated failure detection)                    |
 |  + speckit-tools (V2 tool registration)                              |
 +---------------------------------------------------------------------+
 |  State Layer                                                         |
@@ -153,7 +166,7 @@ The system follows a plugin-based architecture where each tool operates as a sel
 
 **Tools Layer.** Houses the TypeScript modules that implement the actual functionality. Each tool is a self-contained module that can be invoked independently through the opencode command system. The shared directory provides common I/O operations, Zod schemas for validation, and type definitions used across all tools.
 
-**Plugins Layer.** Contains runtime plugins that intercept system events and add functionality transparently. Unlike tools, which require explicit invocation, plugins operate automatically in the background, monitoring performance, caching data, and protecting files without user intervention. On OpenCode 2 the layer also registers the sixteen tools, because that runtime reaches custom tools through the plugin API.
+**Plugins Layer.** Contains runtime plugins that intercept system events and add functionality transparently. Unlike tools, which require explicit invocation, plugins operate automatically in the background, monitoring performance, breaking repeated failing tool calls, and protecting files without user intervention. On OpenCode 2 the layer also registers the seventeen tools, because that runtime reaches custom tools through the plugin API.
 
 **State Layer.** Maintains all persistent data including workflow state, feature metadata, configuration settings, backup files, and point-in-time snapshots. This layer ensures continuity across sessions and provides the foundation for the resilience mechanisms.
 
@@ -169,7 +182,7 @@ The toolkit organizes its components into a clear directory hierarchy that separ
   tools/                 TypeScript tool modules (16 files)
   tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot/)
   tools/plugins/         Runtime plugins (3 files)
-  tools/test/            Test suite (109 test files)
+  tools/test/            Test suite (111 test files)
   templates/             Artifact templates (12 templates)
   docs/                  Reference documentation
 ```
@@ -186,17 +199,17 @@ The toolkit organizes its components into a clear directory hierarchy that separ
 
 **tools/shared/** provides the foundation modules used by all tools, including file I/O operations with backup and checksum support, Zod schemas for data validation, and TypeScript type definitions.
 
-**tools/plugins/** houses the runtime plugins that extend the toolkit's functionality through event interception and automatic processing, together with the OpenCode 2 registration that exposes the sixteen tools through the plugin API.
+**tools/plugins/** houses the runtime plugins that extend the toolkit's functionality through event interception and automatic processing, together with the OpenCode 2 registration that exposes the seventeen tools through the plugin API.
 
 **tools/test/** contains the complete test suite organized into unit, integration, and mutation test categories.
 
 **templates/** provides the artifact templates used when creating new specifications, plans, tasks, and other documents. These templates ensure consistency across all generated artifacts.
 
-**docs/** contains reference documentation, guides, and supplementary materials that explain the toolkit's architecture and usage patterns. `docs/testing.md` documents the test types, the multi-value matrix convention, and the per-module coverage inventory.
+**docs/** contains reference documentation, guides, and supplementary materials that explain the toolkit's architecture and usage patterns. `docs/testing.md` documents the test types, the multi-value matrix convention, and the per-module coverage inventory. `docs/showcase.md` captures the real tool outputs behind the interface contract and compares them with the mainstream SDD kits.
 
 ## Tools Reference
 
-The toolkit includes fifteen specialized tools, each designed for a specific purpose within the workflow. All tools follow consistent patterns for input validation, error handling, and state management.
+The toolkit includes seventeen specialized tools, each designed for a specific purpose within the workflow. All tools follow consistent patterns for input validation, error handling, and state management.
 
 | Tool | Purpose |
 |------|---------|
@@ -209,6 +222,7 @@ The toolkit includes fifteen specialized tools, each designed for a specific pur
 | speckit-complexity | Assesses task complexity for routing through the three-tier system |
 | speckit-selfheal | Health scan with categorized findings and automatic repair |
 | speckit-delta | Manages incremental specification deltas for existing features |
+| speckit-evidence | Records TDD test evidence per task and reports coverage gaps |
 | speckit-health | Health monitoring with auto-repair and backup restoration |
 | speckit-perf | Performance statistics collection and analysis |
 | speckit-guard | File protection management with permission tiers |
@@ -284,13 +298,16 @@ When multiple plugins register for the same hook, they execute in registration o
 
 ### Available Plugins
 
-The toolkit includes three production-ready plugins that address common development needs:
+The toolkit includes four production-ready plugins that address common development needs:
 
 | Plugin | Hooks | Purpose | Configuration |
 |--------|-------|---------|---------------|
 | speckit-perfmon | tool.execute.before, tool.execute.after | Performance monitoring and statistics | perf.json |
 | speckit-guard | permission.ask | File protection with permission tiers | guard.json |
-| speckit-tools | tool.transform (OpenCode 2) | Registers the sixteen speckit tools | none |
+| speckit-doom-loop | tool.execute.before, tool.execute.after | Detects repeated failing tool calls, warns, then blocks the call | plugin options |
+| speckit-tools | tool.transform (OpenCode 2) | Registers the seventeen speckit tools | none |
+
+**speckit-doom-loop** tracks failures per session as a fingerprint of the tool name plus its arguments. The third identical failure injects a warning into the session, and the fifth marks the call so that the next identical attempt is blocked with an explanatory error before it runs. A successful call clears the streak, streaks expire after ten minutes, and the tracker keeps at most 256 fingerprints per session. The defaults suit most sessions, the detector reads overrides from its plugin options when the runtime provides them, and `enabled: false` turns the detector off.
 
 ### Plugin Configuration
 
@@ -653,7 +670,7 @@ This file defines which models to use for different agent roles, which plugins t
 
 ## Test Suite
 
-The project includes 3005 automated tests distributed across 109 test files, and every layer answers a different question about the same system.
+The project includes 3091 automated tests distributed across 111 test files, and every layer answers a different question about the same system.
 `docs/testing.md` holds the conventions, the per module matrix inventory, and the stability rules that this section only summarizes.
 
 ### Test Types

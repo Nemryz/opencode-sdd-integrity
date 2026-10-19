@@ -20,8 +20,9 @@ import {
   withLock,
   corruptionWarnings,
   clearCorruptionWarnings,
+  collectTaskIds,
 } from "./shared/types"
-import { DeltasIndexSchema, type Delta } from "./shared/schemas"
+import { DeltasIndexSchema, EvidenceFileSchema, type Delta, type EvidenceFile } from "./shared/schemas"
 import { computeBodyChecksum, stripBom } from "./shared/io"
 import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot/triggers"
 
@@ -197,6 +198,66 @@ async function auditFeature(
         message: `${dirName}: tasks.md has no Boundary annotations`,
         file: path.join(base, "tasks.md"),
       })
+    }
+
+    // Evidence only matters once implementation started, so earlier phases stay quiet.
+    if (sj.phase === "impl" || sj.phase === "complete") {
+      const evidenceFp = path.join(base, "evidence.json")
+      const evidenceExists = await exists(evidenceFp)
+      if (!evidenceExists) {
+        findings.push({
+          severity: "warn",
+          category: "evidence-missing",
+          message: `${dirName}: ${sj.phase} phase has no test evidence recorded`,
+          file: evidenceFp,
+        })
+      } else {
+        let file: EvidenceFile | null = null
+        try {
+          const raw = await fs.readFile(evidenceFp, "utf-8")
+          const result = EvidenceFileSchema.safeParse(JSON.parse(stripBom(raw)))
+          if (result.success) file = result.data
+        } catch {
+          // a file that cannot be parsed is reported as corrupt below
+        }
+        if (file === null) {
+          findings.push({
+            severity: "warn",
+            category: "evidence-corrupt",
+            message: `${dirName}: evidence.json is corrupt`,
+            file: evidenceFp,
+          })
+        } else {
+          const taskIds = collectTaskIds(tasksContent)
+          const missing: string[] = []
+          for (const id of taskIds) {
+            const own = file.entries.filter(e => e.task === id)
+            if (own.length === 0) {
+              missing.push(id)
+              continue
+            }
+            const last = own[own.length - 1]
+            if (last.exit_code !== 0) {
+              findings.push({
+                severity: "warn",
+                category: "evidence-failing",
+                message: `${dirName}: latest evidence for ${id} is a failing run (${last.test_command}, exit ${last.exit_code})`,
+                file: evidenceFp,
+              })
+            }
+          }
+          if (missing.length > 0) {
+            const shown = missing.slice(0, 5).join(", ")
+            const suffix = missing.length > 5 ? " and more" : ""
+            findings.push({
+              severity: "info",
+              category: "evidence-gap",
+              message: `${dirName}: ${missing.length} task(s) have no test evidence (${shown}${suffix})`,
+              file: evidenceFp,
+            })
+          }
+        }
+      }
     }
   }
 

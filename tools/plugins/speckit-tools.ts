@@ -7,6 +7,7 @@ import speckitClean from "../speckit-clean"
 import speckitComplexity from "../speckit-complexity"
 import speckitConfig from "../speckit-config"
 import speckitDelta from "../speckit-delta"
+import speckitEvidence from "../speckit-evidence"
 import speckitGuard from "../speckit-guard"
 import speckitHealth from "../speckit-health"
 import speckitMutation from "../speckit-mutation"
@@ -25,6 +26,7 @@ const REGISTERED_TOOLS: ReadonlyArray<{ name: string; def: ToolDefinition }> = [
   { name: "speckit-complexity", def: speckitComplexity },
   { name: "speckit-config", def: speckitConfig },
   { name: "speckit-delta", def: speckitDelta },
+  { name: "speckit-evidence", def: speckitEvidence },
   { name: "speckit-guard", def: speckitGuard },
   { name: "speckit-health", def: speckitHealth },
   { name: "speckit-mutation", def: speckitMutation },

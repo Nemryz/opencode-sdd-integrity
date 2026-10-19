@@ -76,7 +76,7 @@ Creates `specs/NNN-slug/tasks.md` with phases, `[P]` parallel markers, and ASCII
 Execute implementation. Loads `speckit-implementer` skill.
 Pre-validates: spec, plan, and tasks must exist.
 Records the phase transition with `speckit-phase` (`impl` at start, `complete` after final verification).
-Executes in dependency order. Run tests after each phase.
+Executes in dependency order. Runs tests after each phase and records every verification with `speckit-evidence`.
 If task-id is specified, start from that task.
 
 ### `/review`
@@ -185,6 +185,7 @@ specs/
     ├── plan.md          — Implementation plan (required)
     ├── tasks.md         — Task breakdown (required)
     ├── spec.json        — Feature state and approvals (required)
+    ├── evidence.json    — Test evidence recorded during implementation (optional)
     ├── research.md      — Technology research (optional)
     ├── data-model.md    — Schema / entities (optional)
     ├── contracts/       — API contracts (optional)
@@ -231,6 +232,7 @@ Call a skill with: `skill({ name: "speckit-spec-writer" })`
 | `speckit-selfheal` | Run health scan, analyze findings, apply fixes with rollback | `fix` (bool, optional) |
 | `speckit-health` | Run health check, verify file integrity, restore from backups | `fix` (bool, optional) |
 | `speckit-delta` | Create incremental delta specs for existing features | `command`, `description`, `deltaId`, `featureDir` |
+| `speckit-evidence` | Record and report TDD test evidence per task | `command` (record/status), `task`, `testCommand`, `exitCode`, `note`, `featureDir` |
 | `speckit-perf` | Show performance statistics for all tools | `subcommand` (optional: "top N", "reset") |
 | `speckit-guard` | Manage file protection guard for critical SDD artifacts | `subcommand` (optional: "on", "off", "status", "add", "remove", "log", "debug"), `file` (for add/remove), `confirmed` (bool, for off/remove after user confirmation), `logOption` (optional: "all"), `debugOption` (optional: "on", "off") |
 | `speckit-approve` | Approve a generated artifact to unlock the next phase | `artifact` (spec/plan/tasks), `confirmed` (bool, after user confirmation) |
@@ -336,7 +338,7 @@ Examples:
 1. NEVER start implementation without spec, plan, AND tasks.
 2. If any required artifact is missing, tell the user what is needed and stop.
 3. ALWAYS apply Constitution Gates before planning.
-4. ALWAYS run tests after each implementation phase.
+4. ALWAYS run tests after each implementation phase and record the run with `speckit-evidence`.
 5. If the user asks for implementation while in the `spec` agent, suggest switching to `build`.
 6. All artifacts are written in English by default.
 7. The `[NEEDS CLARIFICATION]` marker means stop and ask the user before proceeding.
@@ -348,7 +350,7 @@ Examples:
 
 ## Custom Tool Error Handling
 
-Custom tools (`speckit-scaffold`, `speckit-validate`, `speckit-audit`, `speckit-clean`, `speckit-config`, `speckit-status`, `speckit-complexity`, `speckit-selfheal`, `speckit-health`, `speckit-delta`, `speckit-perf`, `speckit-approve`, `speckit-phase`, `speckit-snapshot`, `speckit-mutation`, `speckit-guard`) are TypeScript files compiled at runtime by opencode. If a tool has compilation errors, opencode may fail to start or crash on each prompt.
+Custom tools (`speckit-scaffold`, `speckit-validate`, `speckit-audit`, `speckit-clean`, `speckit-config`, `speckit-status`, `speckit-complexity`, `speckit-selfheal`, `speckit-health`, `speckit-delta`, `speckit-evidence`, `speckit-perf`, `speckit-approve`, `speckit-phase`, `speckit-snapshot`, `speckit-mutation`, `speckit-guard`) are TypeScript files compiled at runtime by opencode. If a tool has compilation errors, opencode may fail to start or crash on each prompt.
 
 ### If a tool crashes opencode
 

@@ -92,6 +92,7 @@ Execute tasks in dependency order. For each task, apply the complexity-appropria
 2. **GREEN**: Implement simplest solution to make test pass.
 3. **REFACTOR**: Improve code structure. All tests must still pass.
 4. **VERIFY**: Run full test suite. Confirm no regressions.
+5. **RECORD**: Call `speckit-evidence` with `command: "record"`, the task id, the exact test command and its exit code.
 
 **Sub-agent dispatch (optional, for complex tasks):**
 If a task is complex, dispatch sub-agents:
@@ -116,6 +117,7 @@ After all tasks in a phase complete, run:
 1. Build check
 2. Full test suite
 3. Lint check
+4. Record the phase verification with `speckit-evidence`, using the phase label as the task value.
 
 If tests fail, fix before proceeding to the next phase.
 
@@ -139,6 +141,8 @@ Within a phase, respect the dependency DAG. Run `[P]` tasks concurrently.
 
 ### Test discipline
 - Tests MUST be run after each implementation task
+- Every verification run MUST be recorded with `speckit-evidence` so the audit can prove it happened
+- Record failing runs too, then record the green rerun that resolved them
 - If tests fail, fix before proceeding
 - If no test task exists for a story, flag this as a risk
 
@@ -181,6 +185,7 @@ Within a phase, respect the dependency DAG. Run `[P]` tasks concurrently.
 - [ ] Boundary annotations (`_Boundary:_`) respected during dispatch
 - [ ] `@mention` syntax used for sub-agent dispatch
 - [ ] Tests pass after each phase
+- [ ] Test evidence recorded after every task and phase
 - [ ] Parallel tasks executed together
 - [ ] Blocked tasks reported with alternatives
 - [ ] Final verification run on completion

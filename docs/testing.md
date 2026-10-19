@@ -85,9 +85,10 @@ Matrices are grouped by the layer they exercise, because a pure function test an
 
 | Module | File | What it covers |
 |--------|------|----------------|
-| `plugins/speckit-tools` | `integration/plugin-v2-tools.test.ts` | The registration shape of the sixteen tools, the direct exposure flag, and the argument schemas |
+| `plugins/speckit-tools` | `integration/plugin-v2-tools.test.ts` | The registration shape of the seventeen tools, the direct exposure flag, and the argument schemas |
 | `plugins/speckit-guard` | `integration/plugin-v2-adapters.test.ts` | The V2 entrypoint that wires the tool and permission hooks and mirrors the server behavior |
 | `plugins/speckit-perfmon` | `integration/plugin-v2-adapters.test.ts` | The V2 entrypoint that wires the execution timing hooks and writes the load marker |
+| `plugins/speckit-doom-loop` | `integration/doom-loop.test.ts` | Fingerprinting, option parsing, failure classifiers and the tracker, plus the V2 hooks and the V1 server fallback that warn and then block repeated failing calls |
 
 ### Schema surfaces
 

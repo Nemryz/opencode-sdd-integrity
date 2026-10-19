@@ -249,6 +249,25 @@ export type Delta = z.infer<typeof DeltaSchema>
 export type DeltasIndex = z.infer<typeof DeltasIndexSchema>
 export type DeltaFrontmatterData = z.infer<typeof DeltaFrontmatterSchema>
 
+// ─────────────────────────── Evidence Schemas ───────────────────────────
+
+export const EvidenceEntrySchema = z.object({
+  task: z.string().min(1),
+  test_command: z.string().min(1),
+  exit_code: z.number().int(),
+  at: z.string(),
+  note: z.string().optional(),
+})
+
+export const EvidenceFileSchema = z.object({
+  feature: z.string().min(1),
+  updated_at: z.string(),
+  entries: z.array(EvidenceEntrySchema),
+})
+
+export type EvidenceEntry = z.infer<typeof EvidenceEntrySchema>
+export type EvidenceFile = z.infer<typeof EvidenceFileSchema>
+
 // ─────────────────────────── Health Check Schema ───────────────────────────
 
 export const HealthStatusSchema = z.enum(["healthy", "corrupted", "restored", "missing"])

@@ -34,6 +34,7 @@ Additionally, read `specs/{metadata.featureDir}/spec.json`. If `approvals.tasks.
    - Read relevant spec sections for context
    - Implement the code
    - Run tests immediately after
+   - Record the test run with `speckit-evidence` (task id, exact command, exit code)
    - If `[P]` marked, execute all parallel tasks together
 6. After each phase completes, run the full test suite
 7. If a task blocks, report what failed and suggest alternatives
@@ -42,6 +43,7 @@ Additionally, read `specs/{metadata.featureDir}/spec.json`. If `approvals.tasks.
 
 - Execute tasks in the exact order defined by dependencies
 - Run tests after every implementation task
+- Record every test run with `speckit-evidence` (task id, exact command, exit code)
 - Never skip a task silently
 - If tests fail, fix them before proceeding
 - Report progress after each phase, including a suggested commit (files + message) for the user to apply

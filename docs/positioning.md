@@ -48,7 +48,7 @@ The honest summary is first by rigor and last by reach, which is a distribution 
 
 ## Verification of this toolkit's claims
 
-The capability run on 2026-10-19 used a real OpenCode 2.0.32 runtime with the toolkit installed through its own installer, drove a full feature lifecycle from constitution to implementation through the model, exercised all sixteen tools, and confirmed the guard blocks both a direct editor write and a shell redirect against protected state.
+The capability run on 2026-10-19 used a real OpenCode 2.0.32 runtime with the toolkit installed through its own installer, drove a full feature lifecycle from constitution to implementation through the model, exercised every tool the kit shipped in that build, and confirmed the guard blocks both a direct editor write and a shell redirect against protected state.
 Two runtime findings from that run became regression entries R-13 and R-14 in `docs/regressions.md`.
 The suite totals and CI jobs named above live in the badges and workflows of this repository.
 
