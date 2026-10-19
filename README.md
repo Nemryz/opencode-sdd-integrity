@@ -299,21 +299,22 @@ Plugins register through the opencode.jsonc configuration file. Copy the templat
 cp opencode.jsonc.example opencode.jsonc
 ```
 
-The plugins array defines which plugins are active, as a list of module paths that resolve relative to the configuration file:
+OpenCode 2 registers the shipped plugins with no configuration entry, because the runtime discovers every direct plugin file inside the plugins folder of the configuration directory. That discovery covers both clone and script installations.
+
+OpenCode 1 uses the singular `plugin` field instead, and its tools load directly from the tools directory, so `speckit-tools` only applies to OpenCode 2.
+
+The plugins array remains available for custom setups, and it only accepts plugin directories or package names, because file paths are ignored with a configuration warning:
 
 ```json
 {
   "plugins": [
-    "./tools/plugins/speckit-perfmon.ts",
-    "./tools/plugins/speckit-guard.ts",
-    "./tools/plugins/speckit-tools.ts"
+    "./my-plugin-directory",
+    "opencode-acme-plugin"
   ]
 }
 ```
 
-OpenCode 1 uses the singular `plugin` field instead, and its tools load directly from the tools directory, so the `speckit-tools` entry only applies to OpenCode 2. OpenCode 2 additionally discovers the direct plugin files inside the plugins folder of the configuration directory, which covers both clone and script installations.
-
-To disable a plugin, remove its entry from the plugins array. The toolkit continues functioning normally with any combination of plugins enabled or disabled.
+To disable a plugin, remove its file from the plugins folder. The toolkit continues functioning normally with any combination of plugins enabled or disabled.
 
 Each plugin maintains its own configuration file in the .opencode directory. These files store runtime state, accumulated statistics, and user-defined rules. The plugins manage these files automatically, but you can edit them directly if needed.
 
@@ -344,12 +345,18 @@ export default { id: "speckit-yourplugin", server: yourPlugin }
 
 On OpenCode 2 the same export adds a `setup` function, which registers hooks, transforms, and tools through the plugin context. The shipped plugins under tools/plugins show both entrypoints together.
 
-**Step 3: Register the plugin.** Add your plugin to the plugins array in opencode.jsonc:
+**Step 3: Register the plugin.** On OpenCode 2 the runtime discovers the direct files inside the plugins folder of the configuration directory, so re-export the implementation from a file next to the shipped shims:
+
+```typescript
+export { default } from "../tools/plugins/speckit-yourplugin"
+```
+
+Custom plugin directories and packages load through the plugins array in opencode.jsonc, which resolves paths relative to the configuration file:
 
 ```json
 {
   "plugins": [
-    "./tools/plugins/speckit-yourplugin.ts"
+    "./my-plugin-directory"
   ]
 }
 ```

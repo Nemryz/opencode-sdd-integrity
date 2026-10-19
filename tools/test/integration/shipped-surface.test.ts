@@ -164,9 +164,10 @@ describe("shipped surface stays consistent", () => {
 
   it("README documents how to register the shipped plugins", async () => {
     const readme = await readRepoFile("README.md")
-    expect(readme).toContain("./tools/plugins/speckit-perfmon.ts")
-    expect(readme).toContain("./tools/plugins/speckit-guard.ts")
-    expect(readme).toContain("./tools/plugins/speckit-tools.ts")
+    // OpenCode 2 discovers the shipped shims from the plugins folder without any configuration entry.
+    expect(readme).toContain("discovers every direct plugin file inside the plugins folder of the configuration directory")
+    // The plugins array only accepts directories and packages, because file paths are skipped with a warning.
+    expect(readme).toContain("directories or package names, because file paths are ignored")
   })
 })
 
