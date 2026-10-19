@@ -55,15 +55,7 @@ mkdir -p "$CONFIG" "$XDG_DATA_HOME" "$XDG_STATE_HOME"
 echo "==> Smoke of the OpenCode 2 wiring (model: $SMOKE_MODEL, timeout: ${SMOKE_TIMEOUT}s)"
 
 echo "==> Installing the kit into the isolated config home"
-cp "$ROOT/AGENTS.md" "$CONFIG/AGENTS.md"
-if [ ! -f "$CONFIG/opencode.jsonc" ]; then
-  cp "$ROOT/opencode.jsonc.example" "$CONFIG/opencode.jsonc"
-fi
-cp "$ROOT/package.json" "$CONFIG/package.json"
-cp "$ROOT/package-lock.json" "$CONFIG/package-lock.json"
-for dir in agents commands templates skills tools plugins docs; do
-  cp -r "$ROOT/$dir" "$CONFIG/$dir"
-done
+node "$ROOT/tools/install/cli.mjs" install --dir "$CONFIG" --skip-deps --yes
 cp "$ROOT/tools/test/smoke/smoke-probe.ts" "$CONFIG/plugins/zz-smoke-probe.ts"
 
 echo "==> Installing the runtime dependencies (devDependencies stay out, the runtime never loads them)"

@@ -59,3 +59,72 @@ jobs:
 
       - name: Verify the backup and the preserved config
         run: pwsh -File tools/test/install/verify-install.ps1 "$env:INSTALL_DIR" -Backup
+
+  npm-linux:
+    runs-on: ubuntu-latest
+    env:
+      INSTALL_DIR: ${{ runner.temp }}/npm-install
+      PACK_DIR: ${{ runner.temp }}/npm-pack
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the kit through the CLI with its runtime dependencies
+        run: node tools/install/cli.mjs install --dir "$INSTALL_DIR" --yes
+
+      - name: Verify the surface
+        run: bash tools/test/install/verify-install.sh "$INSTALL_DIR"
+
+      - name: Edit the installation as a user would
+        run: |
+          printf '\n<!-- user edit -->\n' >> "$INSTALL_DIR/AGENTS.md"
+          printf '// user config\n' >> "$INSTALL_DIR/opencode.jsonc"
+
+      - name: Install again without dependencies
+        run: node tools/install/cli.mjs install --dir "$INSTALL_DIR" --skip-deps --yes
+
+      - name: Verify the backup and the preserved config
+        run: bash tools/test/install/verify-install.sh "$INSTALL_DIR" --backup
+
+      - name: Pack the published tarball, install it with its dependencies and verify it
+        run: |
+          mkdir -p "$PACK_DIR" "$PACK_DIR/extracted" "$PACK_DIR/installed"
+          npm pack --pack-destination "$PACK_DIR"
+          tar -xzf "$PACK_DIR"/opencode-sdd-integrity-*.tgz -C "$PACK_DIR/extracted"
+          PACKED="$PACK_DIR/extracted/package"
+          test -x "$PACKED/tools/install/cli.mjs"
+          "$PACKED/tools/install/cli.mjs" install --dir "$PACK_DIR/installed" --yes
+          bash tools/test/install/verify-install.sh "$PACK_DIR/installed"
+
+  npm-windows:
+    runs-on: windows-latest
+    env:
+      INSTALL_DIR: ${{ runner.temp }}/npm-install
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the kit through the CLI
+        run: node tools/install/cli.mjs install --dir "$env:INSTALL_DIR" --skip-deps --yes
+
+      - name: Verify the surface
+        run: pwsh -File tools/test/install/verify-install.ps1 "$env:INSTALL_DIR"
+
+      - name: Edit the installation as a user would
+        run: |
+          Add-Content -Path "$env:INSTALL_DIR\AGENTS.md" -Value "<!-- user edit -->"
+          Add-Content -Path "$env:INSTALL_DIR\opencode.jsonc" -Value "// user config"
+
+      - name: Install again without dependencies
+        run: node tools/install/cli.mjs install --dir "$env:INSTALL_DIR" --skip-deps --yes
+
+      - name: Verify the backup and the preserved config
+        run: pwsh -File tools/test/install/verify-install.ps1 "$env:INSTALL_DIR" -Backup

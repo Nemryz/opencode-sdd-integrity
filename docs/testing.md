@@ -28,6 +28,7 @@ Each type answers a different question, and the directory layout tells you which
 | Snapshot | `tools/test/snapshot/` | Does a command produce exactly this output |
 | Mutation | `*-mutation.test.ts` and `*-kill-survivors.test.ts` | Do the tests notice when the logic changes |
 | Shipped surface | `tools/test/integration/shipped-surface.test.ts` | Does the packaging still describe the repository truthfully |
+| Installer | `tools/test/install/` | Does the npm CLI install, back up, and verify the promised surface |
 | Smoke | `tools/test/smoke/` | Does the real OpenCode 2 CLI load the shipped wiring |
 
 ## The multi-value matrix convention
@@ -138,7 +139,7 @@ The six snapshot suites (`snapshot.test.ts`, `snapshot-restore.test.ts`, `snapsh
 ## Smoke coverage
 
 `tools/test/smoke/v2-smoke.sh` grades the wiring inside the real runtime, because plugin discovery, tool exposure, and the guard hooks only exist there.
-It installs a copy of the kit into an isolated config home the same way `install.sh` does, boots OpenCode 2 with `--standalone`, and grades the plugin markers, the tool registry, and the guard denial.
+It installs the kit into an isolated config home through the npm CLI with the dependency switch, boots OpenCode 2 with `--standalone`, and grades the plugin markers, the tool registry, and the guard denial.
 `tools/test/smoke/smoke-probe.ts` is copied in as an extra plugin, and it records `ctx.tool.list()` right after the setups run, which turns the direct exposure rule into an assertion that needs no model.
 The model evidence is graded as a warning unless `SMOKE_LLM_REQUIRED=1` is set, because the free model tier can be unavailable while the wiring itself is healthy.
 `.github/workflows/smoke.yml` runs the script on every push against a pinned CLI version.
@@ -148,7 +149,11 @@ The model evidence is graded as a warning unless `SMOKE_LLM_REQUIRED=1` is set, 
 `install.sh` and `install.ps1` take a git ref, a target directory, and a dependency switch, and they keep the previous copy of every file they replace in a timestamped `.install-backups` folder.
 `.github/workflows/install.yml` installs the branch that triggered the run once, edits the installation like a user would, installs again, and grades both passes.
 `tools/test/install/verify-install.sh` and `tools/test/install/verify-install.ps1` check the file surface the installer must leave behind, and in backup mode they also assert that exactly one timestamped folder holds the edited file, that the fresh copy replaced the same file in place, and that the configuration kept the user edit.
-Both jobs pass the dependency switch, because the smoke job already proves that the dependency tree resolves inside an isolated configuration directory.
+`tools/install/cli.mjs` is the npm entry point, so the same install runs without git: it resolves the configuration directory from `--dir`, `XDG_CONFIG_HOME`, or the home fallback, refuses the filesystem root, the home directory and the package directory, backs up exactly the files it replaces in one timestamped folder, bootstraps `opencode.jsonc` only when it is missing, and installs the runtime dependencies with `--omit=dev` unless `--skip-deps` is passed.
+The npm tarball carries no root `package-lock.json`, because `npm pack` strips that file, so the surface marks it as optional: the CLI reports it as missing without failing the run, and the dependency install writes a fresh lock into the target.
+`tools/install/surface.json` is the single source of truth for the copy sets and the verify paths, and `tools/test/install/installer.test.ts` fails when the two install scripts, the two verify scripts and the surface file stop agreeing.
+The `npm-linux` and `npm-windows` jobs install through the CLI, and the Linux job also installs a tarball produced by `npm pack`, runs the CLI straight from the extracted package with the dependency install enabled, and grades the result.
+The shell and PowerShell jobs pass the dependency switch, because the npm job already proves that the dependency tree resolves inside an isolated configuration directory.
 
 ## Platform-dependent tests
 
@@ -247,6 +252,7 @@ npx stryker run --mutate "$(jq -r '.batches[] | select(.id == "snapshot-retentio
 
 The same filters run inside CI, so a batch measured locally and a batch measured in the matrix mutate exactly the same files.
 Neither `mutation-batches.json` nor `stryker.conf.json` is published or copied by the install scripts, because measuring the kit belongs to a checkout of the kit and not to an installed copy, which is why `/matrix` and `/baseline` report a clear message when they run outside one.
+The installer CLI stays outside the batches, because the current Stryker setup mutates TypeScript modules through the type checker while `tools/install/` is plain ESM without a build step, so its behavior is pinned by the installer integration suite instead.
 
 ### One place computes the score
 

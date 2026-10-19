@@ -35,7 +35,6 @@ expect_text() {
 expect_path AGENTS.md
 expect_path opencode.jsonc
 expect_path package.json
-expect_path package-lock.json
 expect_path agents/spec.md
 expect_path commands/status.md
 expect_path templates/spec-template.md
@@ -43,10 +42,12 @@ expect_path templates/constitution-template.md
 expect_path skills/speckit-constitution/SKILL.md
 expect_path tools/speckit-status.ts
 expect_path tools/speckit-evidence.ts
+expect_path tools/install/cli.mjs
 expect_path plugins/speckit-tools.ts
 expect_path plugins/speckit-doom-loop.ts
 expect_path docs/testing.md
 expect_path docs/showcase.md
+expect_path package-lock.json
 
 if [ "${MODE}" = "--backup" ]; then
   BACKUP_DIR=""

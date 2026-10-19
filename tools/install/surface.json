@@ -1,0 +1,40 @@
+{
+  "copyFiles": [
+    "AGENTS.md",
+    "package.json",
+    "package-lock.json"
+  ],
+  "copyDirs": [
+    "agents",
+    "commands",
+    "templates",
+    "skills",
+    "tools",
+    "plugins",
+    "docs"
+  ],
+  "exampleFile": {
+    "source": "opencode.jsonc.example",
+    "target": "opencode.jsonc"
+  },
+  "verifyPaths": [
+    "AGENTS.md",
+    "opencode.jsonc",
+    "package.json",
+    "agents/spec.md",
+    "commands/status.md",
+    "templates/spec-template.md",
+    "templates/constitution-template.md",
+    "skills/speckit-constitution/SKILL.md",
+    "tools/speckit-status.ts",
+    "tools/speckit-evidence.ts",
+    "tools/install/cli.mjs",
+    "plugins/speckit-tools.ts",
+    "plugins/speckit-doom-loop.ts",
+    "docs/testing.md",
+    "docs/showcase.md"
+  ],
+  "optionalPaths": [
+    "package-lock.json"
+  ]
+}
