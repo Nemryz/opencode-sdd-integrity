@@ -412,6 +412,8 @@ export function makeSpecJson(featureName: string, featureNumber: number): SpecJs
       tasks: { generated: false, approved: false },
     },
     ready_for_implementation: false,
+    converged: false,
+    convergenceHistory: [],
   }
 }
 

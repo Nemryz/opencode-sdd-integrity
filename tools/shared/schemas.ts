@@ -70,6 +70,12 @@ export const SpecJsonSchema = z.object({
   }),
   ready_for_implementation: z.boolean(),
   active_delta: z.string().nullable().optional(),
+  converged: z.boolean().optional(),
+  convergenceHistory: z.array(z.object({
+    date: z.string(),
+    status: z.enum(["converged", "not-converged"]),
+    gaps: z.number(),
+  })).optional(),
 })
 
 export const SessionStateSchema = z.object({

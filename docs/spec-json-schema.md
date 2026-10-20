@@ -18,7 +18,9 @@ progress programmatically.
     "plan":  { "generated": false, "approved": false },
     "tasks": { "generated": false, "approved": false }
   },
-  "ready_for_implementation": false
+  "ready_for_implementation": false,
+  "converged": false,
+  "convergenceHistory": []
 }
 ```
 
@@ -38,6 +40,8 @@ progress programmatically.
 - `generated`: set to `true` when a skill finishes writing the artifact
 - `approved`: set to `true` when the user confirms the artifact
 - `ready_for_implementation`: derived — `true` when all `generated` and `approved` are `true`
+- `converged`: `true` when `/converge` reports all acceptance criteria met (optional, defaults to `false`)
+- `convergenceHistory`: array of `{ date, status, gaps }` recording each `/converge` run (optional, defaults to `[]`)
 
 ## Update Rules
 
