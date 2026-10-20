@@ -35,7 +35,11 @@
     "tools/speckit-snapshot.ts",
     "tools/plugins/speckit-perfmon.ts",
     "tools/plugins/speckit-guard.ts",
-    "tools/plugins/speckit-tools.ts"
+    "tools/plugins/speckit-tools.ts",
+    "plugins/speckit-doom-loop.ts",
+    "plugins/speckit-guard.ts",
+    "plugins/speckit-perfmon.ts",
+    "plugins/speckit-tools.ts"
   ],
   "thresholds": {
     "high": 80,
