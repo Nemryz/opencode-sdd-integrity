@@ -74,6 +74,38 @@ function backupStamp() {
   return `${stamp}-${crypto.randomBytes(3).toString("hex")}`
 }
 
+// Computes a sha256 checksum of a file's contents, or null if the file doesn't exist.
+async function fileChecksum(filePath) {
+  try {
+    const data = await fs.readFile(filePath)
+    return crypto.createHash("sha256").update(data).digest("hex")
+  } catch {
+    return null
+  }
+}
+
+// Reads the install manifest if it exists, or null.
+export async function readManifest(targetDir) {
+  try {
+    const raw = await fs.readFile(path.join(targetDir, ".install-manifest.json"), "utf-8")
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+// Writes the install manifest with version, date, and per-file checksums.
+async function writeManifest(targetDir, { packageName, packageVersion, copied, checksums }) {
+  const manifest = {
+    packageName,
+    packageVersion,
+    installedAt: new Date().toISOString(),
+    copied,
+    checksums,
+  }
+  await fs.writeFile(path.join(targetDir, ".install-manifest.json"), JSON.stringify(manifest, null, 2), "utf-8")
+}
+
 export async function buildPlan({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir } = {}) {
   if (!targetDir) {
     throw new Error("buildPlan needs a target directory")
@@ -103,7 +135,7 @@ export async function buildPlan({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir 
   }
 }
 
-export async function runInstall({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir, skipDeps = false, runDeps, onEvent = () => {} } = {}) {
+export async function runInstall({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir, skipDeps = false, noBackup = false, runDeps, onEvent = () => {} } = {}) {
   if (!targetDir) {
     throw new Error("runInstall needs a target directory")
   }
@@ -119,20 +151,38 @@ export async function runInstall({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir
 
   let backupDir = null
   const copied = []
+  const skipped = []
+  const checksums = {}
   for (const item of plan.items) {
     if (!item.available) {
       onEvent({ type: "skip", message: `${item.name} is not shipped by this package` })
       continue
     }
+    const sourcePath = path.join(packageRoot, item.name)
+    const destPath = path.join(targetDir, item.name)
+
+    // Idempotency: skip files whose content hasn't changed
     if (item.exists) {
+      const srcHash = await fileChecksum(sourcePath)
+      const dstHash = await fileChecksum(destPath)
+      if (srcHash && dstHash && srcHash === dstHash) {
+        onEvent({ type: "unchanged", message: `${item.name} unchanged, skipped` })
+        skipped.push(item.name)
+        checksums[item.name] = srcHash
+        continue
+      }
+    }
+
+    if (item.exists && !noBackup) {
       if (!backupDir) {
         backupDir = path.join(targetDir, ".install-backups", backupStamp())
         await fs.mkdir(backupDir, { recursive: true })
       }
-      await copyEntry(path.join(targetDir, item.name), path.join(backupDir, item.name))
+      await copyEntry(destPath, path.join(backupDir, item.name))
     }
-    await copyEntry(path.join(packageRoot, item.name), path.join(targetDir, item.name))
+    await copyEntry(sourcePath, destPath)
     copied.push(item.name)
+    checksums[item.name] = await fileChecksum(sourcePath)
   }
   if (backupDir) {
     onEvent({ type: "backup", message: `previous files saved to ${backupDir}` })
@@ -161,10 +211,21 @@ export async function runInstall({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir
   }
 
   const verification = await verifyInstall({ targetDir, surface })
+
+  // Write install manifest
+  const pkg = JSON.parse(await fs.readFile(path.join(packageRoot, "package.json"), "utf-8"))
+  await writeManifest(path.resolve(targetDir), {
+    packageName: pkg.name,
+    packageVersion: pkg.version,
+    copied,
+    checksums,
+  })
+
   return {
     targetDir: path.resolve(targetDir),
     backupDir,
     copied,
+    skipped,
     exampleCreated,
     deps,
     verification,

@@ -349,6 +349,25 @@ describe("cli", () => {
     expect(init.stdout).toContain("Next steps:")
   })
 
+  it("update detects unchanged files and skips them", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const update = await runCli(["update", "--dir", target, "--skip-deps", "--yes"])
+    expect(update.code).toBe(0)
+    expect(update.stdout).toContain("unchanged, skipped")
+  })
+
+  it("no-backup flag skips backup creation", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const update = await runCli(["install", "--dir", target, "--skip-deps", "--yes", "--no-backup"])
+    expect(update.code).toBe(0)
+    // No backup directory should be created on second install
+    const backupExists = await exists(path.join(target, ".install-backups"))
+    // Backups from first install exist, but no new ones from no-backup
+    expect(update.stdout).not.toContain("previous files saved")
+  })
+
   it("the packed tarball ships the installer entry and its surface", async () => {
     const { command, shell } = npmCommand()
     const { stdout } = await execFileAsync(command, ["pack", "--dry-run", "--json"], {

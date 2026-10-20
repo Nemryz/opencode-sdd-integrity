@@ -9,10 +9,11 @@ import { DEFAULT_PACKAGE_ROOT, buildPlan, resolveConfigDir, runInstall, verifyIn
 const USAGE = `OpenCode SDD Integrity installer
 
 Usage:
-  npx opencode-sdd-integrity install   [--dir <path>] [--skip-deps] [--yes] [--json] [--dry-run]
+  npx opencode-sdd-integrity install   [--dir <path>] [--skip-deps] [--yes] [--json] [--dry-run] [--no-backup]
   npx opencode-sdd-integrity verify    [--dir <path>] [--json]
   npx opencode-sdd-integrity doctor    [--dir <path>] [--json]
   npx opencode-sdd-integrity init      [--dir <path>] [--skip-deps] [--yes] [--json]
+  npx opencode-sdd-integrity update    [--dir <path>] [--skip-deps] [--yes] [--json]
   npx opencode-sdd-integrity --version
   npx opencode-sdd-integrity --help
 
@@ -31,7 +32,7 @@ Options:
 `
 
 export function parseArgs(argv) {
-  const flags = { command: "install", dir: null, skipDeps: false, yes: false, json: false, help: false, version: false, dryRun: false }
+  const flags = { command: "install", dir: null, skipDeps: false, yes: false, json: false, help: false, version: false, dryRun: false, noBackup: false }
   const rest = [...argv]
   if (rest[0] && !rest[0].startsWith("-")) {
     flags.command = rest.shift()
@@ -58,6 +59,9 @@ export function parseArgs(argv) {
         break
       case "--dry-run":
         flags.dryRun = true
+        break
+      case "--no-backup":
+        flags.noBackup = true
         break
       case "--help":
       case "-h":
@@ -153,6 +157,7 @@ async function main() {
     const result = await runInstall({
       targetDir,
       skipDeps: flags.skipDeps,
+    noBackup: flags.noBackup,
       onEvent: (event) => {
         if (!flags.json) {
           process.stdout.write(`    ${event.message}\n`)
@@ -182,6 +187,49 @@ async function main() {
       process.stdout.write(`${JSON.stringify({ command: "init", packageName: plan.packageName, packageVersion: plan.packageVersion, ...result, verification, doctor }, null, 2)}\n`)
     }
     return (result.verification.ok && doctor.ok) ? 0 : 1
+  }
+
+  if (flags.command === "update") {
+    const manifest = await (await import("./installer.mjs")).readManifest(targetDir)
+    const plan = await buildPlan({ targetDir })
+    if (!flags.json) {
+      process.stdout.write(`OpenCode SDD Integrity update -> ${targetDir}\n`)
+      if (manifest) {
+        process.stdout.write(`  Installed version: ${manifest.packageVersion}, package version: ${plan.packageVersion}\n`)
+        if (manifest.packageVersion === plan.packageVersion) {
+          process.stdout.write("  Already up to date.\n")
+        }
+      } else {
+        process.stdout.write("  No previous install manifest found, performing full install.\n")
+      }
+      process.stdout.write("==> Updating files...\n")
+    }
+    const result = await runInstall({
+      targetDir,
+      skipDeps: flags.skipDeps,
+    noBackup: flags.noBackup,
+      onEvent: (event) => {
+        if (!flags.json) {
+          process.stdout.write(`    ${event.message}\n`)
+        }
+      },
+    })
+    if (!flags.json) {
+      const required = result.verification.checks.filter((check) => !check.optional)
+      const passed = required.filter((check) => check.ok).length
+      process.stdout.write(`==> Verify: ${passed}/${required.length} required paths present\n`)
+      process.stdout.write(`==> Done! ${plan.packageName} updated at ${result.targetDir}\n`)
+      if (result.skipped && result.skipped.length > 0) {
+        process.stdout.write(`    ${result.skipped.length} file(s) unchanged, skipped\n`)
+      }
+      if (result.copied && result.copied.length > 0) {
+        process.stdout.write(`    ${result.copied.length} file(s) updated\n`)
+      }
+    }
+    if (flags.json) {
+      process.stdout.write(`${JSON.stringify({ command: "update", packageName: plan.packageName, packageVersion: plan.packageVersion, ...result }, null, 2)}\n`)
+    }
+    return result.verification.ok ? 0 : 1
   }
 
   if (flags.command !== "install") {
@@ -231,6 +279,7 @@ async function main() {
   const result = await runInstall({
     targetDir,
     skipDeps: flags.skipDeps,
+    noBackup: flags.noBackup,
     onEvent: (event) => {
       if (!flags.json) {
         process.stdout.write(`    ${event.message}\n`)
