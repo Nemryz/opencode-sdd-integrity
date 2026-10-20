@@ -267,9 +267,18 @@ export function backupSourceKey(fp: string): string {
   return `${path.basename(fp)}.${computeSha256(normalized).slice(0, 8)}`
 }
 
-function backupTimestamp(name: string): number {
-  const match = name.match(/\.(\d+)\.bak$/)
-  return match ? Number(match[1]) : 0
+export function backupTimestamp(name: string): number {
+  // Backup stamp format: YYYYMMDDTHHMMSSZ-hex (e.g., 20261020T215017Z-172f65)
+  // Only match .bak files (not .sha256)
+  if (!name.endsWith(".bak")) return 0
+  const match = name.match(/\.(\d{8}T\d{6})Z/)
+  if (match) {
+    // Convert YYYYMMDDTHHMMSS to a sortable number: YYYYMMDDHHMMSS
+    return Number(match[1].replace("T", ""))
+  }
+  // Fallback: try .digits.bak format
+  const fallback = name.match(/\.(\d+)\.bak$/)
+  return fallback ? Number(fallback[1]) : 0
 }
 
 export async function writeWithBackup(fp: string, data: string, root: string): Promise<void> {
