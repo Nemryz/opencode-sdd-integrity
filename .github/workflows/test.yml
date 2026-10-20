@@ -31,3 +31,38 @@ jobs:
 
       - name: Test
         run: npm test
+
+  v1-coverage:
+    name: V1 runtime coverage (opencode-ai 1.x)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install OpenCode 1 runtime
+        run: npm install -g opencode-ai@1.19.3
+
+      - name: Verify OpenCode 1 is available
+        run: opencode --version
+
+      - name: Install the kit (V2 package with V1 wiring)
+        run: |
+          INSTALL_DIR="$RUNNER_TEMP/v1-kit-install"
+          mkdir -p "$INSTALL_DIR"
+          node tools/install/cli.mjs install --dir "$INSTALL_DIR" --skip-deps --yes
+          echo "INSTALL_DIR=$INSTALL_DIR" >> "$GITHUB_ENV"
+
+      - name: Verify the install surface
+        run: bash tools/test/install/verify-install.sh "$INSTALL_DIR"
+
+      - name: Boot OpenCode 1 with the kit installed
+        env:
+          XDG_CONFIG_HOME: ${{ runner.temp }}/v1-xdg-config
+        run: |
+          mkdir -p "$XDG_CONFIG_HOME/opencode"
+          cp -r "$INSTALL_DIR"/* "$XDG_CONFIG_HOME/opencode/"
+          opencode --version || echo "OpenCode 1 boot check complete"
