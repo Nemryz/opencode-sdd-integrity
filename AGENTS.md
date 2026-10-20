@@ -56,6 +56,10 @@ If no constitution exists, suggest creating one. If no steering context exists, 
 Focus on WHAT and WHY. Write Gherkin scenarios. Prioritize P1 (MVP) / P2 (important) / P3 (nice to have).
 Mark ambiguous areas with `[NEEDS CLARIFICATION]`.
 
+### `/archive [featureDir]`
+Archive a completed feature to `archive/YYYY-MM-DD-NNN-slug/`. Moves the feature directory, updates spec.json with `archived_at`, and updates living specs. Requires the feature to be complete.
+Use after `/impl` and `/converge`. Suggests `/status` after archiving.
+
 ### `/approve <artifact>`
 Approve a generated artifact (`spec`, `plan`, or `tasks`) to unlock the next phase. Uses `speckit-approve` tool.
 `spec` unlocks `/plan`, `plan` unlocks `/tasks`, `tasks` unlocks `/impl` and sets the feature to ready.
@@ -92,6 +96,10 @@ Reports current phase and next step.
 Scan all features for inconsistencies. Uses `speckit-clean` tool.
 Use `--fix` to auto-repair phase mismatches and stale session references.
 Without `--fix`, runs as read-only report.
+
+### `/archive [featureDir]`
+Archive a completed feature to `archive/YYYY-MM-DD-NNN-slug/`. Moves the feature directory, updates spec.json with `archived_at`, and updates living specs. Requires the feature to be complete.
+Use after `/impl` and `/converge`. Suggests `/status` after archiving.
 
 ### `/audit [--fix]`
 Run a comprehensive project audit for phase consistency and artifact health. Uses `speckit-audit` tool.
@@ -215,11 +223,14 @@ Tools:      `~/.config/opencode/tools/`
 | Skill | Phase | Action |
 |-------|-------|--------|
 | `speckit-constitution` | 0 | Create or update project governing principles |
+| `speckit-explorer` | 0 | Explore an idea before specification (thinking partner) |
 | `speckit-spec-writer` | 1 | Translate requirements into structured specs |
 | `speckit-plan-engineer` | 2 | Map specs to technology decisions |
 | `speckit-task-decomposer` | 3 | Break plans into ordered tasks |
 | `speckit-implementer` | 4 | Execute tasks in dependency order |
+| `speckit-converger` | 5 | Verify implementation matches spec (convergence check) |
 | `speckit-reviewer` | all | Validate cross-artifact consistency |
+| `speckit-archiver` | 6 | Archive a completed feature to archive/YYYY-MM-DD-NNN-slug |
 
 Call a skill with: `skill({ name: "speckit-spec-writer" })`
 
@@ -247,6 +258,7 @@ Call a skill with: `skill({ name: "speckit-spec-writer" })`
 | `speckit-perf` | Show performance statistics for all tools | `subcommand` (optional: "top N", "reset") |
 | `speckit-guard` | Manage file protection guard for critical SDD artifacts | `subcommand` (optional: "on", "off", "status", "add", "remove", "log", "debug"), `file` (for add/remove), `confirmed` (bool, for off/remove after user confirmation), `logOption` (optional: "all"), `debugOption` (optional: "on", "off") |
 | `speckit-approve` | Approve a generated artifact to unlock the next phase | `artifact` (spec/plan/tasks), `confirmed` (bool, after user confirmation) |
+| `speckit-archive` | Archive a completed feature to archive/YYYY-MM-DD-NNN-slug | `featureDir` (optional), `confirmed` (bool) |
 | `speckit-phase` | Advance the feature phase to impl or complete after implementation | `phase` (impl/complete) |
 | `speckit-snapshot` | Create, inspect, restore, and prune point-in-time snapshots of the SDD state | `subcommand` (create/list/verify/preview/restore/pin/unpin/drill/prune/recover), `id` (or "latest"), `mode`, `files`, `label`, `confirmed` |
 | `speckit-mutation` | List, run, and aggregate the mutation batches of the kit itself, which only works inside a checkout of the repository | `subcommand` (list/run/aggregate), batch ids appended to `run` |
@@ -361,7 +373,7 @@ Examples:
 
 ## Custom Tool Error Handling
 
-Custom tools (`speckit-scaffold`, `speckit-validate`, `speckit-audit`, `speckit-clean`, `speckit-config`, `speckit-status`, `speckit-complexity`, `speckit-selfheal`, `speckit-health`, `speckit-delta`, `speckit-evidence`, `speckit-perf`, `speckit-approve`, `speckit-phase`, `speckit-snapshot`, `speckit-mutation`, `speckit-guard`) are TypeScript files compiled at runtime by opencode. If a tool has compilation errors, opencode may fail to start or crash on each prompt.
+Custom tools (`speckit-scaffold`, `speckit-validate`, `speckit-audit`, `speckit-archive`, `speckit-clean`, `speckit-config`, `speckit-status`, `speckit-complexity`, `speckit-selfheal`, `speckit-health`, `speckit-delta`, `speckit-evidence`, `speckit-perf`, `speckit-approve`, `speckit-phase`, `speckit-snapshot`, `speckit-mutation`, `speckit-guard`) are TypeScript files compiled at runtime by opencode. If a tool has compilation errors, opencode may fail to start or crash on each prompt.
 
 ### If a tool crashes opencode
 

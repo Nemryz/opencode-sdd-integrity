@@ -28,6 +28,7 @@
     "skills/speckit-constitution/SKILL.md",
     "tools/speckit-status.ts",
     "tools/speckit-evidence.ts",
+    "tools/speckit-archive.ts",
     "tools/install/cli.mjs",
     "plugins/speckit-tools.ts",
     "plugins/speckit-doom-loop.ts",

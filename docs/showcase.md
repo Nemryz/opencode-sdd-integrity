@@ -138,7 +138,7 @@ An entry marked as not documented means the public documentation reviewed for th
 
 | Kit | Interface surface | Enforcement | State and recovery |
 |-----|-------------------|-------------|--------------------|
-| OpenCode SDD Integrity (this repository) | 17 typed tools, 4 runtime plugins, 8 skills, 19 commands, structured results throughout | Approval gates, a file guard for editor and shell writes, pre-validation in the commands | Zod-validated state with atomic writes and checksums, backups, verified snapshots, restore drills and a crash-safe journal |
+| OpenCode SDD Integrity (this repository) | 18 typed tools, 4 runtime plugins, 9 skills, 20 commands, structured results throughout | Approval gates, a file guard for editor and shell writes, pre-validation in the commands | Zod-validated state with atomic writes and checksums, backups, verified snapshots, restore drills and a crash-safe journal |
 | Spec Kit | Templates, checklists, commands, and a generated TypeScript plugin that maps lifecycle events | Documentation, templates, and configurable hooks, without a documented edit guard | No documented resilient state layer |
 | OpenSpec | Change proposals, commands, and a community sidebar plugin | An explicit philosophy against rigid phase gates | Markdown documents and commands, cross-repository stores in beta |
 | BMAD | Agent personas and one command per skill | Documentation and workflows | Workflow documents, with Python and uv required for setup |

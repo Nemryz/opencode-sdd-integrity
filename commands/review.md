@@ -56,6 +56,9 @@ Additionally, read `specs/{metadata.featureDir}/spec.json`. If `approvals.spec.a
 - Spec stories match plan phases?
 - Plan architecture matches tasks structure?
 - No orphan requirements or tasks?
+- Task `_Boundary:_` annotations match the File Structure Plan in plan.md?
+- Task `_Depends:_` annotations form a valid DAG (no cycles)?
+- Every file in the File Structure Plan is referenced by at least one task?
 
 ## Output format
 

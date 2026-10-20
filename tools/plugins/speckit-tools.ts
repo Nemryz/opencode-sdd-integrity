@@ -2,6 +2,7 @@ import type { Plugin as V2Plugin } from "@opencode/plugin"
 import type { ToolDefinition } from "@opencode-ai/plugin"
 import { z } from "zod"
 import speckitApprove from "../speckit-approve"
+import speckitArchive from "../speckit-archive"
 import speckitAudit from "../speckit-audit"
 import speckitClean from "../speckit-clean"
 import speckitComplexity from "../speckit-complexity"
@@ -21,6 +22,7 @@ import speckitValidate from "../speckit-validate"
 
 const REGISTERED_TOOLS: ReadonlyArray<{ name: string; def: ToolDefinition }> = [
   { name: "speckit-approve", def: speckitApprove },
+  { name: "speckit-archive", def: speckitArchive },
   { name: "speckit-audit", def: speckitAudit },
   { name: "speckit-clean", def: speckitClean },
   { name: "speckit-complexity", def: speckitComplexity },

@@ -34,6 +34,8 @@ Additionally, read `specs/{metadata.featureDir}/spec.json`. If `approvals.plan.a
 7. Include test tasks (write tests BEFORE implementation)
 8. Build an ASCII dependency map
 9. Verify each task has a clear file path or deliverable
+10. For each task, add `_Boundary:_` (files/modules touched) and `_Depends:_` (prerequisite tasks) annotations
+11. Generate a File Structure Plan section in plan.md listing all files to be created/modified
 
 ## Rules
 

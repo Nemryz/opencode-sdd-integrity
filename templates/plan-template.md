@@ -65,6 +65,21 @@ backend/
 ├── ...
 ```
 
+### File Structure Plan
+
+List every file to be created or modified, with its purpose and boundary:
+
+| File | Purpose | Boundary | Action |
+|------|---------|----------|--------|
+| `src/models/user.ts` | User entity with auth fields | data | Create |
+| `src/services/auth.ts` | Authentication logic | services | Create |
+| `src/api/auth.routes.ts` | Auth endpoints | api | Create |
+| `tests/auth.test.ts` | Auth acceptance tests | testing | Create |
+
+Every file listed here must be referenced by at least one task's `_Boundary:_` annotation.
+
+---
+
 ---
 
 ## Key Decisions
