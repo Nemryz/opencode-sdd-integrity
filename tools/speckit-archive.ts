@@ -19,7 +19,7 @@ import {
 } from "./shared/types"
 import { snapshotBeforeOperation } from "./shared/snapshot/triggers"
 
-function todayStamp(): string {
+export function todayStamp(): string {
   const now = new Date()
   const y = now.getFullYear()
   const m = String(now.getMonth() + 1).padStart(2, "0")
