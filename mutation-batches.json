@@ -65,6 +65,11 @@
       "id": "tools-registry",
       "description": "The OpenCode 2 registrar that bridges the sixteen tool definitions into the runtime",
       "mutate": ["tools/plugins/speckit-tools.ts"]
+    },
+    {
+      "id": "plugin-shims",
+      "description": "Root-level plugin shims that re-export the implementations for OpenCode 1 discovery",
+      "mutate": ["plugins/speckit-doom-loop.ts", "plugins/speckit-guard.ts", "plugins/speckit-perfmon.ts", "plugins/speckit-tools.ts"]
     }
   ]
 }
