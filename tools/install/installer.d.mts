@@ -47,9 +47,37 @@ export interface InstallResult {
   targetDir: string
   backupDir: string | null
   copied: string[]
+  skipped: string[]
   exampleCreated: boolean
   deps: "skipped" | "installed"
   verification: VerifyResult
+}
+
+export interface DoctorCheck {
+  name: string
+  ok: boolean
+  message: string
+}
+
+export interface DoctorResult {
+  targetDir: string
+  ok: boolean
+  checks: DoctorCheck[]
+  suggestions: string[]
+}
+
+export interface BackupEntry {
+  stamp: string
+  dir: string
+  files: number
+  size: number
+  date: string
+}
+
+export interface ClassifiedError {
+  type: string
+  message: string
+  suggestion: string
 }
 
 export interface InstallEvent {
@@ -71,3 +99,10 @@ export function runInstall(options: {
   onEvent?: (event: InstallEvent) => void
 }): Promise<InstallResult>
 export function verifyInstall(options: { targetDir: string; surface?: Surface }): Promise<VerifyResult>
+export function doctorInstall(options: { targetDir: string; packageRoot?: string }): Promise<DoctorResult>
+export function listBackups(targetDir: string): Promise<BackupEntry[]>
+export function restoreBackup(targetDir: string, stamp: string, options?: { yes?: boolean }): Promise<{ restored: string; previousBackup: string }>
+export function pruneBackups(targetDir: string, options?: { keep?: number; all?: boolean }): Promise<{ removed: number; kept: number }>
+export function classifyError(error: unknown): ClassifiedError
+export function checkNodeVersion(): number
+export function readManifest(targetDir: string): Promise<Record<string, unknown> | null>

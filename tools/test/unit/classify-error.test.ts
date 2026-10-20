@@ -3,7 +3,7 @@ import { classifyError } from "../../install/installer.mjs"
 
 describe("classifyError", () => {
   it("classifies ENOENT as not-found", () => {
-    const err = new Error("npm not found")
+    const err = new Error("npm not found") as Error & { code: string }
     err.code = "ENOENT"
     const result = classifyError(err)
     expect(result.type).toBe("not-found")
@@ -11,7 +11,7 @@ describe("classifyError", () => {
   })
 
   it("classifies EACCES as permission", () => {
-    const err = new Error("permission denied")
+    const err = new Error("permission denied") as Error & { code: string }
     err.code = "EACCES"
     const result = classifyError(err)
     expect(result.type).toBe("permission")
@@ -19,7 +19,7 @@ describe("classifyError", () => {
   })
 
   it("classifies ECONNREFUSED as network", () => {
-    const err = new Error("connection refused")
+    const err = new Error("connection refused") as Error & { code: string }
     err.code = "ECONNREFUSED"
     const result = classifyError(err)
     expect(result.type).toBe("network")
@@ -27,7 +27,7 @@ describe("classifyError", () => {
   })
 
   it("classifies ETIMEDOUT as timeout", () => {
-    const err = new Error("timed out")
+    const err = new Error("timed out") as Error & { code: string }
     err.code = "ETIMEDOUT"
     const result = classifyError(err)
     expect(result.type).toBe("timeout")
