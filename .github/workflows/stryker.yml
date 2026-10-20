@@ -17,7 +17,7 @@ jobs:
       matrix: ${{ steps.emit.outputs.matrix }}
       selected: ${{ steps.emit.outputs.selected }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate every batch and build the matrix
         id: emit
@@ -58,10 +58,10 @@ jobs:
       matrix:
         batch: ${{ fromJSON(needs.batches.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Use Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -83,7 +83,7 @@ jobs:
         run: node .github/scripts/report-score.mjs reports/mutation/mutation.json "${{ matrix.batch.id }}"
 
       - name: Upload the batch report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutation-${{ matrix.batch.id }}
           path: reports/mutation/
