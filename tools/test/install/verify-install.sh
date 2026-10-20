@@ -42,6 +42,7 @@ expect_path templates/constitution-template.md
 expect_path skills/speckit-constitution/SKILL.md
 expect_path tools/speckit-status.ts
 expect_path tools/speckit-evidence.ts
+expect_path tools/speckit-archive.ts
 expect_path tools/install/cli.mjs
 expect_path plugins/speckit-tools.ts
 expect_path plugins/speckit-doom-loop.ts

@@ -15,6 +15,7 @@ type RegisteredTool = {
 
 const EXPECTED_TOOLS = [
   "speckit-approve",
+  "speckit-archive",
   "speckit-audit",
   "speckit-clean",
   "speckit-complexity",
