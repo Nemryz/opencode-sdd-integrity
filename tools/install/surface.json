@@ -32,6 +32,7 @@
     "tools/install/cli.mjs",
     "plugins/speckit-tools.ts",
     "plugins/speckit-doom-loop.ts",
+    "plugins/speckit-events.ts",
     "docs/testing.md",
     "docs/showcase.md",
     "npm-shrinkwrap.json"

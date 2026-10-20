@@ -46,6 +46,7 @@ expect_path tools/speckit-archive.ts
 expect_path tools/install/cli.mjs
 expect_path plugins/speckit-tools.ts
 expect_path plugins/speckit-doom-loop.ts
+expect_path plugins/speckit-events.ts
 expect_path docs/testing.md
 expect_path docs/showcase.md
 expect_path npm-shrinkwrap.json

@@ -131,6 +131,13 @@ Check SDD state integrity and restore corrupted files from backups. Uses `specki
 ### `/delta-status [featureDir]`
 Show the status of incremental delta specs. Uses `speckit-delta` tool with `command: "delta-status"`.
 
+### `/discovery`
+Analyze project state and suggest the next action. Loads `speckit-discovery` skill.
+Reads session, constitution, and features to determine current state.
+Routes to the recommended next command (/spec, /plan, /tasks, /impl, /converge, /archive).
+In multi-spec mode, creates brief.md + roadmap.md for coordination.
+Use when unsure what to do next or when managing multiple features.
+
 ### `/snapshot [create|list|verify <id>|preview <id>|restore <id>|pin <id> [label]|unpin <id>|drill <id>|prune|recover]`
 Manage point-in-time snapshots of the SDD state. Uses `speckit-snapshot` tool.
 Automatic verified snapshots run before phase transitions, tasks approval, and `--fix` operations (audit, clean, health, selfheal). If the snapshot fails, the operation is blocked and nothing changes; failed fixes leave a post-failure snapshot. `/health` recovers interrupted restores with `--fix`.
@@ -229,6 +236,7 @@ Tools:      `~/.config/opencode/tools/`
 | `speckit-task-decomposer` | 3 | Break plans into ordered tasks |
 | `speckit-implementer` | 4 | Execute tasks in dependency order |
 | `speckit-converger` | 5 | Verify implementation matches spec (convergence check) |
+| `speckit-discovery` | 0 | Analyze project state and suggest next action |
 | `speckit-reviewer` | all | Validate cross-artifact consistency |
 | `speckit-archiver` | 6 | Archive a completed feature to archive/YYYY-MM-DD-NNN-slug |
 
