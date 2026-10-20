@@ -14,6 +14,7 @@ const KIT_COMMANDS = [
   "config",
   "converge",
   "delta-status",
+  "discovery",
   "explore",
   "guard",
   "health",
