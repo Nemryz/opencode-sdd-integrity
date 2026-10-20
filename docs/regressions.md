@@ -261,3 +261,18 @@ The `opencode-sdd-integrity-v2.0.1.tar.gz` asset attached to the GitHub Release 
 **Fix:** the archive step now includes `npm-shrinkwrap.json`, and a `Verify release archive` step reads the tar listing and fails when any `copyFiles`, `copyDirs` or example path from `surface.json` is absent, so the contract stays single-sourced.
 
 **Test coverage:** the release workflow refuses to attach an archive that is missing a surface path.
+
+### R-18: OIDC trusted publishing failed on a case-sensitive owner mismatch and required a manual release
+
+**Introduced in:** the npm trusted-publisher configuration for `opencode-sdd-integrity`, where the GitHub owner was stored as `nemryz` (lowercase) while the actual GitHub account is `Nemryz`
+**Fixed in:** current
+
+npm matches the GitHub owner **case-sensitively** while GitHub does not, so the trusted-publisher exchange returned `404 package not found`, which npm masked as `ENEEDAUTH` (`npm error code ENEEDAUTH`). The failure only surfaced after the v2.0.2 tag push, when the `release.yml` Publish step could not exchange the OIDC token for a publish token. Because the npm publisher identity fields are immutable, the broken configuration could not be edited in place; it had to be deleted and recreated with the exact casing `Nemryz`.
+
+**Root cause:** the trusted-publisher form was filled with a lowercase owner (`nemryz`) that did not byte-match the claims carried by the GitHub OIDC token (`repository: Nemryz/opencode-sdd-integrity`). npm's exchange endpoint returns 404 when no publisher configuration matches the claims, and npm reports that 404 as an authentication error, hiding the real cause. A diagnostic run (`diagnose_oidc=true`) printed the exact claims and the masked `{"message":"OIDC token exchange error - package not found"}` response, which confirmed the mismatch.
+
+**Fix:** recreated the trusted publisher with the exact GitHub casing (`Nemryz`), and added an on-demand release path to `release.yml`: `workflow_dispatch` inputs `tag` and `diagnose_oidc`, an OIDC handshake check (claims + exchange status, fatal) on every run, and a verbose `npm publish --dry-run` in diagnose mode that skips all side effects. The failed tag-push run could not be re-triggered with a fixed workflow, so v2.0.2 was published by dispatching `release.yml` on ref `V2` with `tag=v2.0.2` (checkout at the existing tag). The workflow now installs `npm@11` globally because Node 22's bundled npm 10.9 cannot perform OIDC exchange.
+
+**Test coverage:** the OIDC handshake check runs on every release (tag push and dispatch) and fails fast with the claims printed, so a case mismatch or missing configuration is reported as a 404 instead of being masked as ENEEDAUTH. Actionlint validates the workflow syntax on push and pull request.
+
+**Follow-up:** future releases need no manual steps — bump the version and push the tag, or dispatch `release.yml` with `tag=vX.Y.Z`. Optional (user, npm UI): confirm Settings → Trusted publishing shows Validated, and enable "Require two-factor authentication and disallow tokens" under Publishing access. Optional: bump `actions/checkout`, `actions/setup-node`, `actions/upload-artifact` to v7 and `softprops/action-gh-release` to v3 with CI validation.
