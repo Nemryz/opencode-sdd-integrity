@@ -34,7 +34,7 @@
     {
       "id": "tools-repair",
       "description": "Audit and clean, which are the two paths that write fixes to an inconsistent project",
-      "mutate": ["tools/speckit-audit.ts", "tools/speckit-clean.ts"]
+      "mutate": ["tools/speckit-audit.ts", "tools/speckit-clean.ts", "tools/speckit-archive.ts"]
     },
     {
       "id": "tools-recovery",

@@ -7,6 +7,7 @@ const REPO_ROOT = repoRootDir()
 
 const KIT_COMMANDS = [
   "approve",
+  "archive",
   "audit",
   "baseline",
   "clean",

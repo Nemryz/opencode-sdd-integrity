@@ -76,6 +76,7 @@ export const SpecJsonSchema = z.object({
     status: z.enum(["converged", "not-converged"]),
     gaps: z.number(),
   })).optional(),
+  archived_at: z.string().optional(),
 })
 
 export const SessionStateSchema = z.object({

@@ -20,6 +20,7 @@
     "tools/shared/snapshot/triggers.ts",
     "tools/speckit-audit.ts",
     "tools/speckit-clean.ts",
+    "tools/speckit-archive.ts",
     "tools/speckit-delta.ts",
     "tools/speckit-health.ts",
     "tools/speckit-validate.ts",
