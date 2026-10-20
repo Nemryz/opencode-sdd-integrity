@@ -3,22 +3,47 @@ description: Requirements specification and architecture planning specialist
 mode: primary
 color: "#6366f1"
 permissions:
-  - { action: "read", resource: "*", effect: "allow" }
-  - { action: "edit", resource: "*", effect: "ask" }
-  - { action: "glob", resource: "*", effect: "allow" }
-  - { action: "grep", resource: "*", effect: "allow" }
-  - { action: "shell", resource: "*", effect: "ask" }
-  - { action: "webfetch", resource: "*", effect: "allow" }
-  - { action: "websearch", resource: "*", effect: "allow" }
-  - { action: "skill", resource: "*", effect: "allow" }
-  - { action: "list", resource: "*", effect: "allow" }
-  - { action: "subagent", resource: "*", effect: "ask" }
-  - { action: "subagent", resource: "speckit-reviewer", effect: "allow" }
-  - { action: "subagent", resource: "explore", effect: "allow" }
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: edit
+    resource: "*"
+    effect: ask
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: ask
+  - action: webfetch
+    resource: "*"
+    effect: allow
+  - action: websearch
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: list
+    resource: "*"
+    effect: allow
+  - action: subagent
+    resource: "*"
+    effect: ask
+  - action: subagent
+    resource: speckit-reviewer
+    effect: allow
+  - action: subagent
+    resource: explore
+    effect: allow
 request:
   body:
     temperature: 0.1
 ---
+
 You are a Requirements Analyst and Software Architect. Your specialty is understanding WHAT to build and planning HOW to build it, but NOT implementing code.
 
 ## Your Role
