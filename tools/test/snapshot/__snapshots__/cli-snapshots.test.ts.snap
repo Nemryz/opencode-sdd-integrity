@@ -70,7 +70,7 @@ exports[`Snapshot: /snapshot (after create) > matches snapshot for the created s
 
 exports[`Snapshot: /snapshot (after create) > matches snapshot for the created snapshot 2`] = `
 "<SNAPSHOT>
-  files: 4 (1010 B)
+  files: 4 (1.0 KB)
   feature: 001-test-feature | phase: spec
 Next: /snapshot drill <SNAPSHOT> to prove it can be restored"
 `;
@@ -82,7 +82,7 @@ exports[`Snapshot: /snapshot (after create) > matches snapshot for the created s
   - no snapshot has been drilled yet
 
 Snapshots (1):
-  <SNAPSHOT> | <TIMESTAMP> | manual | 001-test-feature | 4 files | 1010 B | verified | unpinned | drill:never"
+  <SNAPSHOT> | <TIMESTAMP> | manual | 001-test-feature | 4 files | 1.0 KB | verified | unpinned | drill:never"
 `;
 
 exports[`Snapshot: /snapshot (after create) > matches snapshot for the created snapshot 5`] = `"Restore Preview"`;

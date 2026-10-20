@@ -98,9 +98,20 @@ Run a comprehensive project audit for phase consistency and artifact health. Use
 Reports error, warning, and info findings with severity ratings.
 Use `--fix` to auto-repair phase mismatches in spec.json.
 
+### `/converge`
+Verify that the implementation matches the specification. Loads `speckit-converger` skill.
+Checks every acceptance criterion against the code, runs tests, reports "Converged" or "Not Converged" with gaps.
+Use after `/impl` to verify correctness. Repeat implement→converge until converged.
+
 ### `/config [key=key value=val|defaultTechStack=stack]`
 Read or update SDD configuration. Uses `speckit-config` tool.
 Examples: `/config defaultTechStack=Node.js+PostgreSQL` or `/config key=language value=python`
+
+### `/explore [description]`
+Explore an idea before creating a spec. Loads `speckit-explorer` skill.
+Acts as a thinking partner: scans codebase, identifies ambiguities, proposes scope boundaries.
+Does NOT create any artifacts. Produces an exploration summary for `/spec`.
+Use before `/spec` when the idea is vague or complex.
 
 ### `/guard [status|on|off|add <file>|remove <file>|log|debug on|off]`
 Manage the file protection guard. Uses `speckit-guard` tool.
