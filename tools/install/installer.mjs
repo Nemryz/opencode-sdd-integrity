@@ -94,6 +94,106 @@ export async function readManifest(targetDir) {
   }
 }
 
+// Lists all backups in the target directory, sorted by date (newest first).
+export async function listBackups(targetDir) {
+  const backupRoot = path.join(targetDir, ".install-backups")
+  const exists = await pathExists(backupRoot)
+  if (!exists) return []
+  const entries = await fs.readdir(backupRoot).catch(() => [])
+  const backups = []
+  for (const entry of entries) {
+    const backupDir = path.join(backupRoot, entry)
+    const info = await fs.stat(backupDir).catch(() => null)
+    if (!info || !info.isDirectory()) continue
+    const files = await fs.readdir(backupDir).catch(() => [])
+    const fileCount = files.filter((f) => !f.endsWith(".sha256")).length
+    let totalSize = 0
+    for (const f of files) {
+      const fi = await fs.stat(path.join(backupDir, f)).catch(() => null)
+      if (fi) totalSize += fi.size
+    }
+    // Parse timestamp from stamp: 20261020T215017Z-172f65
+    const dateMatch = entry.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/)
+    const date = dateMatch
+      ? `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]} ${dateMatch[4]}:${dateMatch[5]}:${dateMatch[6]}`
+      : entry
+    backups.push({ stamp: entry, dir: backupDir, files: fileCount, size: totalSize, date })
+  }
+  backups.sort((a, b) => b.stamp.localeCompare(a.stamp))
+  return backups
+}
+
+// Restores files from a specific backup to the target directory.
+// Creates a backup of the current state before restoring.
+export async function restoreBackup(targetDir, stamp, { yes = false } = {}) {
+  const resolved = path.resolve(targetDir)
+  const backupRoot = path.join(resolved, ".install-backups")
+  const backupDir = path.join(backupRoot, stamp)
+  if (!(await pathExists(backupDir))) {
+    throw new Error(`backup not found: ${stamp}`)
+  }
+  // Create a backup of current state first
+  const currentBackup = path.join(backupRoot, backupStamp())
+  await fs.mkdir(currentBackup, { recursive: true })
+  const currentEntries = await fs.readdir(resolved).catch(() => [])
+  for (const entry of currentEntries) {
+    if (entry === ".install-backups" || entry.startsWith(".")) continue
+    await copyEntry(path.join(resolved, entry), path.join(currentBackup, entry)).catch(() => {})
+  }
+
+  // Restore from backup
+  const backupEntries = await fs.readdir(backupDir)
+  for (const entry of backupEntries) {
+    if (entry.endsWith(".sha256")) continue
+    await copyEntry(path.join(backupDir, entry), path.join(resolved, entry))
+  }
+  return { restored: stamp, previousBackup: path.basename(currentBackup) }
+}
+
+// Prunes old backups beyond the keep count.
+export async function pruneBackups(targetDir, { keep = 10, all = false } = {}) {
+  const backups = await listBackups(targetDir)
+  if (all) {
+    for (const b of backups) {
+      await fs.rm(b.dir, { recursive: true, force: true })
+    }
+    return { removed: backups.length, kept: 0 }
+  }
+  const toRemove = backups.slice(keep)
+  for (const b of toRemove) {
+    await fs.rm(b.dir, { recursive: true, force: true })
+  }
+  return { removed: toRemove.length, kept: Math.min(keep, backups.length) }
+}
+
+// Classifies an error and returns a type, message, and suggestion.
+export function classifyError(error) {
+  const msg = error instanceof Error ? error.message : String(error)
+  const code = error && error.code ? error.code : ""
+  if (code === "ENOENT" || msg.includes("ENOENT") || msg.includes("not found")) {
+    return { type: "not-found", message: msg, suggestion: "Install Node.js 22+ from https://nodejs.org and ensure npm is on PATH" }
+  }
+  if (code === "EACCES" || msg.includes("EACCES") || msg.includes("permission denied")) {
+    return { type: "permission", message: msg, suggestion: "Try: sudo npm install -g opencode-sdd-integrity, or use --dir with a writable path" }
+  }
+  if (code === "ECONNREFUSED" || msg.includes("ECONNREFUSED") || msg.includes("network")) {
+    return { type: "network", message: msg, suggestion: "Check your internet connection and try again" }
+  }
+  if (code === "ETIMEDOUT" || msg.includes("ETIMEDOUT") || msg.includes("timed out")) {
+    return { type: "timeout", message: msg, suggestion: "Download timed out. Try again or use --skip-deps" }
+  }
+  return { type: "unknown", message: msg, suggestion: "Re-run with --verbose for more details" }
+}
+
+// Validates that Node.js version is >= 22.
+export function checkNodeVersion() {
+  const major = parseInt(process.version.slice(1).split(".")[0], 10)
+  if (major < 22) {
+    throw new Error(`Node.js ${process.version} is too old. Need >= 22. Upgrade from https://nodejs.org`)
+  }
+  return major
+}
+
 // Writes the install manifest with version, date, and per-file checksums.
 async function writeManifest(targetDir, { packageName, packageVersion, copied, checksums }) {
   const manifest = {
@@ -135,7 +235,7 @@ export async function buildPlan({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir 
   }
 }
 
-export async function runInstall({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir, skipDeps = false, noBackup = false, runDeps, onEvent = () => {} } = {}) {
+export async function runInstall({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir, skipDeps = false, noBackup = false, backup = false, runDeps, onEvent = () => {} } = {}) {
   if (!targetDir) {
     throw new Error("runInstall needs a target directory")
   }
@@ -161,8 +261,8 @@ export async function runInstall({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir
     const sourcePath = path.join(packageRoot, item.name)
     const destPath = path.join(targetDir, item.name)
 
-    // Idempotency: skip files whose content hasn't changed
-    if (item.exists) {
+    // Idempotency: skip files whose content hasn't changed (unless --backup forces re-copy)
+    if (item.exists && !backup) {
       const srcHash = await fileChecksum(sourcePath)
       const dstHash = await fileChecksum(destPath)
       if (srcHash && dstHash && srcHash === dstHash) {
@@ -173,6 +273,7 @@ export async function runInstall({ packageRoot = DEFAULT_PACKAGE_ROOT, targetDir
       }
     }
 
+    // Create backup if file exists (skip if --no-backup; --backup forces backup of existing files)
     if (item.exists && !noBackup) {
       if (!backupDir) {
         backupDir = path.join(targetDir, ".install-backups", backupStamp())

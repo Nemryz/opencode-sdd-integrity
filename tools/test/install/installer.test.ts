@@ -368,6 +368,95 @@ describe("cli", () => {
     expect(update.stdout).not.toContain("previous files saved")
   })
 
+  it("backup list shows backups after re-install", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const list = await runCli(["backup", "list", "--dir", target])
+    expect(list.code).toBe(0)
+    expect(list.stdout).toContain("Backups in")
+  })
+
+  it("backup list shows no backups on empty dir", async () => {
+    const target = await makeTempDir()
+    const list = await runCli(["backup", "list", "--dir", target])
+    expect(list.code).toBe(0)
+    expect(list.stdout).toContain("No backups found")
+  })
+
+  it("backup list outputs valid json", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const list = await runCli(["backup", "list", "--dir", target, "--json"])
+    expect(list.code).toBe(0)
+    const parsed = JSON.parse(list.stdout) as { command: string; subcommand: string; backups: unknown[] }
+    expect(parsed.command).toBe("backup")
+    expect(parsed.subcommand).toBe("list")
+    expect(parsed.backups.length).toBeGreaterThan(0)
+  })
+
+  it("backup prune removes old backups", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const prune = await runCli(["backup", "prune", "--dir", target, "--keep", "1", "--yes"])
+    expect(prune.code).toBe(0)
+    expect(prune.stdout).toContain("Pruned")
+  })
+
+  it("backup prune --all removes all backups", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const prune = await runCli(["backup", "prune", "--dir", target, "--all", "--yes"])
+    expect(prune.code).toBe(0)
+    const list = await runCli(["backup", "list", "--dir", target])
+    expect(list.stdout).toContain("No backups found")
+  })
+
+  it("backup restore needs a stamp", async () => {
+    const target = await makeTempDir()
+    const restore = await runCli(["backup", "restore", "--dir", target, "--yes"])
+    expect(restore.code).toBe(1)
+    expect(restore.stderr).toContain("needs a stamp")
+  })
+
+  it("backup restore with invalid stamp fails", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const restore = await runCli(["backup", "restore", "nonexistent-stamp", "--dir", target, "--yes"])
+    expect(restore.code).toBe(1)
+  })
+
+  it("backup restore works with valid stamp", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const list = await runCli(["backup", "list", "--dir", target, "--json"])
+    const parsed = JSON.parse(list.stdout) as { backups: { stamp: string }[] }
+    const stamp = parsed.backups[0].stamp
+    // Modify a file
+    const fs = await import("node:fs/promises")
+    await fs.writeFile(path.join(target, "AGENTS.md"), "modified", "utf-8")
+    const restore = await runCli(["backup", "restore", stamp, "--dir", target, "--yes"])
+    expect(restore.code).toBe(0)
+    expect(restore.stdout).toContain("Restored from")
+  })
+
+  it("--backup flag forces re-copy on re-install", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const reinstall = await runCli(["install", "--dir", target, "--skip-deps", "--yes", "--backup"])
+    expect(reinstall.code).toBe(0)
+    expect(reinstall.stdout).toContain("previous files saved")
+  })
+
+  it("--verbose flag produces output", async () => {
+    const target = await makeTempDir()
+    const install = await runCli(["install", "--dir", target, "--skip-deps", "--yes", "--verbose"])
+    expect(install.code).toBe(0)
+  })
+
   it("the packed tarball ships the installer entry and its surface", async () => {
     const { command, shell } = npmCommand()
     const { stdout } = await execFileAsync(command, ["pack", "--dry-run", "--json"], {

@@ -4,16 +4,17 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import process from "node:process"
 import readline from "node:readline/promises"
-import { DEFAULT_PACKAGE_ROOT, buildPlan, resolveConfigDir, runInstall, verifyInstall, doctorInstall } from "./installer.mjs"
+import { DEFAULT_PACKAGE_ROOT, buildPlan, resolveConfigDir, runInstall, verifyInstall, doctorInstall, listBackups, restoreBackup, pruneBackups, classifyError, checkNodeVersion, readManifest } from "./installer.mjs"
 
 const USAGE = `OpenCode SDD Integrity installer
 
 Usage:
-  npx opencode-sdd-integrity install   [--dir <path>] [--skip-deps] [--yes] [--json] [--dry-run] [--no-backup]
+  npx opencode-sdd-integrity install   [--dir <path>] [--skip-deps] [--yes] [--json] [--dry-run] [--no-backup] [--backup] [--verbose]
   npx opencode-sdd-integrity verify    [--dir <path>] [--json]
   npx opencode-sdd-integrity doctor    [--dir <path>] [--json]
   npx opencode-sdd-integrity init      [--dir <path>] [--skip-deps] [--yes] [--json]
-  npx opencode-sdd-integrity update    [--dir <path>] [--skip-deps] [--yes] [--json]
+  npx opencode-sdd-integrity update    [--dir <path>] [--skip-deps] [--yes] [--json] [--no-backup]
+  npx opencode-sdd-integrity backup    list|restore <stamp>|prune [--dir <path>] [--keep N] [--all] [--yes] [--json]
   npx opencode-sdd-integrity --version
   npx opencode-sdd-integrity --help
 
@@ -22,6 +23,8 @@ Commands:
   verify    Check that all required surface paths are present
   doctor    Diagnose installation health and suggest fixes
   init      First-time setup: install + verify + doctor
+  update    Re-install preserving user edits, report skipped/updated
+  backup    Manage installation backups (list, restore, prune)
 
 Options:
   --dir <path>   configuration directory, defaults to $XDG_CONFIG_HOME/opencode or ~/.config/opencode
@@ -29,13 +32,23 @@ Options:
   --yes, -y      skip the confirmation prompt
   --json         print a machine readable result
   --dry-run      show what would be installed without copying anything
+  --no-backup    skip backup creation on re-install
+  --backup       force backup creation even on first install
+  --verbose      print detailed debug output
 `
 
 export function parseArgs(argv) {
-  const flags = { command: "install", dir: null, skipDeps: false, yes: false, json: false, help: false, version: false, dryRun: false, noBackup: false }
+  const flags = { command: "install", dir: null, skipDeps: false, yes: false, json: false, help: false, version: false, dryRun: false, noBackup: false, backup: false, verbose: false, backupSubcommand: null, backupStamp: null, keep: 10, all: false }
   const rest = [...argv]
   if (rest[0] && !rest[0].startsWith("-")) {
     flags.command = rest.shift()
+    // Handle backup subcommands
+    if (flags.command === "backup" && rest[0] && !rest[0].startsWith("-")) {
+      flags.backupSubcommand = rest.shift()
+      if (flags.backupSubcommand === "restore" && rest[0] && !rest[0].startsWith("-")) {
+        flags.backupStamp = rest.shift()
+      }
+    }
   }
   while (rest.length > 0) {
     const arg = rest.shift()
@@ -63,6 +76,20 @@ export function parseArgs(argv) {
       case "--no-backup":
         flags.noBackup = true
         break
+      case "--backup":
+        flags.backup = true
+        break
+      case "--verbose":
+        flags.verbose = true
+        break
+      case "--keep": {
+        if (rest.length === 0) throw new Error("--keep needs a number")
+        flags.keep = parseInt(rest.shift(), 10)
+        break
+      }
+      case "--all":
+        flags.all = true
+        break
       case "--help":
       case "-h":
         flags.help = true
@@ -85,6 +112,13 @@ async function readVersion() {
 
 async function main() {
   const flags = parseArgs(process.argv.slice(2))
+
+  // Node version check
+  const nodeMajor = parseInt(process.version.slice(1).split(".")[0], 10)
+  if (nodeMajor < 22 && !flags.help && !flags.version) {
+    process.stderr.write(`Error: Node.js ${process.version} is too old. Need >= 22. Upgrade from https://nodejs.org\n`)
+    return 1
+  }
 
   if (flags.help || flags.command === "help") {
     process.stdout.write(USAGE)
@@ -137,6 +171,64 @@ async function main() {
     return result.ok ? 0 : 1
   }
 
+  if (flags.command === "backup") {
+    const targetDir = resolveConfigDir({ dir: flags.dir })
+
+    if (flags.backupSubcommand === "list" || !flags.backupSubcommand) {
+      const backups = await listBackups(targetDir)
+      if (flags.json) {
+        process.stdout.write(`${JSON.stringify({ command: "backup", subcommand: "list", targetDir, backups }, null, 2)}\n`)
+      } else {
+        if (backups.length === 0) {
+          process.stdout.write(`No backups found in ${targetDir}/.install-backups\n`)
+        } else {
+          process.stdout.write(`Backups in ${targetDir}/.install-backups:\n`)
+          for (const b of backups) {
+            const sizeKb = (b.size / 1024).toFixed(1)
+            process.stdout.write(`  ${b.stamp}  ${b.date}  ${b.files} files  ${sizeKb} KB\n`)
+          }
+        }
+      }
+      return 0
+    }
+
+    if (flags.backupSubcommand === "restore") {
+      if (!flags.backupStamp) {
+        process.stderr.write("Error: backup restore needs a stamp. Use 'backup list' to see available stamps.\n")
+        return 1
+      }
+      if (!flags.yes && !flags.json) {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+        const answer = (await rl.question(`Restore backup ${flags.backupStamp}? This will overwrite current files. [y/N] `)).trim().toLowerCase()
+        rl.close()
+        if (answer !== "y" && answer !== "yes") {
+          process.stdout.write("Aborted.\n")
+          return 0
+        }
+      }
+      const result = await restoreBackup(targetDir, flags.backupStamp, { yes: flags.yes })
+      if (flags.json) {
+        process.stdout.write(`${JSON.stringify({ command: "backup", subcommand: "restore", ...result }, null, 2)}\n`)
+      } else {
+        process.stdout.write(`Restored from ${result.restored}. Previous state saved to ${result.previousBackup}.\n`)
+      }
+      return 0
+    }
+
+    if (flags.backupSubcommand === "prune") {
+      const result = await pruneBackups(targetDir, { keep: flags.keep, all: flags.all })
+      if (flags.json) {
+        process.stdout.write(`${JSON.stringify({ command: "backup", subcommand: "prune", ...result }, null, 2)}\n`)
+      } else {
+        process.stdout.write(`Pruned ${result.removed} backup(s), ${result.kept} kept.\n`)
+      }
+      return 0
+    }
+
+    process.stderr.write(`Unknown backup subcommand: ${flags.backupSubcommand}. Use 'list', 'restore <stamp>', or 'prune'.\n`)
+    return 1
+  }
+
   if (flags.command === "init") {
     // First-time setup: install + verify + doctor
     const plan = await buildPlan({ targetDir })
@@ -157,10 +249,14 @@ async function main() {
     const result = await runInstall({
       targetDir,
       skipDeps: flags.skipDeps,
-    noBackup: flags.noBackup,
+      noBackup: flags.noBackup,
+      backup: flags.backup,
       onEvent: (event) => {
         if (!flags.json) {
           process.stdout.write(`    ${event.message}\n`)
+        }
+        if (flags.verbose) {
+          process.stderr.write(`    [verbose] event: ${JSON.stringify(event)}\n`)
         }
       },
     })
@@ -207,7 +303,8 @@ async function main() {
     const result = await runInstall({
       targetDir,
       skipDeps: flags.skipDeps,
-    noBackup: flags.noBackup,
+      noBackup: flags.noBackup,
+      backup: flags.backup,
       onEvent: (event) => {
         if (!flags.json) {
           process.stdout.write(`    ${event.message}\n`)
@@ -280,9 +377,13 @@ async function main() {
     targetDir,
     skipDeps: flags.skipDeps,
     noBackup: flags.noBackup,
+    backup: flags.backup,
     onEvent: (event) => {
       if (!flags.json) {
         process.stdout.write(`    ${event.message}\n`)
+      }
+      if (flags.verbose) {
+        process.stderr.write(`    [verbose] event: ${JSON.stringify(event)}\n`)
       }
     },
   })
@@ -304,6 +405,8 @@ main()
     process.exitCode = code
   })
   .catch((error) => {
-    process.stderr.write(`Error: ${error instanceof Error ? error.message : String(error)}\n`)
+    const classified = classifyError(error)
+    process.stderr.write(`Error [${classified.type}]: ${classified.message}\n`)
+    process.stderr.write(`Suggestion: ${classified.suggestion}\n`)
     process.exitCode = 1
   })
