@@ -301,6 +301,54 @@ describe("cli", () => {
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+/)
   })
 
+  it("doctor reports healthy on a fresh install", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const doctor = await runCli(["doctor", "--dir", target])
+    expect(doctor.code).toBe(0)
+    expect(doctor.stdout).toContain("DOCTOR PASSED")
+  })
+
+  it("doctor reports failures on an empty directory", async () => {
+    const target = await makeTempDir()
+    const doctor = await runCli(["doctor", "--dir", target])
+    expect(doctor.code).toBe(1)
+    expect(doctor.stdout).toContain("DOCTOR FAILED")
+  })
+
+  it("doctor outputs valid json", async () => {
+    const target = await makeTempDir()
+    await runCli(["install", "--dir", target, "--skip-deps", "--yes"])
+    const doctor = await runCli(["doctor", "--dir", target, "--json"])
+    expect(doctor.code).toBe(0)
+    const parsed = JSON.parse(doctor.stdout) as { command: string; ok: boolean; checks: unknown[] }
+    expect(parsed.command).toBe("doctor")
+    expect(parsed.ok).toBe(true)
+    expect(parsed.checks.length).toBeGreaterThan(0)
+  })
+
+  it("dry-run does not copy any files", async () => {
+    const target = await makeTempDir()
+    const dryRun = await runCli(["install", "--dir", target, "--dry-run", "--yes"])
+    expect(dryRun.code).toBe(0)
+    expect(dryRun.stdout).toContain("Dry run")
+    expect(dryRun.stdout).toContain("would be copied")
+    // No files should be copied
+    const fileExists = await exists(path.join(target, "AGENTS.md"))
+    expect(fileExists).toBe(false)
+  })
+
+  it("init performs install + verify + doctor", async () => {
+    const target = await makeTempDir()
+    const init = await runCli(["init", "--dir", target, "--skip-deps", "--yes"])
+    expect(init.code).toBe(0)
+    expect(init.stdout).toContain("Step 1/3")
+    expect(init.stdout).toContain("Step 2/3")
+    expect(init.stdout).toContain("Step 3/3")
+    expect(init.stdout).toContain("DOCTOR PASSED")
+    expect(init.stdout).toContain("Next steps:")
+  })
+
   it("the packed tarball ships the installer entry and its surface", async () => {
     const { command, shell } = npmCommand()
     const { stdout } = await execFileAsync(command, ["pack", "--dry-run", "--json"], {

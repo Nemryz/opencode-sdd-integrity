@@ -209,3 +209,145 @@ export async function verifyInstall({ targetDir, surface } = {}) {
     checks,
   }
 }
+
+// Diagnoses the health of an installed kit: checks every surface path, dependencies,
+// agent discovery, and common misconfigurations, returning actionable suggestions.
+export async function doctorInstall({ targetDir, packageRoot = DEFAULT_PACKAGE_ROOT } = {}) {
+  if (!targetDir) {
+    throw new Error("doctorInstall needs a target directory")
+  }
+  const resolved = path.resolve(targetDir)
+  const surface = await readSurface()
+  const checks = []
+  const suggestions = []
+
+  // Surface paths
+  for (const relPath of surface.verifyPaths) {
+    const ok = await pathExists(path.join(resolved, ...relPath.split("/")))
+    checks.push({ name: `surface:${relPath}`, ok, message: ok ? "present" : "MISSING" })
+    if (!ok) {
+      suggestions.push(`Re-run the installer: npx opencode-sdd-integrity install --dir ${resolved} --yes`)
+    }
+  }
+
+  // Agent discovery
+  const agentPath = path.join(resolved, "agents", "spec.md")
+  const agentOk = await pathExists(agentPath)
+  checks.push({ name: "agent:spec", ok: agentOk, message: agentOk ? "present" : "MISSING (spec agent won't appear in Shift+Tab)" })
+  if (!agentOk) {
+    suggestions.push(`Copy the spec agent: cp ${packageRoot}/agents/spec.md ${resolved}/agents/spec.md`)
+  }
+
+  // Commands
+  const commandsDir = path.join(resolved, "commands")
+  const commandsExist = await pathExists(commandsDir)
+  let commandCount = 0
+  if (commandsExist) {
+    const entries = await fs.readdir(commandsDir).catch(() => [])
+    commandCount = entries.filter((e) => e.endsWith(".md")).length
+  }
+  const commandsOk = commandCount >= 10
+  checks.push({ name: "commands", ok: commandsOk, message: commandsOk ? `${commandCount} commands found` : `only ${commandCount} commands (expected >= 10)` })
+  if (!commandsOk) {
+    suggestions.push("Re-install the kit to restore missing commands")
+  }
+
+  // Skills
+  const skillsDir = path.join(resolved, "skills")
+  const skillsExist = await pathExists(skillsDir)
+  let skillCount = 0
+  if (skillsExist) {
+    const entries = await fs.readdir(skillsDir).catch(() => [])
+    skillCount = entries.filter((e) => !e.startsWith(".")).length
+  }
+  const skillsOk = skillCount >= 5
+  checks.push({ name: "skills", ok: skillsOk, message: skillsOk ? `${skillCount} skills found` : `only ${skillCount} skills (expected >= 5)` })
+  if (!skillsOk) {
+    suggestions.push("Re-install the kit to restore missing skills")
+  }
+
+  // Tools
+  const toolsDir = path.join(resolved, "tools")
+  const toolsExist = await pathExists(toolsDir)
+  let toolCount = 0
+  if (toolsExist) {
+    const entries = await fs.readdir(toolsDir).catch(() => [])
+    toolCount = entries.filter((e) => e.startsWith("speckit-") && e.endsWith(".ts")).length
+  }
+  const toolsOk = toolCount >= 15
+  checks.push({ name: "tools", ok: toolsOk, message: toolsOk ? `${toolCount} tools found` : `only ${toolCount} tools (expected >= 15)` })
+  if (!toolsOk) {
+    suggestions.push("Re-install the kit to restore missing tools")
+  }
+
+  // Plugins
+  const pluginsDir = path.join(resolved, "plugins")
+  const pluginsExist = await pathExists(pluginsDir)
+  let pluginCount = 0
+  if (pluginsExist) {
+    const entries = await fs.readdir(pluginsDir).catch(() => [])
+    pluginCount = entries.filter((e) => e.endsWith(".ts")).length
+  }
+  const pluginsOk = pluginCount >= 4
+  checks.push({ name: "plugins", ok: pluginsOk, message: pluginsOk ? `${pluginCount} plugins found` : `only ${pluginCount} plugins (expected >= 4)` })
+  if (!pluginsOk) {
+    suggestions.push("Re-install the kit to restore missing plugins")
+  }
+
+  // opencode.jsonc validity
+  const configPath = path.join(resolved, "opencode.jsonc")
+  const configExists = await pathExists(configPath)
+  let configValid = false
+  if (configExists) {
+    try {
+      const raw = await fs.readFile(configPath, "utf-8")
+      // Strip JSONC comments for parsing (but not // inside strings/URLs)
+      const stripped = raw
+        .replace(/^\s*\/\/.*$/gm, "")
+        .replace(/(?<=\s)\/\/.*$/gm, "")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+      JSON.parse(stripped)
+      configValid = true
+    } catch {
+      configValid = false
+    }
+  }
+  checks.push({ name: "config:opencode.jsonc", ok: configValid, message: configValid ? "valid JSONC" : (configExists ? "INVALID JSON" : "MISSING") })
+  if (!configValid) {
+    suggestions.push(configExists ? "Fix the syntax in opencode.jsonc" : "Run: npx opencode-sdd-integrity install --dir " + resolved + " --yes")
+  }
+
+  // Node version
+  const nodeMajor = parseInt(process.version.slice(1).split(".")[0], 10)
+  const nodeOk = nodeMajor >= 22
+  checks.push({ name: "node-version", ok: nodeOk, message: nodeOk ? `${process.version}` : `${process.version} (need >= 22)` })
+  if (!nodeOk) {
+    suggestions.push("Upgrade Node.js to version 22 or later")
+  }
+
+  // AGENTS.md
+  const agentsMdPath = path.join(resolved, "AGENTS.md")
+  const agentsMdOk = await pathExists(agentsMdPath)
+  checks.push({ name: "AGENTS.md", ok: agentsMdOk, message: agentsMdOk ? "present" : "MISSING" })
+  if (!agentsMdOk) {
+    suggestions.push("Re-install the kit to restore AGENTS.md")
+  }
+
+  // npm-shrinkwrap.json
+  const shrinkwrapPath = path.join(resolved, "npm-shrinkwrap.json")
+  const shrinkwrapOk = await pathExists(shrinkwrapPath)
+  checks.push({ name: "npm-shrinkwrap.json", ok: shrinkwrapOk, message: shrinkwrapOk ? "present" : "MISSING (dependency lock)" })
+  if (!shrinkwrapOk) {
+    suggestions.push("Re-install the kit to restore npm-shrinkwrap.json")
+  }
+
+  const allOk = checks.every((c) => c.ok)
+  // Deduplicate suggestions
+  const uniqueSuggestions = [...new Set(suggestions)]
+  return {
+    targetDir: resolved,
+    ok: allOk,
+    checks,
+    suggestions: uniqueSuggestions.length > 0 ? uniqueSuggestions : ["Installation looks healthy. Run /status in opencode to verify."],
+  }
+}
