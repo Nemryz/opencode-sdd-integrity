@@ -10,7 +10,13 @@ You are now in **Discovery Mode**. Your job is to analyze the current project st
 
 Read `.opencode/spec-memory/constitution.md` if it exists. Read `.opencode/spec-memory/session.json` if it exists. Scan `specs/` for existing features.
 
-## Task
+## Pre-validation
+
+Call `speckit-validate` with `command`: `"status"` to get current project state.
+
+Use `metadata.featureDir` as the active feature directory if one exists.
+
+## Task:
 
 1. Load the `speckit-discovery` skill to guide your routing
 
@@ -56,3 +62,7 @@ Read `.opencode/spec-memory/constitution.md` if it exists. Read `.opencode/spec-
 - If multiple features are incomplete, suggest multi-spec mode
 - Always explain WHY the recommendation is made
 - If the user disagrees, ask what they want to do instead
+
+## User's request
+
+$ARGUMENTS
