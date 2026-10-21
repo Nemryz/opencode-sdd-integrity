@@ -31,7 +31,7 @@ export async function readEvents(projectRoot: string, limit?: number): Promise<S
   const logPath = path.join(projectRoot, ".opencode", "spec-memory", "events.jsonl")
   try {
     const data = await fs.readFile(logPath, "utf-8")
-    const lines = data.trim().split("\n").filter(Boolean)
+    const lines = data.trim().split(/\r?\n/).filter(Boolean)
     const events = lines.map((line) => JSON.parse(line) as SddEvent)
     if (limit && limit > 0) {
       return events.slice(-limit)

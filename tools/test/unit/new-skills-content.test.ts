@@ -15,7 +15,7 @@ describe("new skills content", () => {
       })
 
       it("has valid frontmatter with name, description, license", () => {
-        expect(content).toMatch(/^---\n/)
+        expect(content).toMatch(/^---\r?\n/)
         expect(content).toMatch(/name:\s*\S+/)
         expect(content).toMatch(/description:\s*.+/)
         expect(content).toMatch(/license:\s*\S+/)
@@ -66,7 +66,7 @@ describe("new commands content", () => {
       })
 
       it("has valid frontmatter with description", () => {
-        expect(content).toMatch(/^---\n/)
+        expect(content).toMatch(/^---\r?\n/)
         expect(content).toMatch(/description:\s*.+/)
       })
 

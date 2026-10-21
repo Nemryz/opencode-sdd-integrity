@@ -47,7 +47,7 @@ describe("emitEvent", () => {
     const root = await makeTempDir()
     await emitEvent(root, { event: "sdd.phase.changed", feature: "001-demo", timestamp: "2026-10-20T00:00:00Z" })
     const raw = await fs.readFile(path.join(root, ".opencode", "spec-memory", "events.jsonl"), "utf-8")
-    const lines = raw.trim().split("\n")
+    const lines = raw.trim().split(/\r?\n/)
     expect(lines).toHaveLength(1)
     expect(() => JSON.parse(lines[0])).not.toThrow()
   })
