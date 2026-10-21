@@ -70,10 +70,31 @@ describe("speckit-archive integration (real filesystem)", () => {
         converged: false,
       })
 
+      const warned = await run({ featureDir: "001-demo" })
+      expect(warned.title).toBe("Warning")
+      expect(warned.output).toContain("has not converged")
+      expect(warned.metadata?.requiresConfirmation).toBe(true)
+    })
+
+    it("archives a not-converged feature once the user confirms", async () => {
+      await fs.mkdir(path.join(worktree, "specs", "001-demo"), { recursive: true })
+      await fs.writeFile(path.join(worktree, "specs", "001-demo", "spec.md"), "# Spec\n", "utf-8")
+      await writeSpecJson(worktree, "001-demo", {
+        feature_name: "demo",
+        feature_number: 1,
+        phase: "complete",
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-02T00:00:00Z",
+        featureDir: "001-demo",
+        approvals: { spec: { generated: false, approved: false }, plan: { generated: false, approved: false }, tasks: { generated: false, approved: false } },
+        ready_for_implementation: false,
+        active_delta: null,
+        converged: false,
+      })
+
       const result = await run({ featureDir: "001-demo", confirmed: true })
-      expect(result.title).toBe("Warning")
-      expect(result.output).toContain("has not converged")
-      expect(result.metadata?.requiresConfirmation).toBe(true)
+      expect(result.title).toBe("Archived")
+      expect(result.output).toContain("archived to")
     })
 
     it("errors when no spec.json exists", async () => {

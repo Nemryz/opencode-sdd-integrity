@@ -84,7 +84,7 @@ export default tool({
         }
       }
 
-      if (specJson.converged === false) {
+      if (specJson.converged === false && !args.confirmed) {
         return {
           title: "Warning",
           output: `Feature ${featureDirName} has not converged. Archive anyway? Re-run with confirmed: true to proceed.`,
