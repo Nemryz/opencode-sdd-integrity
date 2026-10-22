@@ -173,12 +173,13 @@ describe("reentrant lock", () => {
 
   it("writeSpecJson inside withLock does not deadlock", async () => {
     const t = await worktree()
+    const featureDir = path.join(t, "specs", "001-test")
     const sj = makeSpecJson("test", 1)
-    const fp = path.join(t, "spec.json")
+    const fp = path.join(featureDir, "spec.json")
     await withLock(fp, async () => {
-      await writeSpecJson(sj, t)
+      await writeSpecJson(sj, featureDir)
     })
-    const result = await readSpecJson(t)
+    const result = await readSpecJson(featureDir)
     expect(result?.feature_name).toBe("test")
   })
 })

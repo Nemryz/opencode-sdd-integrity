@@ -2,6 +2,7 @@
 
 import crypto from "node:crypto"
 import fs from "node:fs/promises"
+import { atomicWriteFile } from "./atomic"
 
 export function computeSha256(data: string): string {
   return crypto.createHash("sha256").update(data).digest("hex")
@@ -13,7 +14,7 @@ export function stripBom(data: string): string {
 
 export async function writeChecksumFile(bakPath: string, data: string): Promise<void> {
   const hash = computeSha256(data)
-  await fs.writeFile(`${bakPath}.sha256`, hash, "utf-8")
+  await atomicWriteFile(`${bakPath}.sha256`, hash)
 }
 
 export async function verifyChecksum(bakPath: string, data: string): Promise<boolean> {
@@ -42,7 +43,7 @@ export async function writeFileChecksum(fp: string): Promise<void> {
   try {
     const data = await fs.readFile(fp, "utf-8")
     const hash = computeSha256(data)
-    await fs.writeFile(`${fp}.sha256`, hash, "utf-8")
+    await atomicWriteFile(`${fp}.sha256`, hash)
   } catch {
     // fail silently
   }

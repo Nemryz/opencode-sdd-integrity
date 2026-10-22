@@ -4,6 +4,7 @@ import path from "node:path"
 import fs from "node:fs/promises"
 import { specJsonPath, SpecJson, SpecJsonSchema } from "../schemas"
 import { withLock } from "../locks"
+import { stateLockPath } from "./paths"
 import { writeWithBackup, findLatestValidBackup } from "../backups"
 import { stripBom, writeFileChecksum, verifyFileChecksum } from "../checksums"
 import { isENOENT } from "../errors"
@@ -61,21 +62,23 @@ export async function writeSpecJson(sj: SpecJson, featureDir: string): Promise<v
   sj.updated_at = prepared.updated_at
   const root = path.dirname(path.dirname(featureDir))
   const fp = specJsonPath(featureDir)
-  await withLock(fp, async () => {
-    await writeWithBackup(fp, JSON.stringify(prepared, null, 2), root)
-    await writeFileChecksum(fp)
+  await withLock(stateLockPath(root), async () => {
+    await withLock(fp, async () => {
+      await writeWithBackup(fp, JSON.stringify(prepared, null, 2), root)
+      await writeFileChecksum(fp)
 
-    const written = await fs.readFile(fp, "utf-8")
-    const parsed = JSON.parse(stripBom(written))
-    const verify = SpecJsonSchema.safeParse(parsed)
-    if (!verify.success) {
-      throw new Error(`writeSpecJson: post-write verification failed: ${String(verify.error)}`)
-    }
+      const written = await fs.readFile(fp, "utf-8")
+      const parsed = JSON.parse(stripBom(written))
+      const verify = SpecJsonSchema.safeParse(parsed)
+      if (!verify.success) {
+        throw new Error(`writeSpecJson: post-write verification failed: ${String(verify.error)}`)
+      }
 
-    const checksumValid = await verifyFileChecksum(fp)
-    if (!checksumValid) {
-      throw new Error(`writeSpecJson: post-write checksum verification failed`)
-    }
+      const checksumValid = await verifyFileChecksum(fp)
+      if (!checksumValid) {
+        throw new Error(`writeSpecJson: post-write checksum verification failed`)
+      }
+    })
   })
   await tryAutoCommit(fp, root)
 }

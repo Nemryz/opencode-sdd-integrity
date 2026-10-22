@@ -100,7 +100,8 @@ describe("chaos: state transaction failures", () => {
     const originalRename = fs.rename.bind(fs)
     let injected = false
     vi.spyOn(fs, "rename").mockImplementation(async (from, to) => {
-      if (!injected && String(from).endsWith("session.json.tmp") && String(to).endsWith("session.json")) {
+      const sourceName = path.basename(String(from))
+      if (!injected && sourceName.startsWith("session.json.") && sourceName.endsWith(".tmp") && path.basename(String(to)) === "session.json") {
         injected = true
         throw new Error("injected session write failure")
       }
@@ -122,7 +123,8 @@ describe("chaos: state transaction failures", () => {
     const originalRename = fs.rename.bind(fs)
     let injected = false
     vi.spyOn(fs, "rename").mockImplementation(async (from, to) => {
-      if (!injected && String(from).endsWith("spec.json.sha256.tmp") && String(to).endsWith("spec.json.sha256")) {
+      const sourceName = path.basename(String(from))
+      if (!injected && sourceName.startsWith("spec.json.sha256.") && sourceName.endsWith(".tmp") && path.basename(String(to)) === "spec.json.sha256") {
         injected = true
         throw new Error("injected checksum write failure")
       }
@@ -142,7 +144,8 @@ describe("chaos: state transaction failures", () => {
 
     const originalRename = fs.rename.bind(fs)
     vi.spyOn(fs, "rename").mockImplementation(async (from, to) => {
-      if (String(from).endsWith("journal.json.tmp") && String(to).endsWith("journal.json")) {
+      const sourceName = path.basename(String(from))
+      if (sourceName.startsWith("journal.json.") && sourceName.endsWith(".tmp") && path.basename(String(to)) === "journal.json") {
         throw new Error("injected journal write failure")
       }
       return originalRename(from, to)

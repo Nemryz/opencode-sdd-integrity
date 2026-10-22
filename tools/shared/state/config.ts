@@ -4,6 +4,7 @@ import path from "node:path"
 import fs from "node:fs/promises"
 import { configPath, SDDConfig, ConfigSchema, DEFAULT_CONFIG } from "../schemas"
 import { withLock } from "../locks"
+import { stateLockPath } from "./paths"
 import { writeWithBackup, findLatestValidBackup } from "../backups"
 import { stripBom, writeFileChecksum, verifyFileChecksum, verifyLiveFileChecksum } from "../checksums"
 import { isENOENT } from "../errors"
@@ -77,9 +78,11 @@ export async function writeConfigWithBackup(root: string, cfg: SDDConfig): Promi
     throw new Error(`writeConfigWithBackup: validation failed, data not written: ${String(result.error)}`)
   }
   const fp = configPath(root)
-  await withLock(fp, async () => {
-    await writeWithBackup(fp, JSON.stringify(result.data, null, 2), root)
-    await writeFileChecksum(fp)
+  await withLock(stateLockPath(root), async () => {
+    await withLock(fp, async () => {
+      await writeWithBackup(fp, JSON.stringify(result.data, null, 2), root)
+      await writeFileChecksum(fp)
+    })
   })
   await tryAutoCommit(fp, root)
 }

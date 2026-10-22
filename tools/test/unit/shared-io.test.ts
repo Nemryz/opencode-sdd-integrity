@@ -135,9 +135,10 @@ describe("readSpecJson", () => {
 
   it("returns parsed SpecJson for valid content", async () => {
     const root = await worktree()
+    const featureDir = path.join(root, "specs", "001-test")
     const sj = makeSpecJson("test", 1)
-    await writeSpecJson(sj, root)
-    const result = await readSpecJson(root)
+    await writeSpecJson(sj, featureDir)
+    const result = await readSpecJson(featureDir)
     expect(result).not.toBeNull()
     expect(result!.feature_name).toBe("test")
     expect(result!.feature_number).toBe(1)
@@ -168,12 +169,13 @@ describe("readSpecJson", () => {
 describe("writeSpecJson + readSpecJson", () => {
   it("writes and reads back spec data, updates updated_at", async () => {
     const root = await worktree()
+    const featureDir = path.join(root, "specs", "001-test")
     const sj = makeSpecJson("roundtrip", 2)
     const originalUpdated = sj.updated_at
     await sleep(10)
-    await writeSpecJson(sj, root)
+    await writeSpecJson(sj, featureDir)
     expect(sj.updated_at).not.toBe(originalUpdated)
-    const result = await readSpecJson(root)
+    const result = await readSpecJson(featureDir)
     expect(result).not.toBeNull()
     expect(result!.feature_name).toBe("roundtrip")
     expect(result!.feature_number).toBe(2)
@@ -181,10 +183,11 @@ describe("writeSpecJson + readSpecJson", () => {
 
   it("throws on invalid spec data and preserves existing file", async () => {
     const root = await worktree()
+    const featureDir = path.join(root, "specs", "001-test")
     const valid = makeSpecJson("original", 1)
-    await writeSpecJson(valid, root)
-    await expect(writeSpecJson({ bad: true } as any, root)).rejects.toThrow("writeSpecJson: validation failed")
-    const result = await readSpecJson(root)
+    await writeSpecJson(valid, featureDir)
+    await expect(writeSpecJson({ bad: true } as any, featureDir)).rejects.toThrow("writeSpecJson: validation failed")
+    const result = await readSpecJson(featureDir)
     expect(result).not.toBeNull()
     expect(result!.feature_name).toBe("original")
   })

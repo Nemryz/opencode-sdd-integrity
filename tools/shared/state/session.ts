@@ -8,6 +8,7 @@ import {
   DEFAULT_SESSION,
 } from "../schemas"
 import { withLock } from "../locks"
+import { stateLockPath } from "./paths"
 import { writeWithBackup, findLatestValidBackup } from "../backups"
 import { stripBom, writeFileChecksum, verifyFileChecksum } from "../checksums"
 import { isENOENT } from "../errors"
@@ -69,21 +70,23 @@ export async function writeSession(root: string, s: SessionState): Promise<void>
   const prepared = prepareSessionForWrite(s)
   s.history = prepared.history
   const fp = sessionPath(root)
-  await withLock(fp, async () => {
-    await writeWithBackup(fp, JSON.stringify(prepared, null, 2), root)
-    await writeFileChecksum(fp)
+  await withLock(stateLockPath(root), async () => {
+    await withLock(fp, async () => {
+      await writeWithBackup(fp, JSON.stringify(prepared, null, 2), root)
+      await writeFileChecksum(fp)
 
-    const written = await fs.readFile(fp, "utf-8")
-    const parsed = JSON.parse(stripBom(written))
-    const verify = SessionStateSchema.safeParse(parsed)
-    if (!verify.success) {
-      throw new Error(`writeSession: post-write verification failed: ${String(verify.error)}`)
-    }
+      const written = await fs.readFile(fp, "utf-8")
+      const parsed = JSON.parse(stripBom(written))
+      const verify = SessionStateSchema.safeParse(parsed)
+      if (!verify.success) {
+        throw new Error(`writeSession: post-write verification failed: ${String(verify.error)}`)
+      }
 
-    const checksumValid = await verifyFileChecksum(fp)
-    if (!checksumValid) {
-      throw new Error(`writeSession: post-write checksum verification failed`)
-    }
+      const checksumValid = await verifyFileChecksum(fp)
+      if (!checksumValid) {
+        throw new Error(`writeSession: post-write checksum verification failed`)
+      }
+    })
   })
   await tryAutoCommit(fp, root)
 }

@@ -235,7 +235,8 @@ describe("state plan and apply", () => {
     const originalRename = fs.rename.bind(fs)
     let injected = false
     vi.spyOn(fs, "rename").mockImplementation(async (from, to) => {
-      if (!injected && String(from).endsWith("spec.json.tmp") && String(to).endsWith("spec.json")) {
+      const sourceName = path.basename(String(from))
+      if (!injected && sourceName.startsWith("spec.json.") && sourceName.endsWith(".tmp") && path.basename(String(to)) === "spec.json") {
         injected = true
         throw new Error("injected spec write failure")
       }
