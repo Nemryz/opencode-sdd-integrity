@@ -9,6 +9,7 @@ import {
   readConfigWithRestore,
   withLock,
   clearCorruptionWarnings,
+  withStateLock,
 } from "./shared/types"
 
 export default tool({
@@ -33,7 +34,7 @@ export default tool({
           metadata: { warnings: projectWarnings, requiresConfirmation: true },
         }
       }
-      const cfg = await withLock(configPath(projectRoot), async () => {
+      const cfg = await withStateLock(projectRoot, () => withLock(configPath(projectRoot), async () => {
         const innerCfg = await readConfigWithRestore(projectRoot)
         if (args.defaultTechStack !== undefined) {
           innerCfg.defaultTechStack = args.defaultTechStack ?? null
@@ -52,7 +53,7 @@ export default tool({
           await writeConfigWithBackup(projectRoot, innerCfg)
         }
         return innerCfg
-      })
+      }))
 
       if (args.defaultTechStack !== undefined) {
         return {

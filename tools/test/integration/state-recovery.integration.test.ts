@@ -109,6 +109,20 @@ describe("state transaction recovery", () => {
     expect(await pathExists(`.opencode/transactions/tx-recovery`)).toBe(false)
   })
 
+  it("leaves the source and a foreign target in place when both exist", async () => {
+    await fs.mkdir(path.join(root, archiveRel), { recursive: true })
+    await fs.writeFile(path.join(root, archiveRel, "foreign.txt"), "other", "utf-8")
+    await writeJournal(root, journal({ state: "applying" }))
+
+    const result = await recoverStateTransactions(root)
+    expect(result.recovered).toContain("tx-recovery")
+    expect(await pathExists(featureRel)).toBe(true)
+    expect(await pathExists(archiveRel)).toBe(true)
+    expect(await fs.readFile(path.join(root, featureRel, "spec.md"), "utf-8")).toBe("# Demo\n")
+    expect(await fs.readFile(path.join(root, archiveRel, "foreign.txt"), "utf-8")).toBe("other")
+    expect(await pathExists(".opencode/transactions/tx-recovery")).toBe(false)
+  })
+
   it("only clears a committed journal and leaves the applied state alone", async () => {
     await fs.mkdir(path.join(root, "archive"), { recursive: true })
     await fs.rename(path.join(root, featureRel), path.join(root, archiveRel))

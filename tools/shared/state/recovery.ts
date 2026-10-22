@@ -52,11 +52,13 @@ export async function rollbackJournal(root: string, journal: StateJournal): Prom
       await fs.rename(target, source)
       continue
     }
-    if (sourceExists && !targetExists) continue
-    if (!sourceExists && !targetExists) {
+    // Directory renames are atomic: if the source still exists, the rename never
+    // completed. A target that also exists was created by a concurrent actor
+    // (for example an archive collision) and must not be removed here.
+    if (sourceExists) continue
+    if (!targetExists) {
       throw new Error(`rollback cannot find rename source or target: ${operation.from}`)
     }
-    throw new Error(`rollback found both rename source and target: ${operation.from}`)
   }
 
   const transactionRoot = transactionDirPath(root, journal.txId)
@@ -80,6 +82,35 @@ export async function rollbackJournal(root: string, journal: StateJournal): Prom
     }
     await atomicWriteFile(target, data)
   }
+}
+
+export interface StateTransactionSummary {
+  txId: string
+  state: StateJournal["state"] | "unreadable"
+  planId?: string
+  startedAt?: string
+  error?: string
+}
+
+export async function inspectStateTransactions(root: string): Promise<StateTransactionSummary[]> {
+  const summaries: StateTransactionSummary[] = []
+  for (const txId of await listTransactionIds(root)) {
+    const journal = await readJournal(root, txId)
+    if (!journal) {
+      summaries.push({ txId, state: "unreadable" })
+      continue
+    }
+    summaries.push({
+      txId,
+      state: journal.state,
+      planId: journal.planId,
+      startedAt: journal.startedAt,
+      error: journal.error,
+    })
+  }
+  return summaries.sort((left, right) => {
+    return (left.startedAt ?? "").localeCompare(right.startedAt ?? "") || left.txId.localeCompare(right.txId)
+  })
 }
 
 export async function recoverStateTransactions(root: string): Promise<{ recovered: string[] }> {

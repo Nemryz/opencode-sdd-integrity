@@ -6,7 +6,7 @@ import configTool from "../../speckit-config"
 import scaffoldTool from "../../speckit-scaffold"
 import approveTool from "../../speckit-approve"
 import { mockContext, createTempWorktree, destroyTempWorktree, createConstitution } from "../helpers/setup"
-import { readSession, writeSession, readSpecJson, writeSpecJson, configPath } from "../../shared/types"
+import { readSession, writeSession, readSpecJson, writeSpecJson, configPath, writeJournal } from "../../shared/types"
 
 let worktree: string
 let ctx: ReturnType<typeof mockContext>
@@ -78,6 +78,29 @@ describe("status", () => {
     await writeSession(worktree, session)
     const result = await statusTool.execute({}, ctx)
     expect(result.metadata?.latestFeature).toBe("001-auth")
+  })
+
+  it("reports a pending state transaction without repairing it", async () => {
+    await createConstitution(worktree)
+    await scaffoldTool.execute({ featureName: "Auth", template: "spec" }, ctx)
+    await writeJournal(worktree, {
+      format: 1,
+      txId: "tx-status",
+      planId: "plan-status",
+      planHash: "0".repeat(64),
+      baseHash: "0".repeat(64),
+      expectedHash: "0".repeat(64),
+      state: "prepared",
+      startedAt: "2026-10-22T00:00:00.000Z",
+      updatedAt: "2026-10-22T00:00:00.000Z",
+      pid: process.pid,
+      operations: [{ kind: "rename-dir", from: "specs/001-auth", to: "archive/2026-10-22-001-auth" }],
+      backups: [],
+    })
+
+    const result = await statusTool.execute({}, ctx)
+    expect(result.output).toContain("[STATE TRANSACTION] tx-status:prepared")
+    expect((result.metadata?.stateTransactions as unknown[]).length).toBe(1)
   })
 
   it("updates session state after status call", async () => {

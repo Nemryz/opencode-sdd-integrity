@@ -276,3 +276,16 @@ npm matches the GitHub owner **case-sensitively** while GitHub does not, so the 
 **Test coverage:** the OIDC handshake check runs on every release (tag push and dispatch) and fails fast with the claims printed, so a case mismatch or missing configuration is reported as a 404 instead of being masked as ENEEDAUTH. Actionlint validates the workflow syntax on push and pull request.
 
 **Follow-up:** future releases need no manual steps — bump the version and push the tag, or dispatch `release.yml` with `tag=vX.Y.Z`. Optional (user, npm UI): confirm Settings → Trusted publishing shows Validated, and enable "Require two-factor authentication and disallow tokens" under Publishing access. Optional: bump `actions/checkout`, `actions/setup-node`, `actions/upload-artifact` to v7 and `softprops/action-gh-release` to v3 with CI validation.
+
+### R-19: A failed archive metadata write left the feature split between specs/ and archive/
+
+**Introduced in:** the per-entry archive loop, which created the target directory, moved every entry with its own rename and wrote `archived_at` only after the last move
+**Fixed in:** current
+
+If the process stopped after moving some entries, or if the session or spec write failed after the source directory was emptied, the feature existed partly in `specs/` and partly in `archive/`. Re-running `/archive` could then archive the remainder under a new dated name, and the original archive kept a spec.json without `archived_at`.
+
+**Root cause:** a directory move was modeled as a sequence of independent file operations with no transaction boundary, no source and target preconditions, and no journal to reverse the operations that had already run.
+
+**Fix:** `speckit-archive` now builds one immutable `StatePlan`: preconditions cover the source tree hash, the absent target and the session file when it points at the feature; the plan contains one `rename-dir` operation and the metadata writes; `applyStatePlan` holds the global state lock, writes a journal with backups, executes the plan, checks the expected hash and rolls back on any failure. A target that appears between planning and applying rebuilds the plan once with the next suffix and then reports a conflict.
+
+**Test coverage:** `state-apply.integration.test.ts` covers stale bases, preconditions, target collisions, tampered plans, concurrent applies and rollback after a failed spec write; `chaos-state.test.ts` injects failed session, checksum and journal writes; `state-recovery.integration.test.ts` restores an applying journal and keeps a failed rollback visible; `archive.integration.test.ts` asserts one directory rename; `archive-safety.test.ts` rejects traversal and symlinked sources or archive directories, preserves the source on `EXDEV`, rebuilds once when the target appears after planning, and serializes two archive calls.

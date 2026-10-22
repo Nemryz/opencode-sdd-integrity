@@ -67,7 +67,7 @@ function deepFreeze<T>(value: T): T {
 }
 
 export function normalizeScope(scope: string[]): string[] {
-  const unique = [...new Set(scope.map((entry) => entry.replace(/\\/g, "/")))].sort()
+  const unique = [...new Set(scope)].sort()
   for (const entry of unique) assertSafeRelativePath(entry)
   return unique.filter((entry) => !unique.some((parent) => parent !== entry && entry.startsWith(`${parent}/`)))
 }

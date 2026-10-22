@@ -14,6 +14,7 @@ import {
   readSpecJson,
   makeSpecJson,
   DEFAULT_SESSION,
+  withStateLock,
 } from "../../shared/types"
 
 let tmp: string
@@ -164,9 +165,9 @@ describe("reentrant lock", () => {
     const t = await worktree()
     const fp = path.join(t, ".opencode", "spec-memory", "session.json")
     const custom = { ...DEFAULT_SESSION, phase: "spec" as const }
-    await withLock(fp, async () => {
+    await withStateLock(t, () => withLock(fp, async () => {
       await writeSession(t, custom)
-    })
+    }))
     const result = await readSession(t)
     expect(result.phase).toBe("spec")
   })
@@ -176,9 +177,9 @@ describe("reentrant lock", () => {
     const featureDir = path.join(t, "specs", "001-test")
     const sj = makeSpecJson("test", 1)
     const fp = path.join(featureDir, "spec.json")
-    await withLock(fp, async () => {
+    await withStateLock(t, () => withLock(fp, async () => {
       await writeSpecJson(sj, featureDir)
-    })
+    }))
     const result = await readSpecJson(featureDir)
     expect(result?.feature_name).toBe("test")
   })

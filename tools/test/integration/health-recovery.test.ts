@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import fs from "node:fs/promises"
 import healthTool from "../../speckit-health"
 import statusTool from "../../speckit-status"
 import { mockContext, createTempWorktree, destroyTempWorktree } from "../helpers/setup"
@@ -10,6 +11,7 @@ import {
   writeProjectFile,
 } from "../helpers/assertions"
 import { readRestoreJournal, writeRestoreJournal } from "../../shared/snapshot/paths"
+import { transactionDirPath, writeJournal, type StateJournal } from "../../shared/types"
 import { createSnapshot } from "../../shared/snapshot/manifest"
 
 let worktree: string
@@ -28,6 +30,23 @@ async function seedFeature(): Promise<void> {
   }))
   await writeProjectFile(worktree, ".opencode/spec-memory/constitution.md", "# Constitution\n")
   await writeProjectFile(worktree, "specs/001-demo/spec.md", "# Spec\n")
+}
+
+async function writeStateJournal(state: StateJournal["state"]): Promise<void> {
+  await writeJournal(worktree, {
+    format: 1,
+    txId: "tx-health",
+    planId: "plan-health",
+    planHash: "0".repeat(64),
+    baseHash: "0".repeat(64),
+    expectedHash: "0".repeat(64),
+    state,
+    startedAt: "2026-10-22T00:00:00.000Z",
+    updatedAt: "2026-10-22T00:00:00.000Z",
+    pid: process.pid,
+    operations: [{ kind: "rename-dir", from: "specs/001-demo", to: "archive/2026-10-22-001-demo" }],
+    backups: [],
+  })
 }
 
 async function writePendingJournal(safetySnapshotId: string): Promise<void> {
@@ -80,6 +99,27 @@ describe("health restore recovery", () => {
 
     // The health pass that follows the recovery must leave the session untouched and valid.
     await expectSessionState(worktree, { phase: "ready", featureDir: "001-demo" })
+  })
+
+  it("reports a pending state transaction without repairing it", async () => {
+    await seedFeature()
+    await writeStateJournal("prepared")
+
+    const result = await healthTool.execute({} as never, ctx)
+
+    expect(result.output).toContain("State transaction tx-health is prepared")
+    expect(await readRestoreJournal(worktree)).toBeNull()
+    await expect(fs.access(transactionDirPath(worktree, "tx-health"))).resolves.toBeUndefined()
+  })
+
+  it("clears a committed state transaction during a fix", async () => {
+    await seedFeature()
+    await writeStateJournal("committed")
+
+    const result = await healthTool.execute({ fix: true } as never, ctx)
+
+    expect(result.output).toContain("Interrupted state transaction recovered: tx-health")
+    await expect(fs.access(transactionDirPath(worktree, "tx-health"))).rejects.toThrow()
   })
 
   it("includes snapshot recovery readiness in the report", async () => {

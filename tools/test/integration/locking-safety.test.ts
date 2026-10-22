@@ -12,6 +12,7 @@ import {
   writeSession,
   readSession,
   DEFAULT_SESSION,
+  withStateLock,
 } from "../../shared/types"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
 
@@ -69,7 +70,7 @@ describe("withLock parallel exclusion", () => {
   it("allows writeSession inside withLock on the same file", async () => {
     const root = await createTempWorktree()
     try {
-      await withLock(sessionPath(root), async () => {
+      await withStateLock(root, () => withLock(sessionPath(root), async () => {
         await writeSession(root, {
           ...DEFAULT_SESSION,
           phase: "plan",
@@ -77,7 +78,7 @@ describe("withLock parallel exclusion", () => {
           featureNumber: 1,
           featureName: "test",
         })
-      })
+      }))
       const session = await readSession(root)
       expect(session.phase).toBe("plan")
     } finally {

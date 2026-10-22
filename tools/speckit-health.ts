@@ -19,6 +19,8 @@ import {
   SessionStateSchema,
   ConfigSchema,
   SpecJsonSchema,
+  inspectStateTransactions,
+  recoverStateTransactions,
 } from "./shared/types"
 import path from "node:path"
 import fs from "node:fs/promises"
@@ -66,6 +68,19 @@ export default tool({
           title: "Warning",
           output: `Parent project detected at ${parentProject} without session. Do you want to continue?`,
           metadata: { parentProject, requiresConfirmation: true },
+        }
+      }
+
+      const transactionLines: string[] = []
+      if (args.fix) {
+        const transactionRecovery = await recoverStateTransactions(projectRoot)
+        for (const txId of transactionRecovery.recovered) {
+          transactionLines.push(`  Interrupted state transaction recovered: ${txId}`)
+        }
+      } else {
+        const pendingTransactions = await inspectStateTransactions(projectRoot)
+        for (const transaction of pendingTransactions) {
+          transactionLines.push(`  State transaction ${transaction.txId} is ${transaction.state} — run /health --fix to recover`)
         }
       }
 
@@ -201,6 +216,7 @@ export default tool({
       const output = [
         title,
         ...recoveryLines,
+        ...transactionLines,
         ...lines,
         ...(fixBlockedNote ? [fixBlockedNote] : []),
         ...corruptionLines,

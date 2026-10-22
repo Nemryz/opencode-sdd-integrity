@@ -26,6 +26,7 @@ import {
   corruptionWarnings,
   clearCorruptionWarnings,
   stripBom,
+  withStateLock,
 } from "./shared/types"
 import { postFailureNote, snapshotAfterFailure, snapshotBeforeOperation } from "./shared/snapshot/triggers"
 
@@ -304,7 +305,7 @@ export default tool({
             try {
               s.lastResult = "repaired: " + sessionChanges.map(c => c.field).join(", ")
               s.history.push("/clean")
-              await withLock(sessionPath(projectRoot), async () => {
+              await withStateLock(projectRoot, () => withLock(sessionPath(projectRoot), async () => {
                 const liveS = await readSession(projectRoot)
                 for (const change of sessionChanges) {
                   change.apply(liveS)
@@ -312,7 +313,7 @@ export default tool({
                 liveS.lastResult = "repaired: " + sessionChanges.map(c => c.field).join(", ")
                 liveS.history.push("/clean")
                 await writeSession(projectRoot, liveS)
-              })
+              }))
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err)
               const failure = await snapshotAfterFailure(projectRoot, "post-failure:clean")

@@ -21,6 +21,7 @@ import {
   corruptionWarnings,
   clearCorruptionWarnings,
   collectTaskIds,
+  withStateLock,
 } from "./shared/types"
 import { DeltasIndexSchema, EvidenceFileSchema, type Delta, type EvidenceFile } from "./shared/schemas"
 import { computeBodyChecksum, stripBom } from "./shared/io"
@@ -493,7 +494,7 @@ export default tool({
                 const specOk = await exists(path.join(base, "spec.md"))
                 const planOk = await exists(path.join(base, "plan.md"))
                 const tasksOk = await exists(path.join(base, "tasks.md"))
-                await withLock(specJsonPath(base), async () => {
+                await withStateLock(projectRoot, () => withLock(specJsonPath(base), async () => {
                   const sjPrev = await readSpecJson(base)
                   const newPhase = sjPrev
                     ? phaseFromArtifacts(specOk, planOk, tasksOk, sjPrev.approvals.tasks.approved)
@@ -507,13 +508,13 @@ export default tool({
                     fixedCount++
                     fixedErrorCount++
                   }
-                })
+                }))
               }
             } else if (finding.severity === "error" && finding.category === "ready-violation") {
               const sjPath = finding.file
               if (sjPath && sjPath.endsWith("spec.json")) {
                 const base = path.dirname(sjPath)
-                await withLock(specJsonPath(base), async () => {
+                await withStateLock(projectRoot, () => withLock(specJsonPath(base), async () => {
                   const sjPrev = await readSpecJson(base)
                   if (sjPrev && sjPrev.ready_for_implementation) {
                     sjPrev.ready_for_implementation = false
@@ -524,13 +525,13 @@ export default tool({
                     fixedCount++
                     fixedErrorCount++
                   }
-                })
+                }))
               }
             } else if (finding.severity === "info" && finding.category === "approval") {
               const sjPath = finding.file
               if (sjPath && sjPath.endsWith("spec.json")) {
                 const base = path.dirname(sjPath)
-                await withLock(specJsonPath(base), async () => {
+                await withStateLock(projectRoot, () => withLock(specJsonPath(base), async () => {
                   const sjPrev = await readSpecJson(base)
                   if (sjPrev) {
                     let changed = false
@@ -554,7 +555,7 @@ export default tool({
                       fixedCount++
                     }
                   }
-                })
+                }))
               }
             }
           }

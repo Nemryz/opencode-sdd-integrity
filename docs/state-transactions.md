@@ -85,8 +85,8 @@ That separation is what makes a future preview or dry run command possible witho
 `applyStatePlan` runs these steps in order.
 
 1. Validate the plan schema and recompute `planHash`.
-2. Recover any transaction that a previous process left behind.
-3. Acquire the global state lock.
+2. Acquire the global state lock.
+3. Recover any transaction that a previous process left behind.
 4. Recompute `baseHash` and recheck every precondition.
 5. Create the transaction directory and back up every file that will be replaced.
 6. Write the journal in the `prepared` state and fsync it.
@@ -102,6 +102,10 @@ A rename that crosses devices fails with `EXDEV` before the metadata changes, an
 A conflict returns `STALE_BASE`, `PRECONDITION` or `TARGET_EXISTS` and leaves the state untouched.
 A verification failure rolls back and reports the journal path.
 A failed rollback keeps the journal and blocks later applies until the repair succeeds.
+
+Normal writers take the global state lock before their own file lock, so two read-modify-write tools cannot interleave session, spec or config changes.
+Callers that already hold a per-file lock must take the global lock outside it; every tool in the kit follows that order.
+Apply holds the global lock for the whole transaction and writes its targets directly, because it already owns the exclusive state boundary.
 
 ## The journal
 
@@ -123,6 +127,7 @@ The journal records the plan identity, the base and expected hashes, the operati
 Recovery is idempotent.
 A committed journal only needs cleanup, a prepared or applying journal is rolled back, and a rollback failed journal is reported instead of hidden.
 The oldest journal is recovered first so a chain of interrupted runs cannot reorder the state.
+`/archive` recovers before it plans, `/health --fix` recovers and names the transaction ids it cleared, and `/health` and `/status` list pending transactions without modifying them.
 
 The transaction directory is excluded from snapshots and from the plan hash.
 It is transient machinery, not user state.
@@ -139,6 +144,7 @@ The plan carries three preconditions.
 
 The collision suffix is chosen before the plan is built.
 If the target appears before apply, the tool rebuilds once with the next suffix and then reports a conflict rather than choosing a different name silently.
+Rollback treats a directory rename as atomic: when the source still exists, the rename never completed, so a target created by another actor is left intact instead of being mistaken for the archived feature.
 
 The pre archive snapshot stays in place.
 The snapshot is the user facing recovery point, while the transaction journal is the undo log for the operation itself.
@@ -148,6 +154,7 @@ The snapshot is the user facing recovery point, while the transaction journal is
 - The transaction protects state paths inside one project root.
 - It does not replace a snapshot, because a transaction only covers the operations it planned.
 - It does not copy across file systems, because a copy and delete sequence is not atomic.
+- It rejects symbolic links inside a planned tree, because a link can point outside the project root.
 - It does not provide a native no clobber rename on every platform. Node has no portable `RENAME_NOREPLACE`, so the lock and the absent target precondition close the race inside this process.
 - It does not sandbox code. The lab remains an isolation boundary for paths, not a security boundary.
 

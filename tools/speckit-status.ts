@@ -20,6 +20,8 @@ import {
   withLock,
   corruptionWarnings,
   clearCorruptionWarnings,
+  inspectStateTransactions,
+  withStateLock,
 } from "./shared/types"
 import { readRestoreJournal } from "./shared/snapshot/paths"
 
@@ -51,7 +53,7 @@ export default tool({
       let computedNext = "/spec <description>"
       let summary = "No features yet."
 
-      await withLock(sessionPath(projectRoot), async () => {
+      await withStateLock(projectRoot, () => withLock(sessionPath(projectRoot), async () => {
         const session = await readSession(projectRoot)
         latest = session.featureDir && dirs.includes(session.featureDir)
           ? session.featureDir
@@ -106,19 +108,23 @@ export default tool({
         session.history.push("/status")
         if (session.history.length > 20) session.history = session.history.slice(-20)
         await writeSession(projectRoot, session)
-      })
+      }))
 
       const corruptionLines = corruptionWarnings.map(w => `[CORRUPTION] ${w.file}: ${w.message}`)
       clearCorruptionWarnings()
 
       const journal = await readRestoreJournal(projectRoot)
       const journalPart = journal ? "\n[INTERRUPTED RESTORE] pending — run /snapshot recover" : ""
+      const transactions = await inspectStateTransactions(projectRoot)
+      const transactionPart = transactions.length > 0
+        ? `\n[STATE TRANSACTION] ${transactions.map((transaction) => `${transaction.txId}:${transaction.state}`).join(", ")} — run /health --fix`
+        : ""
 
       const dashboard = featurePhases.map(f => `${f.dir} (${f.phase})`).join("  ")
       const corruptionPart = corruptionLines.length > 0 ? "\n" + corruptionLines.join("\n") : ""
       const line = dirs.length === 0
-        ? "No features yet. Next: /spec <description>" + corruptionPart + journalPart
-        : `${summary}  ${dashboard}  Next: ${computedNext}${corruptionPart}${journalPart}`
+        ? "No features yet. Next: /spec <description>" + corruptionPart + journalPart + transactionPart
+        : `${summary}  ${dashboard}  Next: ${computedNext}${corruptionPart}${journalPart}${transactionPart}`
 
       return {
         title: `Status: ${dirs.length} feature(s)` + (corruptionLines.length > 0 ? " [corruption detected]" : ""),
@@ -132,6 +138,7 @@ export default tool({
           phaseCounts,
           nextCommand: computedNext,
           interruptedRestore: journal !== null,
+          stateTransactions: transactions,
         },
       }
     } catch (err) {

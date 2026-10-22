@@ -4,6 +4,7 @@ import crypto from "node:crypto"
 import path from "node:path"
 import fs from "node:fs/promises"
 import { atomicWriteFile } from "../atomic"
+import { withLock } from "../locks"
 import { isENOENT } from "../errors"
 import { stripBom } from "../checksums"
 import { StateJournalSchema, type StateJournal } from "../schemas"
@@ -143,6 +144,10 @@ export function transactionsDirPath(root: string): string {
 
 export function stateLockPath(root: string): string {
   return path.join(transactionsDirPath(root), "state")
+}
+
+export function withStateLock<T>(root: string, fn: () => Promise<T>): Promise<T> {
+  return withLock(stateLockPath(root), fn)
 }
 
 export function transactionDirPath(root: string, txId: string): string {

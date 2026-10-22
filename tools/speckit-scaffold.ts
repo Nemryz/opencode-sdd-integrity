@@ -24,6 +24,7 @@ import {
   clearCorruptionWarnings,
   writeFrontmatter,
   PATHS,
+  withStateLock,
 } from "./shared/types"
 
 // Looks for the templates folder beside the tools and then upward, because a sandboxed or vendored copy has no templates next to it.
@@ -433,7 +434,7 @@ export default tool({
         await writeFrontmatter(filePath, fmData)
       }
 
-      await withLock(specJsonPath(featurePath), async () => {
+      await withStateLock(projectRoot, () => withLock(specJsonPath(featurePath), async () => {
         let sj = await readSpecJson(featurePath)
         if (!sj) {
           sj = makeSpecJson(args.featureName, featureNumber)
@@ -453,7 +454,7 @@ export default tool({
           }
         }
         await writeSpecJson(sj, featurePath)
-      })
+      }))
 
       const nextHint = args.template === "spec"
         ? "/approve spec"
@@ -466,7 +467,7 @@ export default tool({
 
       const phase = args.template === "spec" ? "spec" : args.template === "plan" ? "plan" : "tasks"
 
-      await withLock(sessionPath(projectRoot), async () => {
+      await withStateLock(projectRoot, () => withLock(sessionPath(projectRoot), async () => {
         const session = await readSession(projectRoot)
         session.command = "/" + args.template
         session.phase = phase
@@ -477,7 +478,7 @@ export default tool({
         session.lastResult = `${fileName} created in specs/${featureDirName}/`
         session.history.push("/" + args.template)
         await writeSession(projectRoot, session)
-      })
+      }))
 
       let output = `${fileName} created in specs/${featureDirName}/`
       if (slugTruncated) {
