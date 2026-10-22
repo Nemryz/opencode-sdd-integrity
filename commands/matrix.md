@@ -18,8 +18,8 @@ Measure the kit with the `speckit-mutation` tool, which owns the mutation workfl
 - One batch per tool call, never several in one call, because a call that measures several batches blocks for as long as their sum and a single batch already takes minutes
 - The batches run one after another, never in parallel, because every Stryker run starts the whole suite in its dry run and running several at once only makes each one slower
 - A batch that fails stops the sequence and its output is reported verbatim, because a partial matrix is not a matrix
-- Before starting `all`, tell the user that every batch takes minutes rather than seconds, because ten of them add up to hours on a laptop
+- Before starting `all`, tell the user that every batch takes minutes rather than seconds, because thirteen of them add up to hours on a laptop
 - If a call for a batch returns nothing because it timed out, check `list` before retrying, because the report may already be stored
 - This command only runs inside a checkout of the kit, so if the tool answers `Not a kit checkout`, say that instead of retrying
-- A single batch takes minutes rather than seconds, so warn the user before starting `all` on ten batches
+- A single batch takes minutes rather than seconds, so warn the user before starting `all` on thirteen batches
 - Never claim a batch was measured when the tool reported a failure for it

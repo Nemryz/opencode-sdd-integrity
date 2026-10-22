@@ -241,8 +241,9 @@ The per batch figures live in `reports/mutation-testing-analysis.md`, and the ba
 `mutation-batches.json` owns which files are measured and in which group, and `stryker.conf.json` is kept in sync with it.
 The `speckit-mutation` tool drives the whole thing with `list`, `run <batch...>` and `aggregate`, and the `/matrix` and `/baseline` commands wrap those subcommands for the common cases.
 `/matrix` measures the batches one after another, never in parallel, because every Stryker run starts the whole suite in its dry run and running several at once only makes each one slower, while `/baseline` adds the stored reports up and names the batches that are still pending.
+That rule is about one machine: the workflow hands each batch to its own runner and runs up to five at once, because there the dry runs no longer compete for the same cores.
 
-Measuring all twenty five files in one job takes longer than any CI runner should hold a slot, so the file splits them into ten batches that each hold one domain and stay under roughly twelve hundred lines.
+Measuring all thirty three files in one job takes longer than any CI runner should hold a slot, so the file splits them into thirteen batches that each hold one domain and stay under roughly twelve hundred lines.
 The workflow never repeats a batch id, because a `batches` job reads the file, checks that every path exists, and emits the matrix that the `mutate` job consumes.
 Adding a file means adding it to one batch, and `mutation-batches.test.ts` fails when a path lands in two batches, when the union stops matching `stryker.conf.json`, or when a batch grows past the size a CI job can finish.
 
@@ -253,6 +254,12 @@ npx stryker run --mutate "$(jq -r '.batches[] | select(.id == "snapshot-retentio
 The same filters run inside CI, so a batch measured locally and a batch measured in the matrix mutate exactly the same files.
 Neither `mutation-batches.json` nor `stryker.conf.json` is published or copied by the install scripts, because measuring the kit belongs to a checkout of the kit and not to an installed copy, which is why `/matrix` and `/baseline` report a clear message when they run outside one.
 The installer CLI stays outside the batches, because the current Stryker setup mutates TypeScript modules through the type checker while `tools/install/` is plain ESM without a build step, so its behavior is pinned by the installer integration suite instead.
+
+### Current baseline
+
+The full matrix was last measured on 2026-10-22 against `86b6cb1`: thirteen batches, 5262 valid mutants, 3825 killed or timed out, 1002 survived and 425 without coverage, for a combined score of 72,88%.
+Three batches sit in the high band (`plugin-events` 92,86%, `tools-config-guard` 83,33%, `snapshot-restore` 82,35%), nine in the medium band, and `plugin-shims` reports 0,00% because its two valid mutants have no coverage.
+The per batch figures and the survivor decisions are in `reports/mutation-testing-analysis.md`.
 
 ### One place computes the score
 
