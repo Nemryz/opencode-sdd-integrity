@@ -41,6 +41,7 @@
     "docs/testing.md",
     "docs/showcase.md",
     "docs/lab.md",
+    "docs/state-transactions.md",
     "npm-shrinkwrap.json"
   ],
   "optionalPaths": []

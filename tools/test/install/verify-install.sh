@@ -55,6 +55,7 @@ expect_path plugins/speckit-events.ts
 expect_path docs/testing.md
 expect_path docs/showcase.md
 expect_path docs/lab.md
+expect_path docs/state-transactions.md
 expect_path npm-shrinkwrap.json
 
 if [ "${MODE}" = "--backup" ]; then

@@ -51,6 +51,7 @@ Expect-Path "plugins/speckit-events.ts"
 Expect-Path "docs/testing.md"
 Expect-Path "docs/showcase.md"
 Expect-Path "docs/lab.md"
+Expect-Path "docs/state-transactions.md"
 Expect-Path "npm-shrinkwrap.json"
 
 if ($Backup) {
