@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-integrity/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-integrity/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-3345-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-3356-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -178,7 +178,7 @@ State integrity covers every file the workflow owns. `session.json`, `spec.json`
 
 Enforcement integrity keeps the workflow in charge of the workflow. Approvals are runtime gates rather than documentation: `/approve` requires an explicit confirmation before it unlocks the next phase, `/impl` refuses to run until tasks are approved, and every command pre-validates its own prerequisites. The guard plugin blocks editor writes and shell redirects that target protected state and names the rule that fired, and the doom-loop plugin warns at the third identical failure and blocks the fifth, so an agent cannot spin on a broken command.
 
-Verification integrity ties every claim to evidence. Tool results are typed, errors name the cause and the next command, reports end in a decision a reader can act on, and implementation tasks record TDD evidence through `speckit-evidence`, so a green run stays attached to the task it proves. Lifecycle events land in `.opencode/spec-memory/events.jsonl`, which keeps a chronology of phase changes, approvals, convergence verdicts and archives that survives a session restart. The toolkit's own 3345 tests run on Linux, macOS and Windows, and install, smoke and mutation jobs watch the packaging and the suite itself.
+Verification integrity ties every claim to evidence. Tool results are typed, errors name the cause and the next command, reports end in a decision a reader can act on, and implementation tasks record TDD evidence through `speckit-evidence`, so a green run stays attached to the task it proves. Lifecycle events land in `.opencode/spec-memory/events.jsonl`, which keeps a chronology of phase changes, approvals, convergence verdicts and archives that survives a session restart. The toolkit's own 3356 tests run on Linux, macOS and Windows, and install, smoke and mutation jobs watch the packaging and the suite itself.
 
 Recovery integrity assumes the worst and rehearses for it. `/health` and `/audit --fix` repair drift and corruption, an interrupted restore rolls back from its journal on the next run, and every restore proves itself first: the snapshot is verified, a drill restores it in a sandbox, a safety snapshot is taken, and the apply step rolls back automatically on failure.
 
@@ -516,7 +516,7 @@ The project is a TypeScript toolkit with no build step, governed by the same gat
 
 ### Testing
 
-The suite holds 3345 automated tests across 127 files, and every layer answers a different question about the same system:
+The suite holds 3356 automated tests across 127 files, and every layer answers a different question about the same system:
 
 | Type | Directory | Question it answers |
 |------|-----------|---------------------|
