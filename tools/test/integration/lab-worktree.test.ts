@@ -29,6 +29,11 @@ async function writeRepoFile(relative: string, content: string): Promise<void> {
   await fs.writeFile(file, content, "utf-8")
 }
 
+// Git may check text files out with CRLF on Windows, so content assertions normalize before comparing.
+async function readText(file: string): Promise<string> {
+  return (await fs.readFile(file, "utf-8")).replace(/\r\n/g, "\n")
+}
+
 beforeEach(async () => {
   repo = await createTempWorktree()
   git(["init", "-q"])
@@ -62,8 +67,8 @@ describe("lab worktree lifecycle", () => {
 
     const sandbox = await createSandbox({ projectRoot: repo, adapter: "integrity" })
     expect(sandbox.baseCommit).toHaveLength(40)
-    expect(await fs.readFile(path.join(sandbox.sandboxRoot, "README.md"), "utf-8")).toBe("dirty\n")
-    expect(await fs.readFile(path.join(sandbox.sandboxRoot, "tools/test/unit/untracked.test.ts"), "utf-8")).toBe(
+    expect(await readText(path.join(sandbox.sandboxRoot, "README.md"))).toBe("dirty\n")
+    expect(await readText(path.join(sandbox.sandboxRoot, "tools/test/unit/untracked.test.ts"))).toBe(
       "// untracked\n",
     )
 
@@ -87,8 +92,8 @@ describe("lab worktree lifecycle", () => {
     await expect(fs.readFile(diff.patchPath, "utf-8")).resolves.toContain("sandbox")
 
     await promoteDiff(repo, sandbox)
-    expect(await fs.readFile(path.join(repo, "README.md"), "utf-8")).toBe("sandbox\n")
-    expect(await fs.readFile(path.join(repo, "tools/test/unit/improved.test.ts"), "utf-8")).toBe("// improved\n")
+    expect(await readText(path.join(repo, "README.md"))).toBe("sandbox\n")
+    expect(await readText(path.join(repo, "tools/test/unit/improved.test.ts"))).toBe("// improved\n")
     const promoted = await loadSandbox(repo, sandbox.id)
     expect(promoted.status).toBe("promoted")
   })
@@ -223,7 +228,7 @@ describe("speckit-lab tool", () => {
       mockContext(repo),
     )
     expect(promoted.title).toBe("Lab Patch Promoted")
-    expect(await fs.readFile(path.join(repo, "README.md"), "utf-8")).toBe("from tool\n")
+    expect(await readText(path.join(repo, "README.md"))).toBe("from tool\n")
 
     const destroyed = await speckitLab.execute(
       { subcommand: "destroy", id: sandboxId, confirmed: true },
