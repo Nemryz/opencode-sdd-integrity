@@ -19,6 +19,7 @@ const KIT_COMMANDS = [
   "guard",
   "health",
   "impl",
+  "lab",
   "matrix",
   "plan",
   "review",

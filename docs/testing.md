@@ -31,6 +31,8 @@ Each type answers a different question, and the directory layout tells you which
 | Installer | `tools/test/install/` | Does the npm CLI install, back up, and verify the promised surface |
 | Smoke | `tools/test/smoke/` | Does the real OpenCode 2 CLI load the shipped wiring |
 
+The isolated lab in `docs/lab.md` runs these categories in a disposable git worktree and adds the `quick`, `standard`, `hard` and `soak` profiles. It is a runner, not another test type, and it excludes the mutation suites so a pressure run never turns into a Stryker measurement.
+
 ## The multi-value matrix convention
 
 A single happy path test proves almost nothing, so every pure function and every behavioral rule gets an `it.each` table that varies the values instead of repeating the scenario.
@@ -86,7 +88,7 @@ Matrices are grouped by the layer they exercise, because a pure function test an
 
 | Module | File | What it covers |
 |--------|------|----------------|
-| `plugins/speckit-tools` | `integration/plugin-v2-tools.test.ts` | The registration shape of the seventeen tools, the direct exposure flag, and the argument schemas |
+| `plugins/speckit-tools` | `integration/plugin-v2-tools.test.ts` | The registration shape of the nineteen tools, the direct exposure flag, and the argument schemas |
 | `plugins/speckit-guard` | `integration/plugin-v2-adapters.test.ts` | The V2 entrypoint that wires the tool and permission hooks and mirrors the server behavior |
 | `plugins/speckit-perfmon` | `integration/plugin-v2-adapters.test.ts` | The V2 entrypoint that wires the execution timing hooks and writes the load marker |
 | `plugins/speckit-doom-loop` | `integration/doom-loop.test.ts` | Fingerprinting, option parsing, failure classifiers and the tracker, plus the V2 hooks and the V1 server fallback that warn and then block repeated failing calls |

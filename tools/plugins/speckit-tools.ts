@@ -11,6 +11,7 @@ import speckitDelta from "../speckit-delta"
 import speckitEvidence from "../speckit-evidence"
 import speckitGuard from "../speckit-guard"
 import speckitHealth from "../speckit-health"
+import speckitLab from "../speckit-lab"
 import speckitMutation from "../speckit-mutation"
 import speckitPerf from "../speckit-perf"
 import speckitPhase from "../speckit-phase"
@@ -31,6 +32,7 @@ const REGISTERED_TOOLS: ReadonlyArray<{ name: string; def: ToolDefinition }> = [
   { name: "speckit-evidence", def: speckitEvidence },
   { name: "speckit-guard", def: speckitGuard },
   { name: "speckit-health", def: speckitHealth },
+  { name: "speckit-lab", def: speckitLab },
   { name: "speckit-mutation", def: speckitMutation },
   { name: "speckit-perf", def: speckitPerf },
   { name: "speckit-phase", def: speckitPhase },

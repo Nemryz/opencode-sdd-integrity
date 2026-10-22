@@ -143,6 +143,12 @@ Manage point-in-time snapshots of the SDD state. Uses `speckit-snapshot` tool.
 Automatic verified snapshots run before phase transitions, tasks approval, and `--fix` operations (audit, clean, health, selfheal). If the snapshot fails, the operation is blocked and nothing changes; failed fixes leave a post-failure snapshot. `/health` recovers interrupted restores with `--fix`.
 `restore` requires user confirmation (`confirmed: true`); `list` reports Recovery Readiness.
 
+### `/lab [create|run <category|profile>|status|diff|promote|destroy|list]`
+Run non-mutation tests in an isolated git worktree. Uses `speckit-lab` tool with `subcommand`.
+Categories: `all`, `unit`, `integration`, `property`, `chaos`, `concurrency`, `fuzz`, `snapshot`, `install`, `manual`, `smoke`.
+Profiles: `quick`, `standard`, `hard`, `soak`. The lab excludes `*-mutation.test.ts`, `*-mutation-*.test.ts`, `*-kill-survivors.test.ts` and `*-kill.test.ts`.
+`diff` before `promote`; `promote` and `destroy` require user confirmation (`confirmed: true`). `soak` and `smoke` are heavy and confirmation gated.
+
 ### `/matrix [<batch> [batch...]|all]`
 Measure the mutation batches of the kit and store one report each. Uses `speckit-mutation` tool with `subcommand: "run"`.
 The batches run one after another because every Stryker run starts the whole suite in its dry run. A batch failure stops the sequence and its output is reported verbatim.
@@ -269,6 +275,7 @@ Call a skill with: `skill({ name: "speckit-spec-writer" })`
 | `speckit-archive` | Archive a completed feature to archive/YYYY-MM-DD-NNN-slug | `featureDir` (optional), `confirmed` (bool) |
 | `speckit-phase` | Advance the feature phase to impl or complete after implementation | `phase` (impl/complete) |
 | `speckit-snapshot` | Create, inspect, restore, and prune point-in-time snapshots of the SDD state | `subcommand` (create/list/verify/preview/restore/pin/unpin/drill/prune/recover), `id` (or "latest"), `mode`, `files`, `label`, `confirmed` |
+| `speckit-lab` | Create an isolated worktree, run non-mutation test categories or profiles, and promote reviewed patches | `subcommand` (create/run/status/diff/promote/destroy/list/help), `id`, `category`, `profile`, `adapter`, `label`, `confirmed` |
 | `speckit-mutation` | List, run, and aggregate the mutation batches of the kit itself, which only works inside a checkout of the repository | `subcommand` (list/run/aggregate), batch ids appended to `run` |
 
 ---
@@ -381,7 +388,7 @@ Examples:
 
 ## Custom Tool Error Handling
 
-Custom tools (`speckit-scaffold`, `speckit-validate`, `speckit-audit`, `speckit-archive`, `speckit-clean`, `speckit-config`, `speckit-status`, `speckit-complexity`, `speckit-selfheal`, `speckit-health`, `speckit-delta`, `speckit-evidence`, `speckit-perf`, `speckit-approve`, `speckit-phase`, `speckit-snapshot`, `speckit-mutation`, `speckit-guard`) are TypeScript files compiled at runtime by opencode. If a tool has compilation errors, opencode may fail to start or crash on each prompt.
+Custom tools (`speckit-scaffold`, `speckit-validate`, `speckit-audit`, `speckit-archive`, `speckit-clean`, `speckit-config`, `speckit-status`, `speckit-complexity`, `speckit-selfheal`, `speckit-health`, `speckit-delta`, `speckit-evidence`, `speckit-perf`, `speckit-approve`, `speckit-phase`, `speckit-snapshot`, `speckit-lab`, `speckit-mutation`, `speckit-guard`) are TypeScript files compiled at runtime by opencode. If a tool has compilation errors, opencode may fail to start or crash on each prompt.
 
 ### If a tool crashes opencode
 

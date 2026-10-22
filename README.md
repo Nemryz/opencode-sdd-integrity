@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-integrity/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-integrity/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-3356-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-3374-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -100,6 +100,7 @@ The commands cover the whole lifecycle, and every artifact moves through an appr
 /delta-status [featureDir]      Show incremental spec deltas
 /config key=value               Read or update configuration
 /snapshot [create|...]          Point-in-time state snapshots
+/lab [create|run|diff|...]      Isolated non-mutation test runs
 /matrix [<batch> ...]           Run mutation testing batches
 /baseline [aggregate]           Aggregate historical mutation scores
 ```
@@ -178,7 +179,7 @@ State integrity covers every file the workflow owns. `session.json`, `spec.json`
 
 Enforcement integrity keeps the workflow in charge of the workflow. Approvals are runtime gates rather than documentation: `/approve` requires an explicit confirmation before it unlocks the next phase, `/impl` refuses to run until tasks are approved, and every command pre-validates its own prerequisites. The guard plugin blocks editor writes and shell redirects that target protected state and names the rule that fired, and the doom-loop plugin warns at the third identical failure and blocks the fifth, so an agent cannot spin on a broken command.
 
-Verification integrity ties every claim to evidence. Tool results are typed, errors name the cause and the next command, reports end in a decision a reader can act on, and implementation tasks record TDD evidence through `speckit-evidence`, so a green run stays attached to the task it proves. Lifecycle events land in `.opencode/spec-memory/events.jsonl`, which keeps a chronology of phase changes, approvals, convergence verdicts and archives that survives a session restart. The toolkit's own 3356 tests run on Linux, macOS and Windows, and install, smoke and mutation jobs watch the packaging and the suite itself.
+Verification integrity ties every claim to evidence. Tool results are typed, errors name the cause and the next command, reports end in a decision a reader can act on, and implementation tasks record TDD evidence through `speckit-evidence`, so a green run stays attached to the task it proves. Lifecycle events land in `.opencode/spec-memory/events.jsonl`, which keeps a chronology of phase changes, approvals, convergence verdicts and archives that survives a session restart. The toolkit's own 3374 tests run on Linux, macOS and Windows, and install, smoke and mutation jobs watch the packaging and the suite itself.
 
 Recovery integrity assumes the worst and rehearses for it. `/health` and `/audit --fix` repair drift and corruption, an interrupted restore rolls back from its journal on the next run, and every restore proves itself first: the snapshot is verified, a drill restores it in a sandbox, a safety snapshot is taken, and the apply step rolls back automatically on failure.
 
@@ -200,7 +201,7 @@ One repository carries two lines, and the branch decides which runtime the toolk
 | Place in the repository | the previous line | the default branch and current line |
 | Runtime | OpenCode 1 | OpenCode 2, with the OpenCode 1 wiring still shipped in the same package |
 | Plugin discovery | the singular `plugin` field | the plugins folder, discovered without a configuration entry |
-| Tool registration | tools load from the tools directory | the `speckit-tools` plugin registers all eighteen through the plugin API |
+| Tool registration | tools load from the tools directory | the `speckit-tools` plugin registers all nineteen through the plugin API |
 | Install | scripts with `--ref V1` or `-Ref V1` | the npm installer CLI, and the scripts default to V2 |
 | Surface | the earlier line, kept for stability | doom-loop protection, TDD evidence, the interface contract, installer backups and OpenCode 2 smoke coverage |
 
@@ -234,7 +235,7 @@ Complexity routing sends each implementation task through one of three tiers. Fi
 
 ## Tools
 
-Eighteen tools implement the workflow, each self-contained, each validating its inputs and returning a typed result, and each invocable on its own or through its command.
+Nineteen tools implement the workflow, each self-contained, each validating its inputs and returning a typed result, and each invocable on its own or through its command.
 
 | Tool | Purpose |
 |------|---------|
@@ -255,6 +256,7 @@ Eighteen tools implement the workflow, each self-contained, each validating its 
 | speckit-phase | Advances the feature phase to impl or complete after implementation |
 | speckit-archive | Archives a completed feature into `archive/YYYY-MM-DD-NNN-slug/` with collision handling |
 | speckit-snapshot | Creates, inspects, restores, and prunes point-in-time snapshots of the SDD state |
+| speckit-lab | Creates an isolated git worktree, runs non-mutation test categories and profiles, and promotes reviewed patches |
 | speckit-mutation | Lists, runs, and aggregates the mutation batches of the kit itself, which only works inside a checkout of the repository |
 
 Four shared modules keep the tools consistent. `io.ts` owns atomic writes, backups, checksum generation and verification, corruption detection and restoration, `schemas.ts` defines the Zod schemas for every state file, `types.ts` carries the re-exports, phase detection, project root validation and the default data helpers, and `snapshot/` implements the point-in-time engine with its manifests, journal, retention and automatic triggers.
@@ -292,7 +294,7 @@ Four plugins ship with the toolkit, and a fifth records the workflow as it happe
 | speckit-guard | permission.ask | File protection with permission tiers | guard.json |
 | speckit-doom-loop | tool.execute.before, tool.execute.after | Detects repeated failing tool calls, warns, then blocks the call | plugin options |
 | speckit-events | tool.execute.after | Appends lifecycle events to `.opencode/spec-memory/events.jsonl` | none |
-| speckit-tools | tool.transform (OpenCode 2) | Registers the eighteen speckit tools | none |
+| speckit-tools | tool.transform (OpenCode 2) | Registers the nineteen speckit tools | none |
 
 `speckit-doom-loop` tracks failures per session as a fingerprint of the tool name plus its arguments. The third identical failure injects a warning into the session, and the fifth marks the call so the next identical attempt is blocked with an explanation before it runs. A successful call clears the streak, streaks expire after ten minutes, the tracker keeps at most 256 fingerprints per session, and `enabled: false` turns the detector off.
 
@@ -367,7 +369,7 @@ The system follows a plugin-based architecture where each tool operates as a sel
 |  + speckit-discovery                                                 |
 |  + rules/ (design principles, spec standards, task guidelines)       |
 +---------------------------------------------------------------------+
-|  Tools Layer (18 TypeScript modules)                                 |
+|  Tools Layer (19 TypeScript modules)                                 |
 |  + speckit-scaffold                                                  |
 |  + speckit-validate                                                  |
 |  + speckit-audit                                                     |
@@ -385,6 +387,7 @@ The system follows a plugin-based architecture where each tool operates as a sel
 |  + speckit-approve                                                   |
 |  + speckit-phase                                                     |
 |  + speckit-snapshot                                                  |
+|  + speckit-lab                                                       |
 |  + speckit-mutation                                                  |
 |  + shared/ (io.ts, schemas.ts, types.ts, snapshot/)                  |
 +---------------------------------------------------------------------+
@@ -407,7 +410,7 @@ The system follows a plugin-based architecture where each tool operates as a sel
 +---------------------------------------------------------------------+
 ```
 
-The skills layer contains the instruction files that walk an agent through each phase, together with the shared rule sets that standardize the artifacts across them. The tools layer houses the TypeScript modules that implement the workflow, each self-contained and backed by the shared utilities. The plugins layer holds the runtime plugins that intercept events automatically, and on OpenCode 2 it also registers the eighteen tools, because that runtime reaches custom tools through the plugin API. The state layer maintains workflow state, feature metadata, configuration, backups, snapshots and the event log, which is what lets a session resume and what the recovery mechanisms protect.
+The skills layer contains the instruction files that walk an agent through each phase, together with the shared rule sets that standardize the artifacts across them. The tools layer houses the TypeScript modules that implement the workflow, each self-contained and backed by the shared utilities. The plugins layer holds the runtime plugins that intercept events automatically, and on OpenCode 2 it also registers the nineteen tools, because that runtime reaches custom tools through the plugin API. The state layer maintains workflow state, feature metadata, configuration, backups, snapshots and the event log, which is what lets a session resume and what the recovery mechanisms protect.
 
 ## Repository Layout
 
@@ -417,14 +420,14 @@ The installed toolkit mirrors the repository, and the same surface ships through
 ~/.config/opencode/
   AGENTS.md              Workflow orchestration and agent definitions
   agents/                Shipped agent definitions (1 agent)
-  commands/              CLI command handlers (21 files)
+  commands/              CLI command handlers (22 files)
   skills/                Skill instructions (10 skills plus shared rules)
   plugins/               Plugin entrypoints that OpenCode 2 discovers directly
-  tools/                 TypeScript tool modules (18 files)
+  tools/                 TypeScript tool modules (19 files)
   tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot/)
   tools/plugins/         Runtime plugin implementations (5 files)
   tools/install/         npm installer CLI and its surface contract
-  tools/test/            Test suite (127 test files)
+  tools/test/            Test suite (129 test files)
   templates/             Artifact templates (12 templates)
   docs/                  Reference documentation
 ```
@@ -516,7 +519,7 @@ The project is a TypeScript toolkit with no build step, governed by the same gat
 
 ### Testing
 
-The suite holds 3356 automated tests across 127 files, and every layer answers a different question about the same system:
+The suite holds 3374 automated tests across 129 files, and every layer answers a different question about the same system:
 
 | Type | Directory | Question it answers |
 |------|-----------|---------------------|
@@ -533,6 +536,9 @@ The suite holds 3356 automated tests across 127 files, and every layer answers a
 | Shipped surface | `tools/test/integration/shipped-surface.test.ts` | Does the packaging still describe the repository truthfully |
 | Smoke | `tools/test/smoke/` | Does the real OpenCode 2 CLI load the shipped wiring |
 | Install | `tools/test/install/` | Do the installers and the npm CLI leave the promised surface and back up what they replace |
+| Lab | `tools/speckit-lab.ts` | Does a category or profile pass in a disposable worktree without touching the checkout |
+
+The isolated lab runs the same categories under pressure from a git worktree, keeps its reports under `reports/lab`, and leaves promotion to an explicit confirmation. `docs/lab.md` documents the categories, profiles, exclusions and promotion rules; `/lab` drives the tool.
 
 `docs/testing.md` holds the conventions, the per-module matrix inventory and the stability rules that this section only summarizes. Pure functions and behavioral rules carry `it.each` tables that vary values across boundary, invalid, unicode, structural and platform families, and every integration test verifies real state on disk through `tools/test/helpers/assertions.ts`, which is what makes a tool that reports success without writing anything fail. The workflow suite walks the full lifecycle in `tools/test/integration/e2e-workflow-snapshots.test.ts` and asserts the recovery points created at every stage, the repair run that realigns a phase, the recovery of an interrupted restore, and the refusal to change state when a recovery point cannot be created. Case insensitive and Windows-specific cases use `it.skipIf` with the reason written next to them, and a bare `it.skip` is never accepted because an unexplained skip hides a regression.
 

@@ -24,6 +24,7 @@ const EXPECTED_TOOLS = [
   "speckit-evidence",
   "speckit-guard",
   "speckit-health",
+  "speckit-lab",
   "speckit-mutation",
   "speckit-perf",
   "speckit-phase",

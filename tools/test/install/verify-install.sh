@@ -37,18 +37,24 @@ expect_path opencode.jsonc
 expect_path package.json
 expect_path agents/spec.md
 expect_path commands/status.md
+expect_path commands/lab.md
 expect_path templates/spec-template.md
 expect_path templates/constitution-template.md
 expect_path skills/speckit-constitution/SKILL.md
 expect_path tools/speckit-status.ts
 expect_path tools/speckit-evidence.ts
 expect_path tools/speckit-archive.ts
+expect_path tools/speckit-lab.ts
+expect_path tools/lab/core/runner.ts
+expect_path tools/lab/adapters/integrity.ts
+expect_path tools/lab/vitest.config.lab.ts
 expect_path tools/install/cli.mjs
 expect_path plugins/speckit-tools.ts
 expect_path plugins/speckit-doom-loop.ts
 expect_path plugins/speckit-events.ts
 expect_path docs/testing.md
 expect_path docs/showcase.md
+expect_path docs/lab.md
 expect_path npm-shrinkwrap.json
 
 if [ "${MODE}" = "--backup" ]; then
