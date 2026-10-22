@@ -47,16 +47,22 @@ export async function readSpecJson(featureDir: string): Promise<SpecJson | null>
   }
 }
 
-export async function writeSpecJson(sj: SpecJson, featureDir: string): Promise<void> {
-  sj.updated_at = new Date().toISOString()
-  const result = SpecJsonSchema.safeParse(sj)
+export function prepareSpecJsonForWrite(sj: SpecJson, now: Date = new Date()): SpecJson {
+  const next = { ...sj, updated_at: now.toISOString() }
+  const result = SpecJsonSchema.safeParse(next)
   if (!result.success) {
     throw new Error(`writeSpecJson: validation failed, data not written: ${String(result.error)}`)
   }
+  return result.data
+}
+
+export async function writeSpecJson(sj: SpecJson, featureDir: string): Promise<void> {
+  const prepared = prepareSpecJsonForWrite(sj)
+  sj.updated_at = prepared.updated_at
   const root = path.dirname(path.dirname(featureDir))
   const fp = specJsonPath(featureDir)
   await withLock(fp, async () => {
-    await writeWithBackup(fp, JSON.stringify(result.data, null, 2), root)
+    await writeWithBackup(fp, JSON.stringify(prepared, null, 2), root)
     await writeFileChecksum(fp)
 
     const written = await fs.readFile(fp, "utf-8")

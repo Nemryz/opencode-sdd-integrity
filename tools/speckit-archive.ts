@@ -2,22 +2,26 @@ import { tool } from "@opencode-ai/plugin"
 import path from "node:path"
 import fs from "node:fs/promises"
 import {
+  PATHS,
   readSession,
-  writeSession,
   readSpecJson,
-  writeSpecJson,
   exists,
-  parseNNN,
   specsDirPath,
   resolveProjectRoot,
   getProjectRootWarnings,
   detectParentProjectWithoutSession,
-  withLock,
   clearCorruptionWarnings,
-  specJsonPath,
-  sessionPath,
+  isSafeFeatureDirName,
 } from "./shared/types"
 import { snapshotBeforeOperation } from "./shared/snapshot/triggers"
+import { applyStatePlan } from "./shared/state/apply"
+import {
+  createStatePlan,
+  StateTransactionError,
+  type CreateStatePlanInput,
+} from "./shared/state/plan"
+import { hashPathTree } from "./shared/state/paths"
+import type { StatePlan } from "./shared/schemas"
 
 export function todayStamp(): string {
   const now = new Date()
@@ -71,6 +75,9 @@ export default tool({
         featureDirName = featureDirs[featureDirs.length - 1]
       }
 
+      if (!isSafeFeatureDirName(featureDirName)) {
+        return { title: "Error", output: `Invalid feature directory name: ${featureDirName}` }
+      }
       const featurePath = path.join(specsDir, featureDirName)
       const specJson = await readSpecJson(featurePath)
       if (!specJson) {
@@ -122,31 +129,81 @@ export default tool({
         archivePath = path.join(archiveDir, archiveName)
       }
 
-      await fs.mkdir(archiveDir, { recursive: true })
-      await fs.mkdir(archivePath, { recursive: true })
-
-      // Move all files
-      const entries = await fs.readdir(featurePath)
-      for (const entry of entries) {
-        await fs.rename(path.join(featurePath, entry), path.join(archivePath, entry))
-      }
-      // Remove empty feature dir
-      await fs.rmdir(featurePath).catch(() => {})
-
-      // Update spec.json with archived_at
-      const archivedSpecJson = await readSpecJson(archivePath)
-      if (archivedSpecJson) {
-        archivedSpecJson.archived_at = new Date().toISOString()
-        await writeSpecJson(archivedSpecJson, archivePath)
-      }
-
-      // Update session.json if it references this feature
+      const now = new Date()
       const session = await readSession(projectRoot)
-      if (session && session.featureDir === featureDirName) {
-        session.featureDir = null
-        session.phase = "spec"
-        session.nextStep = "/spec <description>"
-        await writeSession(projectRoot, session)
+      const sessionRel = `${PATHS.OPENCODE_DIR}/${PATHS.SPEC_MEMORY_DIR}/${PATHS.SESSION_FILE}`
+      const featureRel = `specs/${featureDirName}`
+
+      const buildPlan = async (name: string): Promise<StatePlan> => {
+        const targetRel = `archive/${name}`
+        const featureHash = await hashPathTree(projectRoot, featureRel)
+        const targetSession = session.featureDir === featureDirName
+        const preconditions: CreateStatePlanInput["preconditions"] = [
+          featureHash === "absent"
+            ? { path: featureRel, kind: "dir" }
+            : { path: featureRel, kind: "dir", sha256: featureHash },
+          { path: targetRel, kind: "absent" },
+        ]
+        const operations: CreateStatePlanInput["operations"] = [
+          { kind: "rename-dir", from: featureRel, to: targetRel },
+          {
+            kind: "write-spec-json",
+            featureDir: targetRel,
+            data: { ...specJson, archived_at: now.toISOString() },
+          },
+        ]
+        if (targetSession) {
+          const sessionHash = await hashPathTree(projectRoot, sessionRel)
+          preconditions.push(
+            sessionHash === "absent"
+              ? { path: sessionRel, kind: "file" }
+              : { path: sessionRel, kind: "file", sha256: sessionHash },
+          )
+          operations.push({
+            kind: "write-session",
+            data: {
+              ...session,
+              featureDir: null,
+              phase: "spec",
+              nextStep: "/spec <description>",
+              history: [...session.history],
+            },
+          })
+        }
+        return createStatePlan({
+          root: projectRoot,
+          scope: [featureRel, targetRel, ...(targetSession ? [sessionRel] : [])],
+          preconditions,
+          operations,
+          now,
+        })
+      }
+
+      let plan: StatePlan | null = null
+      let lastError: unknown = null
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          plan = await buildPlan(archiveName)
+          await applyStatePlan(projectRoot, plan)
+          lastError = null
+          break
+        } catch (err) {
+          lastError = err
+          const targetConflict = err instanceof StateTransactionError && err.code === "TARGET_EXISTS"
+          if (!targetConflict || attempt === 1) break
+          counter++
+          archiveName = `${dateStamp}-${featureDirName}-${counter}`
+          archivePath = path.join(archiveDir, archiveName)
+        }
+      }
+      if (!plan || lastError) {
+        if (lastError instanceof StateTransactionError && lastError.code === "TARGET_EXISTS") {
+          return {
+            title: "Conflict",
+            output: `Archive target kept changing for ${featureDirName}. Nothing was moved; retry when the archive directory is stable.`,
+          }
+        }
+        throw lastError ?? new Error("archive plan was not created")
       }
 
       const movedFiles = await fs.readdir(archivePath)

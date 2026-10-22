@@ -48,6 +48,9 @@ expect_path tools/speckit-lab.ts
 expect_path tools/lab/core/runner.ts
 expect_path tools/lab/adapters/integrity.ts
 expect_path tools/lab/vitest.config.lab.ts
+expect_path tools/shared/state/plan.ts
+expect_path tools/shared/state/apply.ts
+expect_path tools/shared/state/recovery.ts
 expect_path tools/install/cli.mjs
 expect_path plugins/speckit-tools.ts
 expect_path plugins/speckit-doom-loop.ts

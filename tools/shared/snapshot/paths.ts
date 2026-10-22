@@ -20,7 +20,7 @@ const RESTORE_JOURNAL_NAME = ".restore-journal.json"
 const PIN_FILE_NAME = ".pin.json"
 const DRILL_FILE_NAME = ".drill.json"
 
-const EXCLUDED_DIRS = [".opencode/backups", ".opencode/snapshots"]
+const EXCLUDED_DIRS = [".opencode/backups", ".opencode/snapshots", ".opencode/transactions"]
 const EXCLUDED_SUFFIXES = [".lock", ".tmp", ".bak", ".sha256"]
 
 const CORE_FILES = [
@@ -36,7 +36,7 @@ function toPosix(p: string): string {
   return p.split(path.sep).join("/")
 }
 
-// Keeps backups, snapshots and transient files out of the captured scope.
+// Keeps backups, snapshots, transaction journals and transient files out of the captured scope.
 function isExcluded(relPath: string): boolean {
   const posix = toPosix(relPath)
   if (EXCLUDED_DIRS.some((dir) => posix === dir || posix.startsWith(`${dir}/`))) return true

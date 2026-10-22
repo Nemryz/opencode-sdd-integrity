@@ -53,17 +53,24 @@ export async function readSession(root: string): Promise<SessionState> {
 
 export const MAX_SESSION_HISTORY = 20
 
-export async function writeSession(root: string, s: SessionState): Promise<void> {
-  if (Array.isArray(s.history) && s.history.length > MAX_SESSION_HISTORY) {
-    s.history = s.history.slice(-MAX_SESSION_HISTORY)
-  }
-  const result = SessionStateSchema.safeParse(s)
+export function prepareSessionForWrite(s: SessionState): SessionState {
+  const history = Array.isArray(s.history) && s.history.length > MAX_SESSION_HISTORY
+    ? s.history.slice(-MAX_SESSION_HISTORY)
+    : s.history
+  const next = { ...s, history }
+  const result = SessionStateSchema.safeParse(next)
   if (!result.success) {
     throw new Error(`writeSession: validation failed, data not written: ${String(result.error)}`)
   }
+  return result.data
+}
+
+export async function writeSession(root: string, s: SessionState): Promise<void> {
+  const prepared = prepareSessionForWrite(s)
+  s.history = prepared.history
   const fp = sessionPath(root)
   await withLock(fp, async () => {
-    await writeWithBackup(fp, JSON.stringify(result.data, null, 2), root)
+    await writeWithBackup(fp, JSON.stringify(prepared, null, 2), root)
     await writeFileChecksum(fp)
 
     const written = await fs.readFile(fp, "utf-8")

@@ -7,6 +7,10 @@ import { isENOENT, stripBom } from "./io"
 // Re-export everything from schemas and io for backward compatibility
 export * from "./schemas"
 export * from "./io"
+export * from "./state/plan"
+export * from "./state/apply"
+export * from "./state/recovery"
+export * from "./state/paths"
 
 // ─────────────────────────── Project root validation ───────────
 

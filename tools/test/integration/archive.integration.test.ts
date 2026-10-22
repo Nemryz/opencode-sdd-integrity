@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import fs from "node:fs/promises"
 import path from "node:path"
 import os from "node:os"
@@ -29,6 +29,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  vi.restoreAllMocks()
   await destroyTempWorktree(worktree)
 })
 
@@ -109,6 +110,12 @@ describe("speckit-archive integration (real filesystem)", () => {
       expect(result.title).toBe("Error")
       expect(result.output).toContain("No spec.json found")
     })
+
+    it("rejects a feature directory that tries to escape specs/", async () => {
+      const result = await run({ featureDir: "../escape", confirmed: true })
+      expect(result.title).toBe("Error")
+      expect(result.output).toContain("Invalid feature directory name")
+    })
   })
 
   describe("archive operation", () => {
@@ -139,6 +146,33 @@ describe("speckit-archive integration (real filesystem)", () => {
       const archivedSpec = await readSpecJsonFile(worktree, relArchive)
       expect(archivedSpec.archived_at).toBeDefined()
       expect(typeof archivedSpec.archived_at).toBe("string")
+    })
+
+    it("moves the feature with one directory rename instead of copying each entry", async () => {
+      await writeSpecJson(worktree, "001-demo", {
+        feature_name: "demo",
+        feature_number: 1,
+        phase: "complete",
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-02T00:00:00Z",
+        featureDir: "001-demo",
+        approvals: { spec: { generated: false, approved: false }, plan: { generated: false, approved: false }, tasks: { generated: false, approved: false } },
+        ready_for_implementation: false,
+        active_delta: null,
+        converged: true,
+      })
+      const originalRename = fs.rename.bind(fs)
+      let directoryRenames = 0
+      vi.spyOn(fs, "rename").mockImplementation(async (from, to) => {
+        if (path.basename(String(from)) === "001-demo" && path.basename(path.dirname(String(to))) === "archive") {
+          directoryRenames++
+        }
+        return originalRename(from, to)
+      })
+
+      const result = await run({ featureDir: "001-demo", confirmed: true })
+      expect(result.title).toBe("Archived")
+      expect(directoryRenames).toBe(1)
     })
 
     it("removes the original feature directory from specs/", async () => {

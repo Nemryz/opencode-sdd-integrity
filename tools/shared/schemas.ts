@@ -300,6 +300,76 @@ export type HealthStatus = z.infer<typeof HealthStatusSchema>
 export type FeatureHealth = z.infer<typeof FeatureHealthSchema>
 export type HealthReport = z.infer<typeof HealthReportSchema>
 
+// ─────────────────────────── State Transaction Schemas ───────────────────────────
+
+export const StatePreconditionSchema = z.object({
+  path: z.string().min(1),
+  kind: z.enum(["file", "dir", "absent"]),
+  sha256: z.string().length(64).optional(),
+})
+
+export const StateOperationSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("rename-dir"),
+    from: z.string().min(1),
+    to: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("write-spec-json"),
+    featureDir: z.string().min(1),
+    data: SpecJsonSchema,
+  }),
+  z.object({
+    kind: z.literal("write-session"),
+    data: SessionStateSchema,
+  }),
+  z.object({
+    kind: z.literal("write-config"),
+    data: ConfigSchema,
+  }),
+])
+
+export const StatePlanSchema = z.object({
+  format: z.literal(1),
+  planId: z.string().min(1),
+  createdAt: z.string(),
+  scope: z.array(z.string().min(1)).min(1),
+  preconditions: z.array(StatePreconditionSchema),
+  operations: z.array(StateOperationSchema).min(1),
+  baseHash: z.string().length(64),
+  expectedHash: z.string().length(64),
+  planHash: z.string().length(64),
+})
+
+export const StateJournalBackupSchema = z.object({
+  path: z.string().min(1),
+  kind: z.enum(["file", "absent"]),
+  backupPath: z.string().optional(),
+  sha256: z.string().length(64).optional(),
+})
+
+export const StateJournalSchema = z.object({
+  format: z.literal(1),
+  txId: z.string().min(1),
+  planId: z.string().min(1),
+  planHash: z.string().length(64),
+  baseHash: z.string().length(64),
+  expectedHash: z.string().length(64),
+  state: z.enum(["prepared", "applying", "committed", "rolling-back", "rollback-failed"]),
+  startedAt: z.string(),
+  updatedAt: z.string(),
+  pid: z.number().int(),
+  operations: z.array(StateOperationSchema).min(1),
+  backups: z.array(StateJournalBackupSchema),
+  error: z.string().optional(),
+})
+
+export type StatePrecondition = z.infer<typeof StatePreconditionSchema>
+export type StateOperation = z.infer<typeof StateOperationSchema>
+export type StatePlan = z.infer<typeof StatePlanSchema>
+export type StateJournalBackup = z.infer<typeof StateJournalBackupSchema>
+export type StateJournal = z.infer<typeof StateJournalSchema>
+
 // ─────────────────────── Mutation Batches Schema ───────────────────────
 
 export const MutationBatchSchema = z.object({
