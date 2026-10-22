@@ -160,6 +160,7 @@ The shell and PowerShell jobs pass the dependency switch, because the npm job al
 ## Platform-dependent tests
 
 Case insensitive path matching and Windows error formatting cannot be reproduced on Linux, so those cases are skipped explicitly with the reason written next to them.
+CI runs the test matrix on Linux and Windows, while macOS-specific assertions remain in `types.test.ts` and run only on a macOS machine, so a macOS regression is not caught by CI.
 
 - `guard-safety.test.ts` skips case insensitive matching on Linux.
 - `b6-sweep.test.ts` skips kit directory detection with different casing on Linux.

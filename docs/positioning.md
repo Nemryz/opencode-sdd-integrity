@@ -15,7 +15,7 @@ Three groups matter when a user chooses an SDD workflow for OpenCode.
 
 | Kit | Stars | Weekly installs | Distribution | State and recovery | Gates and enforcement | Verification |
 |-----|-------|-----------------|--------------|--------------------|-----------------------|--------------|
-| OpenCode SDD Integrity (this repository) | 1 | 0, first day | npm installer CLI plus shell scripts and plugin wiring | Zod-validated session and spec state with atomic writes and hashes, checksummed backups, verifiable snapshots with restore drills and journal | Per-artifact approvals with explicit confirmation, file guard that blocks editor and shell writes to state, per-phase pre-validation | 3,392 tests, CI on three operating systems, install and smoke end-to-end jobs, Stryker mutation testing, V1 and V2 wiring from one package with V2 verified end to end in a real 2.0.32 runtime |
+| OpenCode SDD Integrity (this repository) | 1 | 0, first day | npm installer CLI plus shell scripts and plugin wiring | Zod-validated session and spec state with atomic writes and hashes, checksummed backups, verifiable snapshots with restore drills and journal | Per-artifact approvals with explicit confirmation, file guard that blocks editor and shell writes to state, per-phase pre-validation | 3,392 tests, CI on Linux and Windows, install and smoke end-to-end jobs, Stryker mutation testing, V1 and V2 wiring from one package with V2 verified end to end in a real 2.0.32 runtime |
 | GoopSpec | 50 | 1 | npm plugin and Bun CLI | SQLite state, checkpoints, background daemon, cross-project memory | Two mandatory human contract gates, a specialist agent orchestration layer | 1,660 tests as published, dual V1 and V2 plugin contract declared, repository quiet since 2026-08-12 |
 | Conductor | 131 | 54 | npm plugin (v1.32) | Per-track metadata file and git-aware revert | Context, spec, plan, implement lifecycle without a state integrity layer | No visible suite, last push 2026-03-02 |
 | opencode-sdd | 4 | 14 | npm plugin with an install wizard | Markdown artifacts without a documented recovery layer | Six subagents, a clean session per phase, retry-capped auto-implement, recorded human decisions | Mock-LLM end-to-end suite plus manual QA with frontier models, active |
@@ -32,7 +32,7 @@ Three groups matter when a user chooses an SDD workflow for OpenCode.
 ## Where this toolkit stands
 
 Enforcement and state integrity are the strongest in the niche, because no other kit documents a guard that blocks both editor writes and shell redirects, checksummed snapshots with restore drills, a crash-safe restore journal, self-healing audits, or mutation testing of the toolkit itself.
-The engineering evidence is top two, with only GoopSpec publishing a comparable suite and none of the others combining three-operating-system CI with install and smoke end-to-end jobs.
+The engineering evidence is top two, with only GoopSpec publishing a comparable suite and none of the others combining two-operating-system CI with install and smoke end-to-end jobs.
 Adoption is the weakest axis, because the native kits hold single-digit to low-hundreds stars while the multi-harness toolkits hold thousands to over one hundred thousand, so the position is capability without reach.
 Process breadth sits at parity with the native kits and behind the multi-harness toolkits, which ship convergence, checklists, archiving, cross-repository stores, and extension catalogs that this toolkit does not have yet.
 
