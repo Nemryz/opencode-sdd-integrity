@@ -64,6 +64,16 @@ describe("lab lockfile inspection", () => {
     expect(shrinkwrap?.hash).not.toBe(packageLock?.hash)
   })
 
+  it("treats LF and CRLF lockfiles as the same content", async () => {
+    const root = await makeWorktree()
+    const file = path.join(root, "package-lock.json")
+    await fs.writeFile(file, '{\n  "lockfileVersion": 3\n}\n', "utf-8")
+    const lf = await readLockfile(root)
+    await fs.writeFile(file, '{\r\n  "lockfileVersion": 3\r\n}\r\n', "utf-8")
+    const crlf = await readLockfile(root)
+    expect(crlf?.hash).toBe(lf?.hash)
+  })
+
   it("detects supported package managers", async () => {
     const root = await makeWorktree()
     await fs.writeFile(path.join(root, "pnpm-lock.yaml"), "lockfileVersion: '9'\n", "utf-8")

@@ -67,10 +67,14 @@ export async function readLockfile(root: string): Promise<LockfileState | null> 
     const file = path.join(root, definition.file)
     try {
       const contents = await fs.readFile(file)
+      // Git may check text lockfiles out with CRLF on Windows, so compare their logical lines.
+      const normalized = definition.file.endsWith(".lockb")
+        ? contents
+        : Buffer.from(contents.toString("utf-8").replace(/\r\n/g, "\n"), "utf-8")
       return {
         file: definition.file,
         manager: definition.manager,
-        hash: crypto.createHash("sha256").update(contents).digest("hex"),
+        hash: crypto.createHash("sha256").update(normalized).digest("hex"),
       }
     } catch (error) {
       if (!isMissing(error)) throw error
