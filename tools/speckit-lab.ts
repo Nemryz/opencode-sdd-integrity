@@ -34,11 +34,11 @@ function helpOutput(): string {
     "speckit-lab: isolated, non-mutation test runs",
     "",
     "Subcommands:",
-    "  create [label]          Create a git worktree sandbox and link node_modules",
+    "  create [label]          Create a git worktree sandbox and prepare dependencies",
     "  run <category|profile>  Run tests inside the newest sandbox",
     "  status [id]             Show the sandbox, dirty files and the latest run",
     "  diff [id]               Write a patch and show its stat; does not modify the checkout",
-    "  promote [id]            Apply the patch to the checkout after explicit confirmation",
+    "  promote [id]            Apply the patch after confirmation and only if HEAD is unchanged",
     "  destroy [id]            Remove the worktree after explicit confirmation; reports stay",
     "  list                    List known sandboxes",
     "",
@@ -96,7 +96,7 @@ export default tool({
         }
       }
 
-      const sandbox = await loadSandbox(projectRoot, args.id)
+      const sandbox = await loadSandbox(projectRoot, args.id, { allowMissing: subcommand === "destroy" })
 
       if (subcommand === "status") {
         const dirty = await statusShort(sandbox.sandboxRoot)
@@ -163,7 +163,14 @@ export default tool({
         return {
           title: diff.empty ? "Lab Diff: empty" : "Lab Diff",
           output: formatDiff(diff),
-          metadata: { sandboxId: sandbox.id, files: diff.files, patchPath: diff.patchPath, empty: diff.empty },
+          metadata: {
+            sandboxId: sandbox.id,
+            files: diff.files,
+            patchPath: diff.patchPath,
+            empty: diff.empty,
+            baseCommit: diff.baseCommit,
+            currentHead: diff.currentHead,
+          },
         }
       }
 

@@ -148,6 +148,7 @@ Run non-mutation tests in an isolated git worktree. Uses `speckit-lab` tool with
 Categories: `all`, `unit`, `integration`, `property`, `chaos`, `concurrency`, `fuzz`, `snapshot`, `install`, `manual`, `smoke`.
 Profiles: `quick`, `standard`, `hard`, `soak`. The lab excludes `*-mutation.test.ts`, `*-mutation-*.test.ts`, `*-kill-survivors.test.ts` and `*-kill.test.ts`.
 `diff` before `promote`; `promote` and `destroy` require user confirmation (`confirmed: true`). `soak` and `smoke` are heavy and confirmation gated.
+`promote` refuses if the checkout HEAD moved after `create`. Lockfile changes or a missing `node_modules` install dependencies inside the sandbox before the run.
 
 ### `/matrix [<batch> [batch...]|all]`
 Measure the mutation batches of the kit and store one report each. Uses `speckit-mutation` tool with `subcommand: "run"`.

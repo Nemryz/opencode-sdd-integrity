@@ -98,6 +98,42 @@ describe("lab worktree lifecycle", () => {
     expect(promoted.status).toBe("promoted")
   })
 
+  it("records linked dependencies when the checkout lockfile matches", async () => {
+    await writeRepoFile(".gitignore", "node_modules/\n")
+    await writeRepoFile("package-lock.json", '{"lockfileVersion":3}\n')
+    git(["add", "-A"])
+    git(["commit", "-m", "dependency fixture"])
+    await fs.symlink(
+      path.join(repoRootDir(), "node_modules"),
+      path.join(repo, "node_modules"),
+      process.platform === "win32" ? "junction" : "dir",
+    )
+
+    const sandbox = await createSandbox({ projectRoot: repo, adapter: "node" })
+    expect(sandbox.dependencies).toMatchObject({
+      strategy: "linked",
+      lockfile: "package-lock.json",
+      manager: "npm",
+    })
+    await expect(fs.lstat(path.join(sandbox.sandboxRoot, "node_modules"))).resolves.toBeDefined()
+  })
+
+  it("refuses to promote after the checkout HEAD moves", async () => {
+    const sandbox = await createSandbox({ projectRoot: repo, adapter: "node" })
+    await fs.writeFile(path.join(sandbox.sandboxRoot, "README.md"), "sandbox\n", "utf-8")
+
+    await writeRepoFile("checkout-moved.txt", "moved\n")
+    git(["add", "-A"])
+    git(["commit", "-m", "move checkout"])
+
+    const diff = await collectDiff(repo, sandbox)
+    expect(diff.currentHead).not.toBe(diff.baseCommit)
+
+    await expect(promoteDiff(repo, sandbox)).rejects.toThrow(/checkout moved/)
+    expect(await readText(path.join(repo, "README.md"))).toBe("base\n")
+    expect((await loadSandbox(repo, sandbox.id)).status).toBe("active")
+  })
+
   it("runs a step inside the sandbox and writes a run summary", async () => {
     const sandbox = await createSandbox({ projectRoot: repo, adapter: "node" })
     const adapter: LabAdapter = {
@@ -235,5 +271,24 @@ describe("speckit-lab tool", () => {
       mockContext(repo),
     )
     expect(destroyed.title).toBe("Lab Sandbox Destroyed")
+  })
+
+  it("destroys a stale sandbox whose worktree disappeared", async () => {
+    const created = await speckitLab.execute({ subcommand: "create", adapter: "node" }, mockContext(repo))
+    const sandboxId = created.metadata?.sandboxId as string
+    const sandbox = await loadSandbox(repo, sandboxId)
+    await fs.rm(sandbox.sandboxRoot, { recursive: true, force: true })
+
+    const status = await speckitLab.execute({ subcommand: "status", id: sandboxId }, mockContext(repo))
+    expect(status.title).toBe("Lab Error")
+    expect(status.output).toContain("destroy")
+
+    const destroyed = await speckitLab.execute(
+      { subcommand: "destroy", id: sandboxId, confirmed: true },
+      mockContext(repo),
+    )
+    expect(destroyed.title).toBe("Lab Sandbox Destroyed")
+    const registry = await readRegistry(repo)
+    expect(registry.sandboxes.find((entry) => entry.id === sandboxId)?.status).toBe("destroyed")
   })
 })

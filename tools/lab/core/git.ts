@@ -164,7 +164,15 @@ export async function statusShort(sandboxRoot: string): Promise<string> {
   return result.code === 0 ? result.stdout.trim() : ""
 }
 
-export async function applyPatch(repoRoot: string, patchFile: string): Promise<void> {
+export async function applyPatch(repoRoot: string, patchFile: string, expectedHead?: string): Promise<void> {
+  if (expectedHead) {
+    const current = await headCommit(repoRoot)
+    if (current !== expectedHead) {
+      throw new Error(
+        `The checkout moved from ${expectedHead.slice(0, 12)} to ${current.slice(0, 12)} since the sandbox was created; no files were promoted`,
+      )
+    }
+  }
   const check = await git(repoRoot, ["apply", "--check", "--3way", patchFile])
   if (check.code !== 0) {
     throw new Error(`The patch does not apply cleanly: ${(check.stderr || check.stdout).trim()}`)

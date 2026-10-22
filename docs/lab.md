@@ -19,11 +19,11 @@ The same flow is available through the `speckit-lab` tool:
 
 | Subcommand | Effect |
 |------------|--------|
-| `create` | Creates a detached worktree under the system temp directory and links `node_modules` |
+| `create` | Creates a detached worktree under the system temp directory and prepares dependencies from the lockfile |
 | `run` | Runs a category or profile in the newest active sandbox |
 | `status` | Shows the sandbox, its dirty files and its latest run |
 | `diff` | Stages the sandbox, writes a patch under `reports/lab` and shows the stat |
-| `promote` | Applies the patch to the checkout after explicit confirmation; never commits |
+| `promote` | Applies the patch after explicit confirmation and only if HEAD still matches `baseCommit`; never commits |
 | `destroy` | Removes the worktree after explicit confirmation; reports and patches stay |
 | `list` | Lists the sandboxes known to this project |
 | `help` | Prints the command and profile reference |
@@ -72,16 +72,19 @@ The lab never starts Stryker, never reads a mutation score and never writes to `
 
 - `git diff --binary HEAD` is applied to the worktree.
 - Files reported by `git ls-files --others --exclude-standard` are copied with their executable bit.
-- `node_modules` is linked from the checkout instead of copied. If the link fails, the sandbox records a warning and the user can install inside it.
+- `node_modules` is linked from the checkout only when the lockfile matches. If the sandbox lockfile differs, or the checkout has no `node_modules`, the lab installs dependencies inside the sandbox with `npm ci`, `pnpm install --frozen-lockfile`, `yarn install` or `bun install --frozen-lockfile`. The checkout dependencies are never modified.
+- The dependency decision is checked again before every run, so editing a lockfile in the sandbox triggers a fresh install. The output lands in `dependencies.log` inside the run report.
 - The run uses `tools/lab/vitest.config.lab.ts`, which puts the Vite cache in `.lab-cache` inside the sandbox and coverage under the run report directory.
 
-The sandbox does not copy ignored files other than the dependency link. If a test needs an ignored local file, copy it into the sandbox manually; the lab does not guess which ignored files are safe.
+The sandbox does not copy ignored files other than the dependency tree it prepares. If a test needs an ignored local file, copy it into the sandbox manually; the lab does not guess which ignored files are safe.
 
 ## Promotion
 
-`diff` stages only project files, excluding `node_modules`, `.lab-cache`, `coverage` and `reports`, and writes a binary-safe patch. `promote` checks the patch with `git apply --check --3way`, applies it to the checkout, and leaves the result uncommitted. A conflict leaves the checkout unchanged and keeps the patch for inspection.
+`diff` stages only project files, excluding `node_modules`, `.lab-cache`, `coverage` and `reports`, and writes a binary-safe patch. It also shows the sandbox base commit and the current checkout HEAD. `promote` checks the patch with `git apply --check --3way`, applies it to the checkout, and leaves the result uncommitted. A conflict leaves the checkout unchanged and keeps the patch for inspection.
 
-A sandbox becomes `promoted` and cannot be promoted twice. Destroy it and create a new sandbox for another change. `destroy` removes the worktree; the reports, patches and summary stay in `reports/lab`, which is gitignored.
+Promotion is tied to the reviewed base. If the checkout HEAD moved after `create`, `promote` writes the patch and refuses to apply it, because the change would land on code the reviewer never tested. Create a new sandbox from the current HEAD and review the new diff.
+
+A sandbox becomes `promoted` and cannot be promoted twice. Destroy it and create a new sandbox for another change. `destroy` removes the worktree; the reports, patches and summary stay in `reports/lab`, which is gitignored. A registry entry whose worktree disappeared can still be destroyed, which cleans the registry without touching the checkout.
 
 ## Reports
 
@@ -94,12 +97,15 @@ reports/lab/
     diffs/diff-<id>.patch
     runs/<run-id>/
       summary.json
+      dependencies.log
       step-1.log
       unit.json
       coverage/coverage-summary.json
 ```
 
-`summary.json` carries the selection, exit status, step results, test totals, coverage totals and the slowest tests. The tool prints the path, so a later session can read the evidence without rerunning the suite.
+`summary.json` carries the selection, exit status, step results, test totals, coverage totals and the slowest tests. `dependencies.log` exists when a run installed dependencies inside the sandbox. The tool prints the summary path, so a later session can read the evidence without rerunning the suite.
+
+Registry writes take a short-lived lock at `reports/lab/registry.lock`, so two tool calls cannot silently overwrite each other's sandbox entry. The lock is released after each write and stale locks are removed after 30 seconds.
 
 ## The generic node adapter
 
@@ -111,6 +117,7 @@ The adapter contract lives in `tools/lab/core/types.ts`: a category list, a prof
 
 - The worktree separates the run from the checkout; it is not a security sandbox. Only run code you trust.
 - The MVP requires git. A project without git metadata gets a clear error instead of a copy mode.
-- The lab does not install dependencies automatically. Link `node_modules` from the checkout or install inside the sandbox.
+- The lab prepares dependencies only from a supported lockfile or a matching checkout tree. If neither exists, install manually inside the sandbox.
+- Dependency installation needs the package manager and access to the network or a warm cache. If it fails, the run stops before the tests and points to `dependencies.log`.
 - The smoke category depends on the local OpenCode installation and runs only on POSIX.
 - The lab does not replace the normal suite, the install workflow or the mutation workflow. It gives those layers a disposable place to run under pressure.

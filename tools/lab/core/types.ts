@@ -41,6 +41,17 @@ export interface LabAdapter {
 
 export type LabSandboxStatus = "active" | "promoted" | "destroyed"
 
+export type LabPackageManager = "npm" | "pnpm" | "yarn" | "bun"
+
+export interface LabDependencyState {
+  strategy: "linked" | "pending" | "installed" | "missing"
+  lockfile?: string
+  lockHash?: string
+  manager?: LabPackageManager
+  logPath?: string
+  updatedAt?: string
+}
+
 export interface LabSandbox {
   id: string
   projectRoot: string
@@ -52,6 +63,7 @@ export interface LabSandbox {
   createdAt: string
   status: LabSandboxStatus
   warnings: string[]
+  dependencies?: LabDependencyState
   lastRunAt?: string
   lastRunStatus?: string
   lastRunId?: string

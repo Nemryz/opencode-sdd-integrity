@@ -1,7 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import type { LabRegistry, LabRunSummary, LabSandbox } from "./types"
-import { makeLabId, readJson, writeJsonAtomic } from "./fs"
+import { makeLabId, readJson, withLabLock, writeJsonAtomic } from "./fs"
 
 export function labRoot(projectRoot: string): string {
   return path.join(projectRoot, "reports", "lab")
@@ -9,6 +9,10 @@ export function labRoot(projectRoot: string): string {
 
 export function registryFile(projectRoot: string): string {
   return path.join(labRoot(projectRoot), "registry.json")
+}
+
+export function registryLock(projectRoot: string): string {
+  return path.join(labRoot(projectRoot), "registry.lock")
 }
 
 export function sandboxReportDir(projectRoot: string, sandboxId: string): string {
@@ -56,11 +60,13 @@ export async function latestSandbox(projectRoot: string): Promise<LabSandbox | n
 }
 
 export async function upsertSandbox(projectRoot: string, sandbox: LabSandbox): Promise<void> {
-  const registry = await readRegistry(projectRoot)
-  const index = registry.sandboxes.findIndex((entry) => entry.id === sandbox.id)
-  if (index === -1) registry.sandboxes.push(sandbox)
-  else registry.sandboxes[index] = sandbox
-  await writeRegistry(projectRoot, registry)
+  await withLabLock(registryLock(projectRoot), async () => {
+    const registry = await readRegistry(projectRoot)
+    const index = registry.sandboxes.findIndex((entry) => entry.id === sandbox.id)
+    if (index === -1) registry.sandboxes.push(sandbox)
+    else registry.sandboxes[index] = sandbox
+    await writeRegistry(projectRoot, registry)
+  })
 }
 
 export async function updateSandbox(
@@ -68,13 +74,15 @@ export async function updateSandbox(
   id: string,
   patch: Partial<LabSandbox>,
 ): Promise<LabSandbox | null> {
-  const registry = await readRegistry(projectRoot)
-  const index = registry.sandboxes.findIndex((entry) => entry.id === id)
-  if (index === -1) return null
-  const updated = { ...registry.sandboxes[index], ...patch, id }
-  registry.sandboxes[index] = updated
-  await writeRegistry(projectRoot, registry)
-  return updated
+  return withLabLock(registryLock(projectRoot), async () => {
+    const registry = await readRegistry(projectRoot)
+    const index = registry.sandboxes.findIndex((entry) => entry.id === id)
+    if (index === -1) return null
+    const updated = { ...registry.sandboxes[index], ...patch, id }
+    registry.sandboxes[index] = updated
+    await writeRegistry(projectRoot, registry)
+    return updated
+  })
 }
 
 export async function writeRunSummary(projectRoot: string, summary: LabRunSummary): Promise<void> {

@@ -9,6 +9,7 @@ import type {
   LabStep,
   LabStepResult,
 } from "./types"
+import { ensureDependencies } from "./dependencies"
 import { ensureRunDir, makeRunId, writeRunSummary } from "./registry"
 import { runLabProcess } from "./runner"
 import {
@@ -81,8 +82,13 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
 
   const startedAt = new Date().toISOString()
   const started = Date.now()
+  const dependency = await ensureDependencies({
+    projectRoot: options.projectRoot,
+    sandbox,
+    reportDir,
+  })
   const results: LabStepResult[] = []
-  const notes: string[] = []
+  const notes: string[] = dependency.note ? [dependency.note] : []
 
   for (const [index, step] of steps.entries()) {
     const stepStarted = Date.now()

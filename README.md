@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-integrity/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-integrity/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-3374-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-3391-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -179,7 +179,7 @@ State integrity covers every file the workflow owns. `session.json`, `spec.json`
 
 Enforcement integrity keeps the workflow in charge of the workflow. Approvals are runtime gates rather than documentation: `/approve` requires an explicit confirmation before it unlocks the next phase, `/impl` refuses to run until tasks are approved, and every command pre-validates its own prerequisites. The guard plugin blocks editor writes and shell redirects that target protected state and names the rule that fired, and the doom-loop plugin warns at the third identical failure and blocks the fifth, so an agent cannot spin on a broken command.
 
-Verification integrity ties every claim to evidence. Tool results are typed, errors name the cause and the next command, reports end in a decision a reader can act on, and implementation tasks record TDD evidence through `speckit-evidence`, so a green run stays attached to the task it proves. Lifecycle events land in `.opencode/spec-memory/events.jsonl`, which keeps a chronology of phase changes, approvals, convergence verdicts and archives that survives a session restart. The toolkit's own 3374 tests run on Linux, macOS and Windows, and install, smoke and mutation jobs watch the packaging and the suite itself.
+Verification integrity ties every claim to evidence. Tool results are typed, errors name the cause and the next command, reports end in a decision a reader can act on, and implementation tasks record TDD evidence through `speckit-evidence`, so a green run stays attached to the task it proves. Lifecycle events land in `.opencode/spec-memory/events.jsonl`, which keeps a chronology of phase changes, approvals, convergence verdicts and archives that survives a session restart. The toolkit's own 3391 tests run on Linux, macOS and Windows, and install, smoke and mutation jobs watch the packaging and the suite itself.
 
 Recovery integrity assumes the worst and rehearses for it. `/health` and `/audit --fix` repair drift and corruption, an interrupted restore rolls back from its journal on the next run, and every restore proves itself first: the snapshot is verified, a drill restores it in a sandbox, a safety snapshot is taken, and the apply step rolls back automatically on failure.
 
@@ -519,7 +519,7 @@ The project is a TypeScript toolkit with no build step, governed by the same gat
 
 ### Testing
 
-The suite holds 3374 automated tests across 129 files, and every layer answers a different question about the same system:
+The suite holds 3391 automated tests across 132 files, and every layer answers a different question about the same system:
 
 | Type | Directory | Question it answers |
 |------|-----------|---------------------|
@@ -538,7 +538,7 @@ The suite holds 3374 automated tests across 129 files, and every layer answers a
 | Install | `tools/test/install/` | Do the installers and the npm CLI leave the promised surface and back up what they replace |
 | Lab | `tools/speckit-lab.ts` | Does a category or profile pass in a disposable worktree without touching the checkout |
 
-The isolated lab runs the same categories under pressure from a git worktree, keeps its reports under `reports/lab`, and leaves promotion to an explicit confirmation. `docs/lab.md` documents the categories, profiles, exclusions and promotion rules; `/lab` drives the tool.
+The isolated lab runs the same categories under pressure from a git worktree, keeps its reports under `reports/lab`, prepares dependencies from the sandbox lockfile, and leaves promotion to an explicit confirmation. Promotion also refuses if the checkout HEAD moved after the sandbox was created. `docs/lab.md` documents the categories, profiles, exclusions, dependency and promotion rules; `/lab` drives the tool.
 
 `docs/testing.md` holds the conventions, the per-module matrix inventory and the stability rules that this section only summarizes. Pure functions and behavioral rules carry `it.each` tables that vary values across boundary, invalid, unicode, structural and platform families, and every integration test verifies real state on disk through `tools/test/helpers/assertions.ts`, which is what makes a tool that reports success without writing anything fail. The workflow suite walks the full lifecycle in `tools/test/integration/e2e-workflow-snapshots.test.ts` and asserts the recovery points created at every stage, the repair run that realigns a phase, the recovery of an interrupted restore, and the refusal to change state when a recovery point cannot be created. Case insensitive and Windows-specific cases use `it.skipIf` with the reason written next to them, and a bare `it.skip` is never accepted because an unexplained skip hides a regression.
 
