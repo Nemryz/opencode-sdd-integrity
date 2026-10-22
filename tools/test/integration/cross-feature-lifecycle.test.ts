@@ -142,6 +142,28 @@ describe("cross-feature: the events hooks follow the real lifecycle", () => {
     const events = await readEvents(worktree)
     expect(events).toEqual([])
   })
+
+  it("leaves feature null when the session has no active feature dir", async () => {
+    await run(scaffoldTool, { featureName: "Null Feature", template: "spec" })
+    const approved = await run(approveTool, { artifact: "spec", confirmed: true })
+    // Force a falsy featureDir so the guard must skip the assignment.
+    await fs.writeFile(path.join(worktree, ".opencode", "spec-memory", "session.json"), JSON.stringify({
+      command: "/spec",
+      phase: "spec",
+      featureDir: "",
+      featureNumber: 1,
+      featureName: "null-feature",
+      nextStep: "/approve spec",
+      lastResult: null,
+      history: [],
+    }), "utf-8")
+    await emitFrom("speckit-approve", approved)
+
+    const events = await readEvents(worktree)
+    const approval = events.find((event: SddEvent) => event.event === "sdd.approved")
+    expect(approval).toBeDefined()
+    expect(approval?.feature).toBeNull()
+  })
 })
 
 describe("cross-feature: archive snapshots the pre-archive state", () => {

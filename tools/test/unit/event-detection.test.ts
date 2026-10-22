@@ -98,3 +98,50 @@ describe("detectEvent", () => {
     expect(event!.feature).toBeNull()
   })
 })
+
+describe("detectEvent survivor killers", () => {
+  // Tool-name guards: a non-SDD tool name must never be routed into a branch.
+  it("does not treat speckit-status as a phase change even with phase-shaped output", () => {
+    expect(detectEvent("speckit-status", "phase: spec -> plan")).toBeNull()
+  })
+  it("does not treat speckit-status as an approval even with approval-shaped output", () => {
+    expect(detectEvent("speckit-status", "spec approved")).toBeNull()
+  })
+  it("does not treat speckit-status as evidence even with evidence-shaped output", () => {
+    expect(detectEvent("speckit-status", "record")).toBeNull()
+  })
+  it("does not treat speckit-status as an archive even with archive-shaped output", () => {
+    expect(detectEvent("speckit-status", "Archived")).toBeNull()
+  })
+
+  // Fallback branches need a result that misses the primary regex.
+  it("falls back to a bare phase event when the arrow is missing", () => {
+    const ev = detectEvent("speckit-phase", "phase only, no arrow")
+    expect(ev).not.toBeNull()
+    expect(ev!.event).toBe("sdd.phase.changed")
+    expect(ev!.from).toBeUndefined()
+  })
+  it("falls back to a bare approval event when the artifact name is missing", () => {
+    const ev = detectEvent("speckit-approve", "approved without artifact name")
+    expect(ev).not.toBeNull()
+    expect(ev!.event).toBe("sdd.approved")
+    expect(ev!.artifact).toBeUndefined()
+  })
+
+  // String triggers: empty-string inputs must not fire a branch.
+  it("does not fire evidence on a result with no record or evidence token", () => {
+    expect(detectEvent("speckit-evidence", "nothing here")).toBeNull()
+  })
+  it("does not fire archive on a result with no Archived token", () => {
+    expect(detectEvent("speckit-archive", "nothing here")).toBeNull()
+  })
+  it("returns null archivePath when there is no 'archived to' path", () => {
+    const ev = detectEvent("speckit-archive", "Archived without a path")
+    expect(ev).not.toBeNull()
+    expect(ev!.archivePath).toBeNull()
+  })
+
+  it("does not fire approval on a result with no approved token", () => {
+    expect(detectEvent("speckit-approve", "nothing here")).toBeNull()
+  })
+})
