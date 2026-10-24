@@ -43,6 +43,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install repository test dependencies
+        run: npm ci
+
       - name: Install OpenCode 1 runtime
         run: npm install -g opencode-ai@1.19.3
 
@@ -58,6 +61,15 @@ jobs:
 
       - name: Verify the install surface
         run: bash tools/test/install/verify-install.sh "$INSTALL_DIR"
+
+      - name: Install runtime dependencies for the OpenCode 1 check
+        run: npm ci --omit=dev --prefix "$INSTALL_DIR"
+
+      - name: Check OpenCode 1 plugin origins
+        env:
+          OPENCODE1_BIN: opencode
+          OPENCODE1_CONFIG_DIR: ${{ env.INSTALL_DIR }}
+        run: npx vitest run tools/test/smoke/opencode1-config.test.ts
 
       - name: Boot OpenCode 1 with the kit installed
         env:

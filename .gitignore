@@ -13,6 +13,7 @@ opencode.jsonc
 *.log
 *.sha256
 .env
+mcp-live.json
 .DS_Store
 .stryker-tmp/
 reports/
