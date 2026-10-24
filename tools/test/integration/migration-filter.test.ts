@@ -24,7 +24,19 @@ function findPython(): string {
     const output = `${result.stdout ?? ""}${result.stderr ?? ""}`
     if (result.status === 0 && /Python 3/.test(output)) return candidate
   }
-  throw new Error("Python 3 is required to run the real Engram filter")
+  throw new Error("Python 3 is required to run the real Engram filter. Install Python 3 or set PYTHON.")
+}
+
+async function readLf(file: string): Promise<string> {
+  return (await fs.readFile(file, "utf-8")).replace(/\r\n/g, "\n")
+}
+
+function toCrlf(value: string): string {
+  return value.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")
+}
+
+function toLf(value: string): string {
+  return value.replace(/\r\n/g, "\n")
 }
 
 beforeAll(() => {
@@ -51,18 +63,19 @@ function gitStatus(cwd: string, args: string[]): number {
   return result.status ?? 1
 }
 
-async function makeRepo(): Promise<string> {
+async function makeRepo(options: { autocrlf?: "true" | "false" } = {}): Promise<string> {
   const repo = await fs.mkdtemp(path.join(os.tmpdir(), "sdd-filter-"))
   tempDirs.push(repo)
   git(repo, ["init"])
   git(repo, ["config", "user.email", "test@example.com"])
   git(repo, ["config", "user.name", "Test"])
-  git(repo, ["config", "core.autocrlf", "false"])
+  git(repo, ["config", "core.autocrlf", options.autocrlf ?? "false"])
+  git(repo, ["config", "core.safecrlf", "false"])
   const scripts = path.join(repo, ".opencode", "scripts")
   await fs.mkdir(scripts, { recursive: true })
   await fs.copyFile(CLEAN, path.join(scripts, "opencode-engram-clean"))
   await fs.copyFile(SMUDGE, path.join(scripts, "opencode-engram-smudge"))
-  await fs.copyFile(BLOCK, path.join(repo, ".opencode", ".engram-smudge-template"))
+  await fs.writeFile(path.join(repo, ".opencode", ".engram-smudge-template"), await readLf(BLOCK))
   git(repo, ["config", "filter.engram.clean", `"${python}" .opencode/scripts/opencode-engram-clean`])
   git(repo, ["config", "filter.engram.smudge", `"${python}" .opencode/scripts/opencode-engram-smudge`])
   git(repo, ["config", "filter.engram.required", "true"])
@@ -92,8 +105,8 @@ describe("V1 to V2 Engram filters", () => {
 
   it("strips every Engram block and keeps the V2 body", async () => {
     const repo = await makeRepo()
-    const v2 = await fs.readFile(V2, "utf-8")
-    const block = await fs.readFile(BLOCK, "utf-8")
+    const v2 = await readLf(V2)
+    const block = await readLf(BLOCK)
     const cleaned = runPython(path.join(repo, ".opencode", "scripts", "opencode-engram-clean"), block + block + v2, repo)
     expect(cleaned).toBe(v2)
     expect(cleaned).not.toContain("ENGRAM_ONLY")
@@ -101,8 +114,8 @@ describe("V1 to V2 Engram filters", () => {
 
   it("smudges one block and stays idempotent", async () => {
     const repo = await makeRepo()
-    const v2 = await fs.readFile(V2, "utf-8")
-    const block = await fs.readFile(BLOCK, "utf-8")
+    const v2 = await readLf(V2)
+    const block = await readLf(BLOCK)
     const smudged = runPython(path.join(repo, ".opencode", "scripts", "opencode-engram-smudge"), v2, repo)
     expect(smudged).toBe(block + v2)
     expect(runPython(path.join(repo, ".opencode", "scripts", "opencode-engram-smudge"), smudged, repo)).toBe(smudged)
@@ -110,24 +123,61 @@ describe("V1 to V2 Engram filters", () => {
 
   it("leaves content alone when the template is missing", async () => {
     const repo = await makeRepo()
-    const v2 = await fs.readFile(V2, "utf-8")
+    const v2 = await readLf(V2)
     await fs.rm(path.join(repo, ".opencode", ".engram-smudge-template"))
     expect(runPython(path.join(repo, ".opencode", "scripts", "opencode-engram-smudge"), v2, repo)).toBe(v2)
   })
 
   it("preserves CRLF line endings while stripping a block", async () => {
     const repo = await makeRepo()
-    const v2 = (await fs.readFile(V2, "utf-8")).replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")
-    const block = (await fs.readFile(BLOCK, "utf-8")).replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")
+    const v2 = toCrlf(await readLf(V2))
+    const block = toCrlf(await readLf(BLOCK))
     const cleaned = runPython(path.join(repo, ".opencode", "scripts", "opencode-engram-clean"), block + v2, repo)
     expect(cleaned).toBe(v2)
   })
 
+  it("keeps a mixed-EOL checkout clean with core.autocrlf=true", async () => {
+    const repo = await makeRepo({ autocrlf: "true" })
+    const v1 = await readLf(V1)
+    const v2 = toCrlf(await readLf(V2))
+    const block = await readLf(BLOCK)
+    await commitFile(repo, v1, "test: v1")
+    git(repo, ["branch", "-m", "V1"])
+    git(repo, ["switch", "--orphan", "V2"])
+    await commitFile(repo, block + v2, "test: v2")
+    expect(gitStatus(repo, ["merge-base", "V1", "V2"])).not.toBe(0)
+
+    git(repo, ["switch", "V1"])
+    const v1Worktree = await fs.readFile(path.join(repo, "AGENTS.md"), "utf-8")
+    expect(v1Worktree).toContain("V1_ONLY")
+    expect(v1Worktree.match(/<!-- engram v1\.15\.1 -->/g)).toHaveLength(1)
+    expect(v1Worktree.match(/ENGRAM_ONLY/g)).toHaveLength(1)
+
+    git(repo, ["switch", "V2"])
+    const worktree = await fs.readFile(path.join(repo, "AGENTS.md"), "utf-8")
+    const head = git(repo, ["show", "HEAD:AGENTS.md"])
+    const index = git(repo, ["show", ":AGENTS.md"])
+    const eol = git(repo, ["ls-files", "--eol", "AGENTS.md"])
+    expect(worktree).toBe(block + v2)
+    expect(head).toBe(toLf(v2))
+    expect(head).not.toContain("ENGRAM_ONLY")
+    expect(index).toBe(head)
+    expect(eol).toContain("i/lf")
+    expect(eol).toContain("w/mixed")
+    expect(gitStatus(repo, ["diff", "--quiet"])).toBe(0)
+    expect(gitStatus(repo, ["diff", "--cached", "--quiet"])).toBe(0)
+
+    git(repo, ["switch", "V1"])
+    git(repo, ["switch", "V2"])
+    const second = await fs.readFile(path.join(repo, "AGENTS.md"), "utf-8")
+    expect(second).toBe(worktree)
+  })
+
   it("migrates between orphan V1 and V2 branches with a single block in the worktree", async () => {
     const repo = await makeRepo()
-    const v1 = await fs.readFile(V1, "utf-8")
-    const v2 = await fs.readFile(V2, "utf-8")
-    const block = await fs.readFile(BLOCK, "utf-8")
+    const v1 = await readLf(V1)
+    const v2 = await readLf(V2)
+    const block = await readLf(BLOCK)
     await commitFile(repo, v1, "test: v1")
     git(repo, ["branch", "-m", "V1"])
     git(repo, ["switch", "--orphan", "V2"])
