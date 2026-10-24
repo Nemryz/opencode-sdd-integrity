@@ -69,6 +69,19 @@ describe.skipIf(!RUN_LIVE)("MCP live matrix", () => {
     expect(missing, `missing servers in MCP_CONFIG: ${missing.join(", ")}`).toEqual([])
   })
 
+  it("preserves the enabled flag for every server", () => {
+    const mismatches = MATRIX.servers.flatMap((meta) => {
+      const server = LIVE[meta.name]
+      if (!server) return [`${meta.name} is missing`]
+      if (server.enabled !== meta.enabled) {
+        return [`${meta.name} enabled=${String(server.enabled)} expected ${meta.enabled}`]
+      }
+      return []
+    })
+    if (mismatches.length > 0) failed = true
+    expect(mismatches, `enabled flag mismatches: ${mismatches.join(", ")}`).toEqual([])
+  })
+
   describe.sequential("servers", () => {
     for (const meta of TESTABLE_SERVERS) {
       it(meta.name, async (context) => {
