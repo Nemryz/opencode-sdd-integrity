@@ -289,3 +289,16 @@ If the process stopped after moving some entries, or if the session or spec writ
 **Fix:** `speckit-archive` now builds one immutable `StatePlan`: preconditions cover the source tree hash, the absent target and the session file when it points at the feature; the plan contains one `rename-dir` operation and the metadata writes; `applyStatePlan` holds the global state lock, writes a journal with backups, executes the plan, checks the expected hash and rolls back on any failure. A target that appears between planning and applying rebuilds the plan once with the next suffix and then reports a conflict.
 
 **Test coverage:** `state-apply.integration.test.ts` covers stale bases, preconditions, target collisions, tampered plans, concurrent applies and rollback after a failed spec write; `chaos-state.test.ts` injects failed session, checksum and journal writes; `state-recovery.integration.test.ts` restores an applying journal and keeps a failed rollback visible; `archive.integration.test.ts` asserts one directory rename; `archive-safety.test.ts` rejects traversal and symlinked sources or archive directories, preserves the source on `EXDEV`, rebuilds once when the target appears after planning, and serializes two archive calls.
+
+### R-20: Auto-versioning committed a change that only touched lastUsedLanguage
+
+**Introduced in:** the language-only skip in `tools/shared/state/config.ts`
+**Fixed in:** 3.2.1
+
+A configuration write that only changed `lastUsedLanguage` was meant to be reverted without a commit, but the skip never matched a pretty-printed diff. The check counted the `---` and `+++` file headers as changed lines, those headers do not contain `lastUsedLanguage`, and the every-line test therefore failed before the real content was considered.
+
+**Root cause:** the diff filter selected every line starting with `+` or `-`, including the file headers, instead of selecting only added and removed content lines.
+
+**Fix:** the filter excludes `+++` and `---` headers, so a language-only change is reverted and a real configuration change still commits with `auto: update config`.
+
+**Test coverage:** `auto-commit-language.test.ts` proves the revert path and the commit path against a real temporary git repository.

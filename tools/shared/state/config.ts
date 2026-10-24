@@ -67,7 +67,8 @@ export async function tryAutoCommit(fp: string, root: string): Promise<void> {
 
 function onlyLastUsedLanguageChanged(diff: string): boolean {
   if (!diff) return false
-  const lines = diff.split("\n").filter(l => l.startsWith("+") || l.startsWith("-"))
+  const lines = diff.split("\n").filter(l =>
+    (l.startsWith("+") && !l.startsWith("+++")) || (l.startsWith("-") && !l.startsWith("---")))
   if (lines.length === 0) return false
   return lines.every(l => l.includes("lastUsedLanguage"))
 }
