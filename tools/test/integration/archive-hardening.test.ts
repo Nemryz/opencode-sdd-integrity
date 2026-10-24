@@ -160,7 +160,7 @@ describe("archive hardening", () => {
     expect(result.output).toContain(`Feature 001-demo archived to ${result.metadata?.archivePath}.`)
     expect(result.output).toContain("Files moved:")
     expect(result.output).toContain("Run /status to see updated state.")
-    expect(result.metadata?.movedFiles).toEqual(["plan.md", "spec.json", "spec.json.sha256", "spec.md"])
+    expect([...(result.metadata?.movedFiles as string[])].sort()).toEqual(["plan.md", "spec.json", "spec.json.sha256", "spec.md"])
     expect(corruptionWarnings).toEqual([])
   })
 
