@@ -77,12 +77,14 @@ Matrices are grouped by the layer they exercise, because a pure function test an
 | `shared/types` | `unit/matrix-types.test.ts` | Directory number parsing, phase detection across file combinations, path safety, package manager detection, and complexity monotonicity |
 | `shared/io` | `unit/matrix-io.test.ts` | Byte order mark handling, body checksum equivalence under line endings and padding, backup source keys, and errno matchers |
 | `plugins/speckit-guard` | `unit/matrix-guard.test.ts` | Path normalization, basename extraction, always protected files, approval gated files, phase gated files, feature directory scoping, and redirect extraction |
+| `shared/state` | `unit/state-paths.test.ts`, `fuzz/fuzz-state-plan.test.ts` | Traversal, absolute and Windows path rejection, scope normalization, transient path exclusions, tree hash sensitivity, canonical plan hashes, and malformed plans, operations and journals |
 
 ### Behavior through the public API
 
 | Module | Matrix file | What it varies |
 |--------|-------------|----------------|
 | `shared/snapshot` | `integration/matrix-snapshot.test.ts` | Trigger slugs, timestamp format, same second collisions, pin labels, drill results, listing status, and retention priority above the caps |
+| `speckit-archive` | `integration/archive-safety.test.ts` | Traversal names, symlinked sources and archive directories, `EXDEV`, target collisions and two concurrent archive calls |
 
 ### OpenCode 2 plugin surface
 
@@ -98,16 +100,24 @@ Matrices are grouped by the layer they exercise, because a pure function test an
 | Module | File | What it varies |
 |--------|------|----------------|
 | Snapshot and guard schemas | `fuzz/fuzz-snapshot-schemas.test.ts` | Manifest, restore journal, pin, drill, and guard configuration against hostile values |
+| State plan, operation and journal schemas | `fuzz/fuzz-state-plan.test.ts` | Missing hashes, unknown operations, wrong primitive types, hostile scopes and malformed journals |
 
 ### Property and chaos coverage
 
 `property/property-snapshot.test.ts` generates the inputs and asserts the invariants that must hold for every case, namely byte exact round trips, removal of artifacts created after the snapshot, idempotent trigger reuse, a fresh snapshot whenever the scope changes, and retention that never removes the newest or a pinned snapshot while respecting both caps.
 Every property case builds its own worktree, because a shared worktree lets one case inherit the snapshots of the previous one.
 
+`property/property-state-plan.test.ts` generates session histories and asserts that the same plan input produces the same base, expected and plan hashes, that the simulated expected hash equals the hash after apply, and that recovery is safe to repeat.
+
 `property/property-phase-machine.test.ts` runs the workflow as a model-based state machine, generating sequences of scaffold, approve, phase and validate commands and asserting after every command that spec.json and session.json stay schema valid, that the stored phase, the approvals and the ready flag never contradict each other, and that validate reads the state without rewriting spec.json.
 
 `chaos/chaos-snapshots.test.ts` injects the failures that a real filesystem produces, namely running out of space while copying, denied permissions while creating the folder, a copy that does not match the manifest hash, a read failure during a drill, an apply that fails once, and a rollback that fails as well.
 The suite asserts the transactional promises of the engine, where a failed creation leaves no folder behind, a failed drill records the error in its sidecar, a failed apply rolls back and clears the journal, and a failed rollback keeps the journal so the next attempt can recover.
+
+`chaos/chaos-state.test.ts` injects a failed session landing, a failed checksum sidecar and a failed journal write during an archive transaction, then asserts that the feature returns to `specs/`, the original spec and session bytes come back, and no transaction directory survives.
+`integration/state-apply.integration.test.ts` covers the same protocol end to end, including a random sequence of session, spec and config writes whose on-disk hash must equal the planned expected hash, two concurrent applies of one plan where only one wins, and the recovery of an applying journal whose rename already happened.
+`integration/state-recovery.integration.test.ts` also proves that a committed journal only needs cleanup, that a failed rollback stays visible instead of being silently discarded, and that a foreign archive target created by a collision is left intact while the source stays in place.
+`integration/archive-safety.test.ts` covers traversal names, symlinked sources and archive directories, `EXDEV`, a target that appears after planning and two archive calls that race for the same feature.
 
 ## Verification helpers
 
@@ -246,7 +256,7 @@ The `speckit-mutation` tool drives the whole thing with `list`, `run <batch...>`
 `/matrix` measures the batches one after another, never in parallel, because every Stryker run starts the whole suite in its dry run and running several at once only makes each one slower, while `/baseline` adds the stored reports up and names the batches that are still pending.
 That rule is about one machine: the workflow hands each batch to its own runner and runs up to five at once, because there the dry runs no longer compete for the same cores.
 
-Measuring all thirty three files in one job takes longer than any CI runner should hold a slot, so the file splits them into thirteen batches that each hold one domain and stay under roughly twelve hundred lines.
+Measuring all forty eight files in one job takes longer than any CI runner should hold a slot, so the file splits them into sixteen batches that each hold one domain and stay under roughly twelve hundred lines.
 The workflow never repeats a batch id, because a `batches` job reads the file, checks that every path exists, and emits the matrix that the `mutate` job consumes.
 Adding a file means adding it to one batch, and `mutation-batches.test.ts` fails when a path lands in two batches, when the union stops matching `stryker.conf.json`, or when a batch grows past the size a CI job can finish.
 
@@ -260,8 +270,9 @@ The installer CLI stays outside the batches, because the current Stryker setup m
 
 ### Current baseline
 
-The full matrix was last measured on 2026-10-22 against `86b6cb1`: thirteen batches, 5262 valid mutants, 3825 killed or timed out, 1002 survived and 425 without coverage, for a combined score of 72,88%.
-Three batches sit in the high band (`plugin-events` 92,86%, `tools-config-guard` 83,33%, `snapshot-restore` 82,35%), nine in the medium band, and `plugin-shims` reports 0,00% because its two valid mutants have no coverage.
+The full matrix was last measured on 2026-10-23 against `1943c8c`: sixteen batches, 8780 mutants (5895 valid), 4221 killed, 1178 survived and 482 without coverage, for a combined score of 71,84% after about 71 minutes in Actions.
+Three batches sit in the high band (`plugin-events` 92,86%, `tools-config-guard` 83,33%, `snapshot-restore` 82,35%), and `plugin-shims` reports 0,00% because its two valid mutants have no coverage.
+The lowest meaningful batches are `tools-archive` 55,94% and `shared-state-files` 57,06%, both split for this release, and their survivors are recorded as follow-up work instead of hidden in the aggregate.
 The per batch figures and the survivor decisions are in `reports/mutation-testing-analysis.md`.
 
 ### One place computes the score

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nemryz/opencode-sdd-integrity/actions/workflows/test.yml/badge.svg)](https://github.com/Nemryz/opencode-sdd-integrity/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-3392-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-3478-brightgreen.svg)]()
 [![Mutation Testing](https://img.shields.io/badge/mutation-Stryker-blue.svg)]()
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)]()
 
@@ -161,7 +161,7 @@ Agent captures the pre-archive state as a recovery point.
 Snapshot created.
 
 > /archive
-Agent confirms the feature is complete, then moves it to archive/2026-01-02-001-task-management.
+Agent confirms the feature is complete, then moves it with one directory rename and journaled metadata to archive/2026-01-02-001-task-management.
 Feature archived. Next: /status
 
 > /discovery
@@ -179,9 +179,9 @@ State integrity covers every file the workflow owns. `session.json`, `spec.json`
 
 Enforcement integrity keeps the workflow in charge of the workflow. Approvals are runtime gates rather than documentation: `/approve` requires an explicit confirmation before it unlocks the next phase, `/impl` refuses to run until tasks are approved, and every command pre-validates its own prerequisites. The guard plugin blocks editor writes and shell redirects that target protected state and names the rule that fired, and the doom-loop plugin warns at the third identical failure and blocks the fifth, so an agent cannot spin on a broken command.
 
-Verification integrity ties every claim to evidence. Tool results are typed, errors name the cause and the next command, reports end in a decision a reader can act on, and implementation tasks record TDD evidence through `speckit-evidence`, so a green run stays attached to the task it proves. Lifecycle events land in `.opencode/spec-memory/events.jsonl`, which keeps a chronology of phase changes, approvals, convergence verdicts and archives that survives a session restart. The toolkit's own 3392 tests run on Linux and Windows in CI, macOS remains supported for local runs, and install, smoke and mutation jobs watch the packaging and the suite itself.
+Verification integrity ties every claim to evidence. Tool results are typed, errors name the cause and the next command, reports end in a decision a reader can act on, and implementation tasks record TDD evidence through `speckit-evidence`, so a green run stays attached to the task it proves. Lifecycle events land in `.opencode/spec-memory/events.jsonl`, which keeps a chronology of phase changes, approvals, convergence verdicts and archives that survives a session restart. The toolkit's own 3478 tests run on Linux and Windows in CI, macOS remains supported for local runs, and install, smoke and mutation jobs watch the packaging and the suite itself.
 
-Recovery integrity assumes the worst and rehearses for it. `/health` and `/audit --fix` repair drift and corruption, an interrupted restore rolls back from its journal on the next run, and every restore proves itself first: the snapshot is verified, a drill restores it in a sandbox, a safety snapshot is taken, and the apply step rolls back automatically on failure.
+Recovery integrity assumes the worst and rehearses for it. `/health` and `/audit --fix` repair drift and corruption, `/health` reports a pending state transaction and `--fix` rolls it back, `/status` surfaces it without touching disk, an interrupted restore rolls back from its journal on the next run, and every restore proves itself first: the snapshot is verified, a drill restores it in a sandbox, a safety snapshot is taken, and the apply step rolls back automatically on failure.
 
 The same discipline shapes the interface. A blocked user gets the cause and the next command instead of a dead end, and a confirmation spells out the impact before it asks:
 
@@ -254,12 +254,12 @@ Nineteen tools implement the workflow, each self-contained, each validating its 
 | speckit-guard | File protection management with permission tiers |
 | speckit-approve | Approves generated artifacts to unlock the next workflow phase |
 | speckit-phase | Advances the feature phase to impl or complete after implementation |
-| speckit-archive | Archives a completed feature into `archive/YYYY-MM-DD-NNN-slug/` with collision handling |
+| speckit-archive | Archives a completed feature into `archive/YYYY-MM-DD-NNN-slug/` with collision handling and a journaled directory rename |
 | speckit-snapshot | Creates, inspects, restores, and prunes point-in-time snapshots of the SDD state |
 | speckit-lab | Creates an isolated git worktree, runs non-mutation test categories and profiles, and promotes reviewed patches |
 | speckit-mutation | Lists, runs, and aggregates the mutation batches of the kit itself, which only works inside a checkout of the repository |
 
-Four shared modules keep the tools consistent. `io.ts` owns atomic writes, backups, checksum generation and verification, corruption detection and restoration, `schemas.ts` defines the Zod schemas for every state file, `types.ts` carries the re-exports, phase detection, project root validation and the default data helpers, and `snapshot/` implements the point-in-time engine with its manifests, journal, retention and automatic triggers.
+The shared layer keeps the tools consistent. `io.ts` stays the compatibility facade for focused slices that own errors, safe paths, checksums, locks, atomic replaces, backups, corruption warnings, frontmatter and diagnostics, while `state/` holds the session, spec and config writers plus the immutable plan, journaled apply and recovery modules. `schemas.ts` defines the Zod schemas for every state file, `types.ts` carries the re-exports, phase detection, project root validation and the default data helpers, and `snapshot/` implements the point-in-time engine with its manifests, journal, retention and automatic triggers.
 
 ## Skills
 
@@ -389,7 +389,7 @@ The system follows a plugin-based architecture where each tool operates as a sel
 |  + speckit-snapshot                                                  |
 |  + speckit-lab                                                       |
 |  + speckit-mutation                                                  |
-|  + shared/ (io.ts, schemas.ts, types.ts, snapshot/)                  |
+|  + shared/ (io.ts, atomic, locks, backups, state/, snapshot/)        |
 +---------------------------------------------------------------------+
 |  Plugins Layer (5 runtime plugins)                                   |
 |  + speckit-perfmon (performance monitoring)                          |
@@ -407,6 +407,7 @@ The system follows a plugin-based architecture where each tool operates as a sel
 |  + events.jsonl (lifecycle chronology)                               |
 |  + backups/ (with SHA-256 checksums)                                 |
 |  + snapshots/ (point-in-time state with manifests)                   |
+|  + transactions/ (apply journals and rollback backups)               |
 +---------------------------------------------------------------------+
 ```
 
@@ -424,15 +425,15 @@ The installed toolkit mirrors the repository, and the same surface ships through
   skills/                Skill instructions (10 skills plus shared rules)
   plugins/               Plugin entrypoints that OpenCode 2 discovers directly
   tools/                 TypeScript tool modules (19 files)
-  tools/shared/          Shared modules (io.ts, schemas.ts, types.ts, snapshot/)
+  tools/shared/          Shared modules (io.ts, atomic, locks, backups, state/, snapshot/)
   tools/plugins/         Runtime plugin implementations (5 files)
   tools/install/         npm installer CLI and its surface contract
-  tools/test/            Test suite (129 test files)
+  tools/test/            Test suite (139 test files)
   templates/             Artifact templates (12 templates)
   docs/                  Reference documentation
 ```
 
-`tools/install/` carries the npm installer CLI and `surface.json`, the single contract that the install scripts, the verify scripts and the CLI all read, so the promised surface cannot drift between them. `docs/testing.md` documents the test types, the multi-value matrix convention and the per-module inventory, and `docs/showcase.md` captures the real tool outputs behind the interface contract.
+`tools/install/` carries the npm installer CLI and `surface.json`, the single contract that the install scripts, the verify scripts and the CLI all read, so the promised surface cannot drift between them. `docs/testing.md` documents the test types, the multi-value matrix convention and the per-module inventory, `docs/state-transactions.md` records the prior art and the plan, journal and recovery contract behind archive writes, and `docs/showcase.md` captures the real tool outputs behind the interface contract.
 
 ## State and Recovery
 
@@ -447,7 +448,7 @@ The workflow persists everything in files under `.opencode/spec-memory/` and `sp
 | `perf.json` | Tool call counts, execution times and percentiles |
 | `events.jsonl` | Append-only lifecycle log of phase changes, approvals, task completions, convergence verdicts and archives |
 
-On top of the files, four mechanisms keep state intact. Every write stores a checksummed backup under `.opencode/backups/`, trimmed to ten per source file, reads validate the JSON structure and the Zod schema and warn through a `[SDD]` channel when something is corrupt, atomic writes leave the previous version in place when an operation dies midway, and point-in-time snapshots capture the whole SDD state as one unit.
+On top of the files, five mechanisms keep state intact. Every write stores a checksummed backup under `.opencode/backups/`, trimmed to ten per source file, reads validate the JSON structure and the Zod schema and warn through a `[SDD]` channel when something is corrupt, atomic writes use a unique sibling temp file and fsync before the rename so an operation that dies midway leaves the previous version in place, session, spec and config writers take the global state lock before their per-file lock, and point-in-time snapshots capture the whole SDD state as one unit. Archive does not move files one by one: it builds one immutable plan, applies it behind a journal and rolls back on any failed metadata write.
 
 Snapshots record the core files, every feature directory under `specs/` and the steering documents, with a manifest that lists the project-relative path, size and SHA-256 checksum of every captured file, so integrity can be verified at any moment. Backups, snapshots themselves and transient files are never captured, and a snapshot of a project without features still succeeds with the core files that exist.
 
@@ -519,7 +520,7 @@ The project is a TypeScript toolkit with no build step, governed by the same gat
 
 ### Testing
 
-The suite holds 3392 automated tests across 132 files, and every layer answers a different question about the same system:
+The suite holds 3478 automated tests across 139 files, and every layer answers a different question about the same system:
 
 | Type | Directory | Question it answers |
 |------|-----------|---------------------|
