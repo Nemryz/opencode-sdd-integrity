@@ -117,8 +117,8 @@ describe("V1 to V2 Engram filters", () => {
 
   it("preserves CRLF line endings while stripping a block", async () => {
     const repo = await makeRepo()
-    const v2 = (await fs.readFile(V2, "utf-8")).replace(/\n/g, "\r\n")
-    const block = (await fs.readFile(BLOCK, "utf-8")).replace(/\n/g, "\r\n")
+    const v2 = (await fs.readFile(V2, "utf-8")).replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")
+    const block = (await fs.readFile(BLOCK, "utf-8")).replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")
     const cleaned = runPython(path.join(repo, ".opencode", "scripts", "opencode-engram-clean"), block + v2, repo)
     expect(cleaned).toBe(v2)
   })
