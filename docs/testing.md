@@ -77,14 +77,15 @@ Matrices are grouped by the layer they exercise, because a pure function test an
 | `shared/types` | `unit/matrix-types.test.ts` | Directory number parsing, phase detection across file combinations, path safety, package manager detection, and complexity monotonicity |
 | `shared/io` | `unit/matrix-io.test.ts` | Byte order mark handling, body checksum equivalence under line endings and padding, backup source keys, and errno matchers |
 | `plugins/speckit-guard` | `unit/matrix-guard.test.ts` | Path normalization, basename extraction, always protected files, approval gated files, phase gated files, feature directory scoping, and redirect extraction |
-| `shared/state` | `unit/state-paths.test.ts`, `fuzz/fuzz-state-plan.test.ts` | Traversal, absolute and Windows path rejection, scope normalization, transient path exclusions, tree hash sensitivity, canonical plan hashes, and malformed plans, operations and journals |
+| `shared/state` | `unit/state-paths.test.ts`, `integration/state-plan-hardening.test.ts`, `fuzz/fuzz-state-plan.test.ts` | Traversal, absolute and Windows path rejection, scope normalization, transient path exclusions, canonical JSON and journal round trips, tree hash sensitivity, canonical plan hashes, malformed plans, operations and journals, rename overlap, precondition kinds and virtual target collisions |
 
 ### Behavior through the public API
 
 | Module | Matrix file | What it varies |
 |--------|-------------|----------------|
 | `shared/snapshot` | `integration/matrix-snapshot.test.ts` | Trigger slugs, timestamp format, same second collisions, pin labels, drill results, listing status, and retention priority above the caps |
-| `speckit-archive` | `integration/archive-safety.test.ts` | Traversal names, symlinked sources and archive directories, `EXDEV`, target collisions and two concurrent archive calls |
+| `speckit-archive` | `integration/archive-safety.test.ts`, `integration/archive-hardening.test.ts`, `integration/archive-conflict.test.ts` | Traversal names, symlinked sources and archive directories, `EXDEV`, target collisions, two concurrent archive calls, timestamp padding, root warnings, latest selection, parent projects and two forced target races |
+| `shared/state` files | `integration/state-files-hardening.test.ts`, `integration/auto-commit-language.test.ts` | Session history capping, checksum repair, config validation, post-write schema and checksum failures, caller-visible session mutation and the language-only auto commit revert |
 
 ### OpenCode 2 plugin surface
 
@@ -116,8 +117,9 @@ The suite asserts the transactional promises of the engine, where a failed creat
 
 `chaos/chaos-state.test.ts` injects a failed session landing, a failed checksum sidecar and a failed journal write during an archive transaction, then asserts that the feature returns to `specs/`, the original spec and session bytes come back, and no transaction directory survives.
 `integration/state-apply.integration.test.ts` covers the same protocol end to end, including a random sequence of session, spec and config writes whose on-disk hash must equal the planned expected hash, two concurrent applies of one plan where only one wins, and the recovery of an applying journal whose rename already happened.
-`integration/state-recovery.integration.test.ts` also proves that a committed journal only needs cleanup, that a failed rollback stays visible instead of being silently discarded, and that a foreign archive target created by a collision is left intact while the source stays in place.
+`integration/state-recovery.integration.test.ts` also proves that a committed journal only needs cleanup, that a failed rollback stays visible instead of being silently discarded, that a foreign archive target created by a collision is left intact while the source stays in place, and that missing sources, missing or escaping backups, checksum mismatches and unreadable journals fail with the documented error.
 `integration/archive-safety.test.ts` covers traversal names, symlinked sources and archive directories, `EXDEV`, a target that appears after planning and two archive calls that race for the same feature.
+`integration/archive-hardening.test.ts` pins the single digit date padding, root warnings, latest numbered selection, parent project warning, collision suffixes and the archived output, while `integration/archive-conflict.test.ts` forces both apply attempts to lose the target race and asserts the stable conflict result.
 
 ## Verification helpers
 
