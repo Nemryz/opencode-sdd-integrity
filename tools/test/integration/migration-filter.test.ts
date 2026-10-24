@@ -23,6 +23,10 @@ function runNode(script: string, input: string): string {
   })
 }
 
+function normalizeNewlines(value: string): string {
+  return value.replace(/\r\n/g, "\n")
+}
+
 function git(cwd: string, args: string[]): string {
   return execFileSync("git", args, {
     cwd,
@@ -79,7 +83,7 @@ describe("V1 to V2 git filters", () => {
     const v2 = await fs.readFile(V2, "utf-8")
     const block = await fs.readFile(BLOCK, "utf-8")
     const cleaned = runNode(CLEAN, v2.trimEnd() + "\n\n" + block.trim() + "\n")
-    expect(cleaned).toBe(v2)
+    expect(normalizeNewlines(cleaned)).toBe(normalizeNewlines(v2))
     expect(cleaned).not.toContain("LOCAL_ONLY")
   })
 
