@@ -240,7 +240,7 @@ describe("state path resolution", () => {
     expect(() => resolveStatePath(root, "../escape")).toThrow(/unsafe state path/)
   })
 
-  it("rejects a symlink anywhere in the parent chain", async () => {
+  it.skipIf(process.platform === "win32")("rejects a symlink anywhere in the parent chain", async () => {
     await write("real/child.txt", "value")
     await fs.symlink(path.join(root, "real"), path.join(root, "linked"), "dir")
     await expect(assertNoSymlinkParents(root, "linked/child.txt")).rejects.toThrow(/unsafe state path/)
@@ -270,7 +270,7 @@ describe("path tree reads", () => {
     }
   })
 
-  it("rejects a symlink leaf", async () => {
+  it.skipIf(process.platform === "win32")("rejects a symlink leaf", async () => {
     await write("real.txt", "value")
     await fs.symlink(path.join(root, "real.txt"), path.join(root, "link.txt"))
     await expect(readPathTree(root, "link.txt")).rejects.toThrow(/unsafe state path/)
