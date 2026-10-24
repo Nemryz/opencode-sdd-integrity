@@ -74,6 +74,7 @@
     "@types/node": "^26.0.1",
     "@vitest/coverage-v8": "^4.1.11",
     "fast-check": "^4.9.0",
+    "opencode-engram-learning": "1.15.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   }

@@ -97,14 +97,29 @@ export function dedupePluginEntries(config: OpenCodeConfig): OpenCodeConfig {
   }
 }
 
-export function visibleServers(matrix: McpMatrix, config: OpenCodeConfig, agent: string): string[] {
-  return matrix.servers
-    .filter((meta) => {
-      const server = config.mcp[meta.name]
-      if (!server || server.enabled === false) return false
-      return meta.agents.includes("*") || meta.agents.includes(agent)
+export function matchesToolPattern(pattern: string, toolName: string): boolean {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")
+  return new RegExp(`^${escaped}$`).test(toolName)
+}
+
+function resolveToolSetting(tools: Record<string, boolean> | undefined, serverName: string): boolean | undefined {
+  let setting: boolean | undefined
+  for (const [pattern, enabled] of Object.entries(tools ?? {})) {
+    if (matchesToolPattern(pattern, `${serverName}_tool`)) setting = enabled
+  }
+  return setting
+}
+
+export function visibleServers(config: OpenCodeConfig, agent: string): string[] {
+  const agentTools = config.agent?.[agent]?.tools ?? config.agents?.[agent]?.tools
+  return Object.entries(config.mcp)
+    .filter(([name, server]) => {
+      if (server.enabled === false) return false
+      const specific = resolveToolSetting(agentTools, name)
+      const global = resolveToolSetting(config.tools, name)
+      return specific ?? global ?? true
     })
-    .map((meta) => meta.name)
+    .map(([name]) => name)
 }
 
 export function envPlaceholders(value: unknown): string[] {

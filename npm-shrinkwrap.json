@@ -26,6 +26,7 @@
         "@types/node": "^26.0.1",
         "@vitest/coverage-v8": "^4.1.11",
         "fast-check": "^4.9.0",
+        "opencode-engram-learning": "1.15.1",
         "typescript": "^6.0.3",
         "vitest": "^4.1.9"
       },
@@ -6820,6 +6821,19 @@
       },
       "funding": {
         "url": "https://github.com/sponsors/sindresorhus"
+      }
+    },
+    "node_modules/opencode-engram-learning": {
+      "version": "1.15.1",
+      "resolved": "https://registry.npmjs.org/opencode-engram-learning/-/opencode-engram-learning-1.15.1.tgz",
+      "integrity": "sha512-iJT9/KLn0v2KVIm31oY6TTH431xoHjI+xvJR3q6XSFH8C8xg+YlLNicFuPpd1xgqseosENtrUTfGCVBetB61gQ==",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "opencode": ">=1.0.0 || >=0.0.0-0"
+      },
+      "peerDependencies": {
+        "@opencode-ai/plugin": "^1.4.3"
       }
     },
     "node_modules/p-map": {

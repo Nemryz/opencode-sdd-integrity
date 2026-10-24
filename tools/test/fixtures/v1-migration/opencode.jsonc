@@ -183,40 +183,40 @@
     }
   },
   "tools": {
-    "bootstrap-docs": false,
-    "classmcp": false,
-    "kala": false,
-    "playwright": false,
-    "serena": false,
-    "basic-memory": false,
-    "arxiv": false,
-    "chrome-devtools": false,
-    "excalidraw": false,
-    "firecrawl": false,
-    "webnovel": false
+    "bootstrap-docs*": false,
+    "classmcp*": false,
+    "kala*": false,
+    "playwright*": false,
+    "serena*": false,
+    "basic-memory*": false,
+    "arxiv*": false,
+    "chrome-devtools*": false,
+    "excalidraw*": false,
+    "firecrawl*": false,
+    "webnovel*": false
   },
   "agent": {
     "build": {
       "tools": {
-        "bootstrap-docs": true,
-        "classmcp": true,
-        "kala": true,
-        "playwright": true,
-        "serena": true,
-        "chrome-devtools": true,
-        "excalidraw": true
+        "bootstrap-docs*": true,
+        "classmcp*": true,
+        "kala*": true,
+        "playwright*": true,
+        "serena*": true,
+        "chrome-devtools*": true,
+        "excalidraw*": true
       }
     },
     "spec": {
       "tools": {
-        "excalidraw": true
+        "excalidraw*": true
       }
     },
     "novel": {
       "tools": {
-        "basic-memory": true,
-        "arxiv": true,
-        "webnovel": true
+        "basic-memory*": true,
+        "arxiv*": true,
+        "webnovel*": true
       }
     }
   },

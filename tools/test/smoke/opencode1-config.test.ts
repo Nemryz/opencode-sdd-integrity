@@ -118,7 +118,7 @@ async function writeConfig(plugin?: string[]): Promise<void> {
   await fs.writeFile(path.join(configDir, "opencode.jsonc"), JSON.stringify(config, null, 2) + "\n")
 }
 
-beforeAll(async () => {
+async function setupOpenCode1(): Promise<void> {
   baseDir = await fs.mkdtemp(path.join(os.tmpdir(), "sdd-opencode1-"))
   const configHome = path.join(baseDir, "xdg-config")
   const dataHome = path.join(baseDir, "xdg-data")
@@ -151,13 +151,16 @@ beforeAll(async () => {
     OPENCODE_CONFIG_DIR: configDir,
     OPENCODE1_CONFIG_DIR: configDir,
   }
-})
+}
 
-afterAll(async () => {
+async function cleanupOpenCode1(): Promise<void> {
   if (baseDir) await fs.rm(baseDir, { recursive: true, force: true })
-})
+}
 
 describe.skipIf(!IS_OPENCODE1 || !HAS_NODE_MODULES)("OpenCode 1 plugin origins", () => {
+  beforeAll(setupOpenCode1)
+  afterAll(cleanupOpenCode1)
+
   it("reports the five shipped shims and no tools plugin origins", () => {
     const result = runDebugConfig()
     const origins = readOrigins(result.config)

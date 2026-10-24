@@ -178,11 +178,11 @@ The real migration path is a `git switch` from V1 to V2 with the smudge filter, 
 
 | Layer | File | What it proves |
 |-------|------|----------------|
-| T0 | `tools/test/mcp/mcp-config.test.ts` | The fixture and the metadata matrix agree on eighteen servers, eleven disabled tools, three agent scopes, nineteen tools and five shims |
+| T0 | `tools/test/mcp/mcp-config.test.ts` | The fixture and the metadata matrix agree on eighteen servers, eleven disabled tool families with wildcard patterns, three agent scopes, nineteen tools and five shims |
 | T1 | `tools/test/integration/migration-v1-v2.test.ts` | `opencode.jsonc` stays byte identical, local state survives, `AGENTS.md` keeps its backup and the guard migrates to version 2 only after a denied edit |
-| T1b | `tools/test/integration/migration-filter.test.ts` | The clean filter strips one local block, the smudge filter restores one block and a real `git switch` leaves git clean |
+| T1b | `tools/test/integration/migration-filter.test.ts` | The real Engram 1.15.1 filters strip repeated blocks, restore one block, preserve CRLF and keep orphan V1 and V2 branches clean |
 | T1c | `tools/test/smoke/opencode1-config.test.ts` | OpenCode 1 reports the five `./plugins/speckit-*` origins and no `./tools/plugins/speckit-*` origin |
-| T2 | `tools/test/mcp/mcp-live.test.ts` | A sanitized live configuration reaches every enabled MCP server and lists its tools |
+| T2 | `tools/test/mcp/mcp-live.test.ts` | A sanitized live configuration carries all eighteen server keys, probes each enabled server and compares the sorted tool list |
 
 ```bash
 npx vitest run \
@@ -195,7 +195,11 @@ npx vitest run \
 `tools/test/mcp/mcp-matrix.json` stores metadata only, namely the name, transport, timeout, enabled state, agent visibility and required environment names.
 The repository fixture uses placeholders and never carries a real command, URL, path or secret.
 The live block lives outside the repository and T2 reads it through `MCP_CONFIG`, because `opencode debug config` redacts the API keys.
-T2 resolves `{env:VAR}` values, skips disabled servers, `MCP_SKIP` entries, missing environment variables, missing commands and a closed Anki instance, and kills the child process tree after every probe.
+T2 is skipped unless `MCP_LIVE=1`, so the default suite and CI never contact a live MCP server.
+T2 requires all eighteen server keys, probes only the servers enabled in the live configuration, treats `firecrawl` as presence only and compares the sorted tool list against the baseline.
+It resolves `{env:VAR}` values and skips only `MCP_SKIP` entries, missing environment variables and a closed Anki instance, while a missing command fails the probe.
+It kills the child process tree after every probe.
+`tools/test/mcp/mcp-probe.test.ts` covers the baseline path, the outside repository guard, environment resolution and the baseline round trip without contacting a server.
 The per server probe timeout is the configured timeout plus five seconds, with `context7` and `anki` using sixty seconds, and the test timeout is 335 seconds.
 Preinstall the npx packages before a cold run, because the first npx invocation can take longer than the per server timeout.
 
@@ -206,7 +210,7 @@ MCP_LIVE=1 MCP_CONFIG=/absolute/path/outside/the/repository/mcp-live.json MCP_BA
   npx vitest run tools/test/mcp/mcp-live.test.ts
 ```
 
-The first run with `MCP_BASELINE_MODE=write` creates `reports/mcp-baseline.json`, which is gitignored.
+The first run with `MCP_BASELINE_MODE=write` creates `~/.opencode/mcp-baseline.json` by default, and `MCP_BASELINE_PATH` can point somewhere else outside the repository.
 Later runs compare the server name and the sorted tool list and allow a version drift.
 T1c runs in the `v1-coverage` job against OpenCode 1.19.3 and skips clearly on every other runtime.
 The job installs the repository test dependencies before the check and the runtime dependencies inside the isolated installation.

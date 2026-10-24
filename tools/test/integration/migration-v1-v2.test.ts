@@ -18,7 +18,7 @@ import {
 } from "../mcp/mcp-fixtures"
 
 const REPO_ROOT = repoRootDir()
-const SMUDGE = path.join(FIXTURE_DIR, "filter-smudge.mjs")
+const SMUDGE = path.join(FIXTURE_DIR, "local-smudge.mjs")
 const LOCAL_BLOCK = path.join(FIXTURE_DIR, "local-block.md")
 const RAW_CONFIG = path.join(FIXTURE_DIR, "opencode.jsonc")
 const AGENTS_LOCAL = path.join(FIXTURE_DIR, "AGENTS.local.md")

@@ -31,6 +31,7 @@ import {
   loadExpectedConfig,
   loadMatrix,
   loadRawConfig,
+  matchesToolPattern,
   serverPlaceholders,
   visibleServers,
 } from "./mcp-fixtures"
@@ -58,23 +59,23 @@ const TOOL_MODULES = {
 }
 
 const EXPECTED_TOOLS = [
-  "bootstrap-docs",
-  "classmcp",
-  "kala",
-  "playwright",
-  "serena",
-  "basic-memory",
-  "arxiv",
-  "chrome-devtools",
-  "excalidraw",
-  "firecrawl",
-  "webnovel",
+  "bootstrap-docs*",
+  "classmcp*",
+  "kala*",
+  "playwright*",
+  "serena*",
+  "basic-memory*",
+  "arxiv*",
+  "chrome-devtools*",
+  "excalidraw*",
+  "firecrawl*",
+  "webnovel*",
 ]
 
 const EXPECTED_AGENT_TOOLS = {
-  build: ["bootstrap-docs", "classmcp", "kala", "playwright", "serena", "chrome-devtools", "excalidraw"],
-  spec: ["excalidraw"],
-  novel: ["basic-memory", "arxiv", "webnovel"],
+  build: ["bootstrap-docs*", "classmcp*", "kala*", "playwright*", "serena*", "chrome-devtools*", "excalidraw*"],
+  spec: ["excalidraw*"],
+  novel: ["basic-memory*", "arxiv*", "webnovel*"],
 }
 
 describe("MCP fixture and matrix", () => {
@@ -141,7 +142,7 @@ describe("MCP fixture and matrix", () => {
     expect(config.mcp.anki.timeout).toBeUndefined()
   })
 
-  it("disables the eleven tools at the top level and leaves only agent scopes", () => {
+  it("disables eleven wildcard tool families at the top level and leaves only agent scopes", () => {
     const config = loadRawConfig()
     expect(Object.keys(config.tools ?? {})).toEqual(EXPECTED_TOOLS)
     for (const name of EXPECTED_TOOLS) {
@@ -158,9 +159,8 @@ describe("MCP fixture and matrix", () => {
   })
 
   it("computes the effective visibility for build, spec and novel", () => {
-    const matrix = loadMatrix()
     const config = loadRawConfig()
-    expect(visibleServers(matrix, config, "build")).toEqual([
+    expect(visibleServers(config, "build")).toEqual([
       "bootstrap-docs",
       "classmcp",
       "kala",
@@ -176,7 +176,7 @@ describe("MCP fixture and matrix", () => {
       "docgen",
       "unsplash",
     ])
-    expect(visibleServers(matrix, config, "spec")).toEqual([
+    expect(visibleServers(config, "spec")).toEqual([
       "exa",
       "context7",
       "memory",
@@ -186,7 +186,7 @@ describe("MCP fixture and matrix", () => {
       "docgen",
       "unsplash",
     ])
-    expect(visibleServers(matrix, config, "novel")).toEqual([
+    expect(visibleServers(config, "novel")).toEqual([
       "exa",
       "context7",
       "memory",
@@ -198,6 +198,42 @@ describe("MCP fixture and matrix", () => {
       "docgen",
       "unsplash",
     ])
+  })
+
+  it("keeps the matrix agent metadata aligned with the fixture", () => {
+    const matrix = loadMatrix()
+    const config = loadRawConfig()
+    const agents = ["build", "spec", "novel"]
+    for (const meta of matrix.servers) {
+      for (const agent of agents) {
+        const visible = visibleServers(config, agent).includes(meta.name)
+        const expected = meta.enabled && (meta.agents.includes("*") || meta.agents.includes(agent))
+        expect(visible, `${meta.name} for ${agent}`).toBe(expected)
+      }
+    }
+  })
+
+  it("uses a wildcard pattern for every restricted tool family", () => {
+    const config = loadRawConfig()
+    const patterns = [
+      ...Object.keys(config.tools ?? {}),
+      ...Object.values(config.agent ?? {}).flatMap((agent) => Object.keys(agent.tools ?? {})),
+    ]
+    for (const pattern of patterns) {
+      expect(pattern.endsWith("*"), `${pattern} must end with a wildcard`).toBe(true)
+      expect(config.mcp[pattern.slice(0, -1)], `${pattern} must name a configured server`).toBeDefined()
+    }
+  })
+
+  it("matches the wildcard tool syntax", () => {
+    expect(matchesToolPattern("server*", "server_tool")).toBe(true)
+    expect(matchesToolPattern("server_*", "server_tool")).toBe(true)
+    expect(matchesToolPattern("server_tool", "server_tool")).toBe(true)
+    expect(matchesToolPattern("server", "server_tool")).toBe(false)
+    expect(matchesToolPattern("server.tool*", "server.tool_search")).toBe(true)
+    expect(matchesToolPattern("server.tool*", "serverXtool_search")).toBe(false)
+    expect(matchesToolPattern("server?tool", "server?tool")).toBe(true)
+    expect(matchesToolPattern("server?tool", "server_tool")).toBe(false)
   })
 
   it("dedupes only the four local plugin entries and keeps the two npm entries", () => {

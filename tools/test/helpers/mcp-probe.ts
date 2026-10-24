@@ -1,4 +1,5 @@
 import fs from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
@@ -12,13 +13,6 @@ export class MissingEnvError extends Error {
   constructor(readonly envName: string) {
     super(`missing environment variable ${envName}`)
     this.name = "MissingEnvError"
-  }
-}
-
-export class SkipProbe extends Error {
-  constructor(reason: string) {
-    super(reason)
-    this.name = "SkipProbe"
   }
 }
 
@@ -119,8 +113,8 @@ async function closeClient(client: Client): Promise<void> {
 
 async function probeLocal(server: McpServer, meta: MatrixServer): Promise<ProbeResult> {
   const command = server.command?.[0]
-  if (!command) throw new SkipProbe(`missing command for ${meta.name}`)
-  if (!commandExists(command, server.cwd)) throw new SkipProbe(`command not found for ${meta.name}: ${command}`)
+  if (!command) throw new Error(`missing command for ${meta.name}`)
+  if (!commandExists(command, server.cwd)) throw new Error(`command not found for ${meta.name}: ${command}`)
   const transport = new StdioClientTransport({
     command,
     args: server.command?.slice(1),
@@ -150,7 +144,7 @@ async function probeLocal(server: McpServer, meta: MatrixServer): Promise<ProbeR
 
 async function probeRemote(server: McpServer, meta: MatrixServer): Promise<ProbeResult> {
   const url = server.url
-  if (!url) throw new SkipProbe(`missing url for ${meta.name}`)
+  if (!url) throw new Error(`missing url for ${meta.name}`)
   const timeout = probeTimeout(meta)
   const target = new URL(url)
   const headers = server.headers
@@ -191,15 +185,19 @@ export function isConnectionError(error: unknown): boolean {
 }
 
 export function baselinePath(): string {
-  return process.env.MCP_BASELINE_PATH ?? path.join(REPO_ROOT, "reports", "mcp-baseline.json")
+  return process.env.MCP_BASELINE_PATH ?? path.join(os.homedir(), ".opencode", "mcp-baseline.json")
+}
+
+export function assertBaselineOutsideRepo(filePath: string): void {
+  const resolved = path.resolve(filePath)
+  const relative = path.relative(REPO_ROOT, resolved)
+  const inside = relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
+  if (inside) throw new Error(`MCP baseline must live outside the repository, received ${resolved}`)
 }
 
 export function loadBaseline(filePath: string): McpBaseline | null {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as McpBaseline
-  } catch {
-    return null
-  }
+  if (!fs.existsSync(filePath)) return null
+  return JSON.parse(fs.readFileSync(filePath, "utf-8")) as McpBaseline
 }
 
 export function writeBaseline(filePath: string, results: ProbeResult[]): void {
