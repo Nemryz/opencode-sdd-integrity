@@ -342,6 +342,8 @@ await fs.writeFile(snapshotDir(worktree), "blocked", "utf-8")
 
 **Naming.** Branch names, commit messages, test names and identifiers are English. Branches follow `d0-3-verification-helpers` style, where the phase prefix keeps the campaign readable.
 
+**Commits.** Subjects use `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:` or `ci:` followed by an English summary, and a scope between the type and the colon is never allowed, so `feat: add ...` is correct and `feat(phase): add ...` is rejected.
+
 **Documentation.** Every document uses one H1 and groups the remaining headings in the order a reader needs them, while H3 headings carry only the lists that become unreadable without a title. Each paragraph, list item, and table row stays on a single line, written as narrative prose that explains the mechanism without cutting a sentence midway and without restating what the code already shows.
 
 ---
