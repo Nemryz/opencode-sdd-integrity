@@ -3,7 +3,10 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
 import {
+  inspectStateTransactions,
+  mapPathBackward,
   recoverStateTransactions,
+  rollbackJournal,
   sha256,
   toPosix,
   transactionBackupPath,
@@ -156,3 +159,112 @@ describe("state transaction recovery", () => {
     expect(await absolutePathExists(transactionsDirPath(root))).toBe(true)
   })
 })
+
+describe("state recovery guards", () => {
+  it("maps a renamed path backward through nested operations", () => {
+    const operations = [
+      { kind: "rename-dir" as const, from: featureRel, to: archiveRel },
+      { kind: "write-spec-json" as const, featureDir: archiveRel, data: makeSpec() },
+    ]
+    expect(mapPathBackward(archiveRel, operations)).toBe(featureRel)
+    expect(mapPathBackward(`${archiveRel}/spec.json`, operations)).toBe(`${featureRel}/spec.json`)
+    expect(mapPathBackward("unrelated/path", operations)).toBe("unrelated/path")
+  })
+
+  it("inspects unreadable transactions and sorts summaries by start time", async () => {
+    await fs.mkdir(transactionDirPath(root, "tx-unreadable"), { recursive: true })
+    await writeJournal(root, journal({ txId: "tx-late", startedAt: "2026-01-02T00:00:00.000Z" }))
+    await writeJournal(root, journal({ txId: "tx-early", startedAt: "2026-01-01T00:00:00.000Z" }))
+    const summaries = await inspectStateTransactions(root)
+    expect(summaries.map((entry) => entry.txId)).toEqual(["tx-unreadable", "tx-early", "tx-late"])
+    expect(summaries[0].state).toBe("unreadable")
+  })
+
+  it("fails a rollback when neither side of the rename exists", async () => {
+    await fs.rm(path.join(root, featureRel), { recursive: true, force: true })
+    await writeJournal(root, journal({ state: "applying" }))
+    await expect(recoverStateTransactions(root)).rejects.toMatchObject({ code: "ROLLBACK_FAILED" })
+    const failure = await readJournalFile("tx-recovery")
+    expect(failure?.state).toBe("rollback-failed")
+    expect(failure?.error).toContain("rollback cannot find rename source or target")
+  })
+
+  it("fails a rollback when a backup path is missing", async () => {
+    await writeJournal(root, journal({
+      state: "applying",
+      backups: [{ path: `${featureRel}/spec.json`, kind: "file", sha256: sha256("data") }],
+    }))
+    await expect(recoverStateTransactions(root)).rejects.toMatchObject({ code: "ROLLBACK_FAILED" })
+    const failure = await readJournalFile("tx-recovery")
+    expect(failure?.error).toContain("rollback backup path is missing")
+  })
+
+  it("rejects a backup path that escapes the transaction directory", async () => {
+    await fs.mkdir(path.join(root, featureRel), { recursive: true })
+    await writeJournal(root, journal({
+      state: "applying",
+      backups: [{
+        path: `${featureRel}/spec.json`,
+        kind: "file",
+        backupPath: "specs/001-demo/spec.json",
+        sha256: sha256(await fs.readFile(path.join(root, specRel))),
+      }],
+    }))
+    await expect(recoverStateTransactions(root)).rejects.toMatchObject({ code: "ROLLBACK_FAILED" })
+    const failure = await readJournalFile("tx-recovery")
+    expect(failure?.error).toContain("rollback backup path escapes the transaction")
+  })
+
+  it("rejects a backup whose checksum does not match", async () => {
+    const backupRel = toPosix(path.relative(root, transactionBackupPath(root, "tx-recovery", specRel)))
+    await fs.mkdir(path.dirname(path.join(root, backupRel)), { recursive: true })
+    await fs.writeFile(path.join(root, backupRel), "tampered", "utf-8")
+    await writeJournal(root, journal({
+      state: "applying",
+      backups: [{
+        path: specRel,
+        kind: "file",
+        backupPath: backupRel,
+        sha256: sha256("original"),
+      }],
+    }))
+    await expect(recoverStateTransactions(root)).rejects.toMatchObject({ code: "ROLLBACK_FAILED" })
+    const failure = await readJournalFile("tx-recovery")
+    expect(failure?.error).toContain("rollback backup checksum mismatch")
+  })
+
+  it("removes a target recorded as absent during rollback", async () => {
+    const targetRel = `${featureRel}/created.txt`
+    await fs.writeFile(path.join(root, targetRel), "created", "utf-8")
+    await rollbackJournal(root, journal({
+      state: "applying",
+      operations: [{ kind: "write-session", data: {
+        command: null,
+        phase: "spec",
+        featureDir: null,
+        featureNumber: null,
+        featureName: null,
+        nextStep: null,
+        lastResult: null,
+        history: [],
+      } }],
+      backups: [{ path: targetRel, kind: "absent" }],
+    }))
+    expect(await pathExists(targetRel)).toBe(false)
+  })
+
+  it("reports an unreadable journal without throwing", async () => {
+    await fs.mkdir(transactionDirPath(root, "tx-broken"), { recursive: true })
+    const summaries = await inspectStateTransactions(root)
+    expect(summaries).toContainEqual({ txId: "tx-broken", state: "unreadable" })
+  })
+})
+
+async function readJournalFile(txId: string): Promise<StateJournal | null> {
+  try {
+    const raw = await fs.readFile(path.join(transactionDirPath(root, txId), "journal.json"), "utf-8")
+    return JSON.parse(raw) as StateJournal
+  } catch {
+    return null
+  }
+}
