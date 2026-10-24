@@ -33,7 +33,7 @@ jobs:
         run: npm test
 
   v1-coverage:
-    name: V1 runtime coverage (opencode-ai 1.x)
+    name: V1 runtime coverage (opencode-ai 1.19.0)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -47,10 +47,13 @@ jobs:
         run: npm ci
 
       - name: Install OpenCode 1 runtime
-        run: npm install -g opencode-ai@1.19.3
+        run: npm install -g opencode-ai@1.19.0
 
       - name: Verify OpenCode 1 is available
-        run: opencode --version
+        run: |
+          version="$(opencode --version | tr -d 'v')"
+          test "$version" = "1.19.0"
+          echo "OpenCode $version"
 
       - name: Install the kit (V2 package with V1 wiring)
         run: |
