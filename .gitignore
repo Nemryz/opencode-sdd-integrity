@@ -7,7 +7,7 @@ node_modules/
 .opencode/transactions/
 .opencode/plugins-state.json
 .opencode/perf.json
-opencode.jsonc
+/opencode.jsonc
 *.bak
 *.tmp
 *.log
