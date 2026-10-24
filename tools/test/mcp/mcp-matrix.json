@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "servers": [
+    {
+      "name": "bootstrap-docs",
+      "transport": "stdio",
+      "timeout": 120000,
+      "enabled": true,
+      "agents": ["build"],
+      "requiredEnv": ["BOOTSTRAP_DOCS_ENTRY"]
+    },
+    {
+      "name": "classmcp",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["build"],
+      "requiredEnv": []
+    },
+    {
+      "name": "kala",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["build"],
+      "requiredEnv": []
+    },
+    {
+      "name": "playwright",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["build"],
+      "requiredEnv": []
+    },
+    {
+      "name": "exa",
+      "transport": "http",
+      "timeout": 31000,
+      "enabled": true,
+      "agents": ["*"],
+      "requiredEnv": ["EXA_API_KEY"]
+    },
+    {
+      "name": "context7",
+      "transport": "http",
+      "enabled": true,
+      "agents": ["*"],
+      "requiredEnv": []
+    },
+    {
+      "name": "memory",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["*"],
+      "requiredEnv": ["MEMORY_FILE_PATH"]
+    },
+    {
+      "name": "basic-memory",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["novel"],
+      "requiredEnv": []
+    },
+    {
+      "name": "serena",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["build"],
+      "requiredEnv": []
+    },
+    {
+      "name": "arxiv",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["novel"],
+      "requiredEnv": []
+    },
+    {
+      "name": "chrome-devtools",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["build"],
+      "requiredEnv": []
+    },
+    {
+      "name": "excalidraw",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["build", "spec"],
+      "requiredEnv": []
+    },
+    {
+      "name": "firecrawl",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": false,
+      "agents": [],
+      "requiredEnv": ["FIRECRAWL_API_KEY"]
+    },
+    {
+      "name": "vision",
+      "transport": "stdio",
+      "timeout": 300000,
+      "enabled": true,
+      "agents": ["*"],
+      "requiredEnv": ["VISION_TESSERACT_CMD"]
+    },
+    {
+      "name": "webnovel",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["novel"],
+      "requiredEnv": ["WEBNOVEL_BIN"]
+    },
+    {
+      "name": "anki",
+      "transport": "http",
+      "enabled": true,
+      "agents": ["*"],
+      "requiredEnv": []
+    },
+    {
+      "name": "docgen",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["*"],
+      "requiredEnv": []
+    },
+    {
+      "name": "unsplash",
+      "transport": "stdio",
+      "timeout": 60000,
+      "enabled": true,
+      "agents": ["*"],
+      "requiredEnv": ["UNSPLASH_DIR"]
+    }
+  ]
+}

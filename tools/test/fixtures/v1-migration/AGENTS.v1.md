@@ -1,0 +1,3 @@
+# AGENTS V1
+
+V1_ONLY

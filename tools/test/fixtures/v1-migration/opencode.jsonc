@@ -1,0 +1,229 @@
+{
+  "mcp": {
+    "bootstrap-docs": {
+      "type": "local",
+      "command": [
+        "node",
+        "{env:BOOTSTRAP_DOCS_ENTRY}"
+      ],
+      "enabled": true,
+      "timeout": 120000
+    },
+    "classmcp": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "classmcp"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    },
+    "kala": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "-p",
+        "kala-mcp",
+        "-p",
+        "playwright",
+        "kala-mcp"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    },
+    "playwright": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    },
+    "exa": {
+      "type": "remote",
+      "url": "https://mcp.exa.ai/mcp",
+      "headers": {
+        "x-api-key": "{env:EXA_API_KEY}"
+      },
+      "timeout": 31000,
+      "enabled": true
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true
+    },
+    "memory": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "environment": {
+        "MEMORY_FILE_PATH": "{env:MEMORY_FILE_PATH}"
+      },
+      "timeout": 60000,
+      "enabled": true
+    },
+    "basic-memory": {
+      "type": "local",
+      "command": [
+        "basic-memory",
+        "mcp"
+      ],
+      "timeout": 60000,
+      "enabled": true
+    },
+    "serena": {
+      "type": "local",
+      "command": [
+        "serena",
+        "start-mcp-server",
+        "--project-from-cwd"
+      ],
+      "timeout": 60000,
+      "enabled": true
+    },
+    "arxiv": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "arxiv-mcp-server"
+      ],
+      "timeout": 60000,
+      "enabled": true
+    },
+    "chrome-devtools": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    },
+    "excalidraw": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "mcp-excalidraw-server"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    },
+    "firecrawl": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "firecrawl-mcp"
+      ],
+      "environment": {
+        "FIRECRAWL_API_KEY": "{env:FIRECRAWL_API_KEY}"
+      },
+      "enabled": false,
+      "timeout": 60000
+    },
+    "vision": {
+      "type": "local",
+      "command": [
+        "python",
+        "-m",
+        "opencode_vision.server"
+      ],
+      "environment": {
+        "PYTHONUTF8": "1",
+        "VISION_DISABLE_PADDLE": "1",
+        "VISION_TESSERACT_CMD": "{env:VISION_TESSERACT_CMD}"
+      },
+      "enabled": true,
+      "timeout": 300000
+    },
+    "webnovel": {
+      "type": "local",
+      "command": [
+        "{env:WEBNOVEL_BIN}"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    },
+    "anki": {
+      "type": "remote",
+      "url": "http://127.0.0.1:3141/",
+      "enabled": true
+    },
+    "docgen": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "--with",
+        "mcp<2",
+        "mcp-docgen"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    },
+    "unsplash": {
+      "type": "local",
+      "command": [
+        "uv",
+        "run",
+        "server.py"
+      ],
+      "cwd": "{env:UNSPLASH_DIR}",
+      "enabled": true,
+      "timeout": 60000
+    }
+  },
+  "tools": {
+    "bootstrap-docs*": false,
+    "classmcp*": false,
+    "kala*": false,
+    "playwright*": false,
+    "serena*": false,
+    "basic-memory*": false,
+    "arxiv*": false,
+    "chrome-devtools*": false,
+    "excalidraw*": false,
+    "firecrawl*": false,
+    "webnovel*": false
+  },
+  "agent": {
+    "build": {
+      "tools": {
+        "bootstrap-docs*": true,
+        "classmcp*": true,
+        "kala*": true,
+        "playwright*": true,
+        "serena*": true,
+        "chrome-devtools*": true,
+        "excalidraw*": true
+      }
+    },
+    "spec": {
+      "tools": {
+        "excalidraw*": true
+      }
+    },
+    "novel": {
+      "tools": {
+        "basic-memory*": true,
+        "arxiv*": true,
+        "webnovel*": true
+      }
+    }
+  },
+  "plugin": [
+    "@codingskuy/coding-school",
+    "./tools/plugins/speckit-perfmon.ts",
+    "opencode-engram-learning",
+    "./tools/plugins/speckit-guard.ts"
+  ]
+}
