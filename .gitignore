@@ -8,6 +8,7 @@ node_modules/
 .opencode/plugins-state.json
 .opencode/perf.json
 /opencode.jsonc
+/service.json
 *.bak
 *.tmp
 *.log
@@ -22,3 +23,17 @@ specs/*-test/
 specs/003-sdd-state-snapshots-restore/
 agents/novel.md
 .lab-cache/
+
+# Secrets and credentials
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+.npmrc
+.netrc
+secrets/
+credentials*
