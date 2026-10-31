@@ -31,7 +31,7 @@ function vitestStep(
   label: string,
   paths: string[],
   context: LabPlanContext,
-  options: { coverage?: boolean; shuffle?: boolean; seed?: string; requiresConfirmation?: boolean } = {},
+  options: { coverage?: boolean; shuffle?: boolean; seed?: string; requiresConfirmation?: boolean; flake?: boolean } = {},
 ): LabStep {
   const reportFile = path.join(context.reportDir, `${label.replace(/[^a-z0-9]+/gi, "-")}.json`)
   const args = [
@@ -61,7 +61,7 @@ function vitestStep(
     coverageFile = path.join(coverageDir, "coverage-summary.json")
   }
   args.push(...paths)
-  return {
+  const step: LabStep = {
     label,
     command: "node",
     args,
@@ -69,7 +69,37 @@ function vitestStep(
     coverageFile,
     timeoutMs: 30 * 60 * 1000,
     requiresConfirmation: options.requiresConfirmation,
+    seed: options.seed,
+    continueOnFailure: options.flake,
   }
+  if (options.flake) {
+    step.rerun = ({ files, seed: rerunSeed, attempt, kind }) => {
+      const rerunReport = path.join(context.reportDir, `${label.replace(/[^a-z0-9]+/gi, "-")}-flake-${kind}-${attempt}.json`)
+      const rerunArgs = [
+        VITEST_BIN,
+        "run",
+        "--config",
+        VITEST_CONFIG,
+        "--reporter=json",
+        "--outputFile",
+        rerunReport,
+      ]
+      for (const pattern of EXCLUDES) rerunArgs.push("--exclude", pattern)
+      if (rerunSeed) {
+        rerunArgs.push("--sequence.shuffle", "--sequence.seed", rerunSeed)
+      }
+      rerunArgs.push(...files)
+      return {
+        label: `${label}-flake-${kind}-${attempt}`,
+        command: "node",
+        args: rerunArgs,
+        reportFile: rerunReport,
+        timeoutMs: 10 * 60 * 1000,
+        seed: rerunSeed,
+      }
+    }
+  }
+  return step
 }
 
 function npmStep(label: string, script: string, timeoutMs: number): LabStep {
@@ -132,9 +162,9 @@ export const integrityAdapter: LabAdapter = {
     }
     if (selection.profile === "soak") {
       return [
-        vitestStep("soak-1", [], context, { shuffle: true, seed: "20261022", requiresConfirmation: true }),
-        vitestStep("soak-2", [], context, { shuffle: true, seed: "20261023" }),
-        vitestStep("soak-3", [], context, { coverage: true, shuffle: true, seed: "20261024" }),
+        vitestStep("soak-1", [], context, { shuffle: true, seed: "20261022", requiresConfirmation: true, flake: true }),
+        vitestStep("soak-2", [], context, { shuffle: true, seed: "20261023", flake: true }),
+        vitestStep("soak-3", [], context, { coverage: true, shuffle: true, seed: "20261024", flake: true }),
         npmStep("typecheck", "typecheck", 5 * 60 * 1000),
         npmStep("lint", "lint:lang", 5 * 60 * 1000),
       ]

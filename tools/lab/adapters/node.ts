@@ -15,10 +15,12 @@ function managerCommand(manager: PackageManager): string {
 
 async function detectManager(repoRoot: string): Promise<PackageManager> {
   for (const [file, manager] of [
+    ["npm-shrinkwrap.json", "npm"],
+    ["package-lock.json", "npm"],
     ["pnpm-lock.yaml", "pnpm"],
     ["yarn.lock", "yarn"],
     ["bun.lockb", "bun"],
-    ["package-lock.json", "npm"],
+    ["bun.lock", "bun"],
   ] as const) {
     try {
       await fs.access(path.join(repoRoot, file))

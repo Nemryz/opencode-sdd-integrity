@@ -43,6 +43,7 @@ export interface DependencyInput {
   source: LockfileState | null
   sandbox: LockfileState | null
   current?: LabDependencyState
+  baseSource?: LockfileState | null
   sandboxHasNodeModules: boolean
   sourceHasNodeModules: boolean
 }
@@ -51,6 +52,7 @@ export interface EnsureDependenciesOptions {
   projectRoot: string
   sandbox: LabSandbox
   reportDir: string
+  signal?: AbortSignal
 }
 
 export interface EnsureDependenciesResult {
@@ -93,7 +95,7 @@ export async function hasNodeModules(root: string): Promise<boolean> {
   }
 }
 
-function sameLockfile(left: LockfileState | null, right: LockfileState | null): boolean {
+export function sameLockfile(left: LockfileState | null, right: LockfileState | null): boolean {
   return Boolean(left && right && left.file === right.file && left.hash === right.hash)
 }
 
@@ -105,7 +107,7 @@ function matchesInstalledState(current: LabDependencyState | undefined, lockfile
 
 // Pure decision table so the dependency policy can be tested without spawning a package manager.
 export function planDependencyAction(input: DependencyInput): DependencyDecision {
-  const { source, sandbox, current, sandboxHasNodeModules, sourceHasNodeModules } = input
+  const { source, sandbox, current, baseSource, sandboxHasNodeModules, sourceHasNodeModules } = input
 
   if (!sandbox) {
     if (source) {
@@ -122,6 +124,23 @@ export function planDependencyAction(input: DependencyInput): DependencyDecision
 
   if (matchesInstalledState(current, sandbox) && sandboxHasNodeModules) {
     return { action: "ready", reason: "Dependencies match the installed lockfile" }
+  }
+
+  if (baseSource !== undefined) {
+    const sourceChanged = !sameLockfile(baseSource, source)
+    const sandboxChanged = !sameLockfile(baseSource, sandbox)
+    if (sourceChanged && sandboxChanged) {
+      return {
+        action: "error",
+        reason: "Both the checkout and sandbox lockfiles changed since the sandbox was created; create a new sandbox",
+      }
+    }
+    if (sourceChanged) {
+      return {
+        action: "error",
+        reason: "The checkout lockfile changed since the sandbox was created; create a new sandbox from the current HEAD",
+      }
+    }
   }
 
   if (source && sameLockfile(source, sandbox)) {
@@ -178,6 +197,7 @@ async function installCommand(
 export async function installDependencies(
   root: string,
   lockfile: LockfileState,
+  options: { signal?: AbortSignal } = {},
 ): Promise<{ command: string; args: string[]; result: LabProcessResult }> {
   const install = await installCommand(lockfile.manager, root)
   // .cmd shims cannot be spawned directly on Windows; cmd.exe resolves the shim through PATHEXT.
@@ -190,6 +210,7 @@ export async function installDependencies(
     cwd: root,
     timeoutMs: INSTALL_TIMEOUT_MS,
     maxOutputBytes: INSTALL_OUTPUT_LIMIT,
+    signal: options.signal,
   })
   return { command, args, result }
 }
@@ -242,6 +263,25 @@ async function writeDependencyLog(
   return logPath
 }
 
+
+
+function managerFromFile(file: string): LabPackageManager {
+  if (file.startsWith("pnpm")) return "pnpm"
+  if (file.startsWith("yarn")) return "yarn"
+  if (file.startsWith("bun")) return "bun"
+  return "npm"
+}
+
+function lockfileFromDependencyState(state: LabDependencyState | undefined): LockfileState | null | undefined {
+  if (!state || state.sourceLockfile === undefined) return undefined
+  if (state.sourceLockfile === null) return null
+  return {
+    file: state.sourceLockfile,
+    manager: state.manager ?? managerFromFile(state.sourceLockfile),
+    hash: state.sourceLockHash ?? "",
+  }
+}
+
 export async function ensureDependencies(options: EnsureDependenciesOptions): Promise<EnsureDependenciesResult> {
   const [source, sandboxLockfile, sandboxHasNodeModules, sourceHasNodeModules] = await Promise.all([
     readLockfile(options.sandbox.repoRoot),
@@ -249,10 +289,12 @@ export async function ensureDependencies(options: EnsureDependenciesOptions): Pr
     hasNodeModules(options.sandbox.sandboxRoot),
     hasNodeModules(options.sandbox.repoRoot),
   ])
+  const baseSource = lockfileFromDependencyState(options.sandbox.dependencies)
   const decision = planDependencyAction({
     source,
     sandbox: sandboxLockfile,
     current: options.sandbox.dependencies,
+    baseSource,
     sandboxHasNodeModules,
     sourceHasNodeModules,
   })
@@ -284,7 +326,7 @@ export async function ensureDependencies(options: EnsureDependenciesOptions): Pr
   }
 
   await removeNodeModulesEntry(options.sandbox.sandboxRoot)
-  const installed = await installDependencies(options.sandbox.sandboxRoot, sandboxLockfile)
+  const installed = await installDependencies(options.sandbox.sandboxRoot, sandboxLockfile, { signal: options.signal })
   const logPath = await writeDependencyLog(
     options.reportDir,
     installed.command,
@@ -296,6 +338,12 @@ export async function ensureDependencies(options: EnsureDependenciesOptions): Pr
     const detail = outputTail(`${installed.result.stdout}\n${installed.result.stderr}`)
     throw new Error(
       `Dependency install failed with ${installed.command} ${installed.args.join(" ")} in ${options.sandbox.sandboxRoot}${detail ? `: ${detail}` : ""}. See ${logPath}`,
+    )
+  }
+  const verifiedLockfile = await readLockfile(options.sandbox.sandboxRoot)
+  if (!sameLockfile(verifiedLockfile, sandboxLockfile)) {
+    throw new Error(
+      `Dependency install did not converge: ${sandboxLockfile.file} changed during installation. See ${logPath}`,
     )
   }
   // npm ci can succeed without creating node_modules when the lockfile has no dependencies.

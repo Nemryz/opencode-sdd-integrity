@@ -25,6 +25,9 @@ The same flow is available through the `speckit-lab` tool:
 | `diff` | Stages the sandbox, writes a patch under `reports/lab` and shows the stat |
 | `promote` | Applies the patch after explicit confirmation and only if HEAD still matches `baseCommit`; never commits |
 | `destroy` | Removes the worktree after explicit confirmation; reports and patches stay |
+| `prune` | Dry-runs or removes stale sandboxes, old reports and orphan worktrees |
+| `baseline` | Stores the latest successful run as the baseline for its category or profile |
+| `compare` | Compares the latest run against the stored baseline and writes JSON and Markdown reports |
 | `list` | Lists the sandboxes known to this project |
 | `help` | Prints the command and profile reference |
 
@@ -80,7 +83,7 @@ The sandbox does not copy ignored files other than the dependency tree it prepar
 
 ## Promotion
 
-`diff` stages only project files, excluding `node_modules`, `.lab-cache`, `coverage` and `reports`, and writes a binary-safe patch. It also shows the sandbox base commit and the current checkout HEAD. `promote` checks the patch with `git apply --check --3way`, applies it to the checkout, and leaves the result uncommitted. A conflict leaves the checkout unchanged and keeps the patch for inspection.
+`diff` stages only project files, excluding `node_modules`, `.lab-cache`, `coverage` and `reports`, and writes a binary-safe patch. It also shows the sandbox base commit and the current checkout HEAD. `promote` requires a prior `diff`, so the reviewed patch hash is recorded before promotion. It also requires a clean checkout, checks the patch with `git apply --check --3way`, applies it to the checkout, and leaves the result uncommitted. A conflict leaves the checkout unchanged and keeps the patch for inspection.
 
 Promotion is tied to the reviewed base. If the checkout HEAD moved after `create`, `promote` writes the patch and refuses to apply it, because the change would land on code the reviewer never tested. Create a new sandbox from the current HEAD and review the new diff.
 
@@ -112,6 +115,18 @@ Registry writes take a short-lived lock at `reports/lab/registry.lock`, so two t
 When the project is not the integrity kit but has a `package.json`, the lab uses the node adapter. It maps `test`, `typecheck`, `lint` or `lint:lang` and `test:coverage` scripts to categories, and runs `quick`, `standard` or `hard` profiles with the scripts that exist. It detects npm, pnpm, yarn and bun from the lockfile.
 
 The adapter contract lives in `tools/lab/core/types.ts`: a category list, a profile list, an exclusion list and a `plan` function that returns commands. A new adapter belongs in `tools/lab/adapters/` and is selected in `tools/lab/adapters/index.ts`.
+
+## Registry pruning
+
+`prune` is a dry run unless `confirmed: true` is passed. It marks missing worktrees as destroyed, removes destroyed entries older than the retention age, deletes their reports, and removes orphan worktrees under the lab root. Active and promoted sandboxes are never removed.
+
+## Baselines and regression gates
+
+`baseline` stores the latest successful run for a category or profile. `compare` measures the latest run against that baseline and writes JSON and Markdown reports under `reports/lab`. The gate fails on new failures, increased skips, dropped test counts, coverage drops larger than 0.5 points and steps that regress from passed to failed. Duration and slow tests are warnings.
+
+## Flake detection
+
+Failed Vitest steps can rerun only their failed files. The first rerun uses the original seed; if it passes, a second rerun uses a different seed and shuffled order. The result is classified as `real`, `order-dependent`, `flaky` or `inconclusive`. Soak runs continue after a flaky or order-dependent failure and stop after a real failure.
 
 ## Limits
 

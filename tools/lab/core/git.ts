@@ -39,6 +39,16 @@ export async function createWorktree(repoRoot: string, sandboxRoot: string): Pro
   await gitOrThrow(repoRoot, ["worktree", "add", "--detach", sandboxRoot, "HEAD"])
 }
 
+export async function listWorktrees(repoRoot: string): Promise<string[]> {
+  const result = await git(repoRoot, ["worktree", "list", "--porcelain"])
+  if (result.code !== 0) return []
+  const paths: string[] = []
+  for (const line of result.stdout.split(/\r?\n/)) {
+    if (line.startsWith("worktree ")) paths.push(line.slice("worktree ".length).trim())
+  }
+  return paths.filter(Boolean)
+}
+
 export async function removeWorktree(repoRoot: string, sandboxRoot: string): Promise<void> {
   const removed = await git(repoRoot, ["worktree", "remove", "--force", sandboxRoot])
   if (removed.code !== 0) {
@@ -164,10 +174,30 @@ export async function statusShort(sandboxRoot: string): Promise<string> {
   return result.code === 0 ? result.stdout.trim() : ""
 }
 
-export async function applyPatch(repoRoot: string, patchFile: string, expectedHead?: string): Promise<void> {
+export async function applyPatch(
+  repoRoot: string,
+  patchFile: string,
+  expectedHead?: string,
+  options: { allowMoved?: boolean } = {},
+): Promise<void> {
+  const status = await git(repoRoot, [
+    "status",
+    "--porcelain",
+    "--",
+    ".",
+    ":(exclude)reports",
+    ":(exclude).lab-cache",
+    ":(exclude)node_modules",
+  ])
+  if (status.code !== 0) {
+    throw new Error(`Could not read the checkout status: ${(status.stderr || status.stdout).trim()}`)
+  }
+  if (status.stdout.trim() !== "") {
+    throw new Error("The checkout has uncommitted changes; commit or stash them before promoting")
+  }
   if (expectedHead) {
     const current = await headCommit(repoRoot)
-    if (current !== expectedHead) {
+    if (current !== expectedHead && !options.allowMoved) {
       throw new Error(
         `The checkout moved from ${expectedHead.slice(0, 12)} to ${current.slice(0, 12)} since the sandbox was created; no files were promoted`,
       )

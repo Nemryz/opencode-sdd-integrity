@@ -67,6 +67,7 @@ export async function parseVitestReport(file: string): Promise<LabTestTotals | n
 
   const assertions = (report.testResults ?? []).flatMap((entry) =>
     (entry.assertionResults ?? []).map((assertion) => ({
+      file: entry.name ?? "unknown",
       name: assertion.fullName ?? assertion.title ?? entry.name ?? "unknown test",
       status: assertion.status ?? "unknown",
       durationMs: typeof assertion.duration === "number" ? assertion.duration : 0,
@@ -86,7 +87,12 @@ export async function parseVitestReport(file: string): Promise<LabTestTotals | n
     .slice(0, 5)
     .map((entry) => ({ name: entry.name, durationMs: Math.round(entry.durationMs) }))
 
-  return { total, passed, failed, skipped, durationMs: Math.round(durationMs), slowest }
+  const failures = assertions
+    .filter((entry) => entry.status === "failed")
+    .map((entry) => ({ name: entry.name, file: entry.file }))
+  const uniqueFailures = [...new Map(failures.map((entry) => [`${entry.file} :: ${entry.name}`, entry])).values()]
+
+  return { total, passed, failed, skipped, durationMs: Math.round(durationMs), slowest, failures: uniqueFailures }
 }
 
 function metricPct(metric: CoverageMetric | undefined): number {
@@ -119,7 +125,7 @@ export async function parseCoverageSummary(file: string): Promise<LabCoverageSum
 }
 
 export function emptyTotals(): LabTestTotals {
-  return { total: 0, passed: 0, failed: 0, skipped: 0, durationMs: 0, slowest: [] }
+  return { total: 0, passed: 0, failed: 0, skipped: 0, durationMs: 0, slowest: [], failures: [] }
 }
 
 export function aggregateTotals(steps: LabStepResult[]): LabTestTotals {
@@ -134,6 +140,11 @@ export function aggregateTotals(steps: LabStepResult[]): LabTestTotals {
     totals.slowest.push(...step.tests.slowest)
   }
   totals.slowest = totals.slowest.sort((a, b) => b.durationMs - a.durationMs).slice(0, 5)
+  const failures = new Map<string, { name: string; file: string }>()
+  for (const step of steps) {
+    for (const failure of step.tests?.failures ?? []) failures.set(`${failure.file} :: ${failure.name}`, failure)
+  }
+  totals.failures = [...failures.values()]
   return totals
 }
 
@@ -167,6 +178,10 @@ export function formatRunSummary(summary: LabRunSummary): string {
       const extra = step.tests ? ` (${step.tests.passed}/${step.tests.total})` : ""
       lines.push(`    ${step.status.padEnd(7)} ${step.label}${extra} in ${formatDuration(step.durationMs)}`)
     }
+  }
+  if (summary.flakes && summary.flakes.length > 0) {
+    lines.push("  flakes:")
+    lines.push(...summary.flakes.map((flake) => `    - ${flake.classification}: ${flake.failedTests.length} test(s)`))
   }
   if (summary.notes.length > 0) {
     lines.push("  notes:")

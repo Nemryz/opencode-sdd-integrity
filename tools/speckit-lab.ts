@@ -2,15 +2,18 @@ import { tool } from "@opencode-ai/plugin"
 import path from "node:path"
 import { getProjectRootWarnings, resolveProjectRoot } from "./shared/types"
 import { selectAdapter, type AdapterChoice } from "./lab/adapters"
-import { collectDiff, formatDiff, promoteDiff } from "./lab/core/diff"
+import { collectDiff, formatDiff, promoteDiff, reviewDiff } from "./lab/core/diff"
 import { findGitRoot, statusShort } from "./lab/core/git"
-import { listSandboxes, latestRunSummary } from "./lab/core/registry"
+import { writeJsonAtomic, writeTextAtomic } from "./lab/core/fs"
+import { listSandboxes, latestRunSummary, readRunSummary } from "./lab/core/registry"
 import { formatRunSummary } from "./lab/core/report"
+import { createBaseline, compareRunToBaseline, formatComparison, readBaseline, writeBaseline, comparisonMarkdown, comparisonMarkdownPath, comparisonPath } from "./lab/core/baseline"
 import { runLab } from "./lab/core/run"
 import { createSandbox, destroySandbox, formatSandbox, loadSandbox } from "./lab/core/sandbox"
+import { pruneSandboxes } from "./lab/core/prune"
 import type { LabSandbox } from "./lab/core/types"
 
-const SUBCOMMANDS = ["create", "run", "status", "diff", "promote", "destroy", "list", "help"] as const
+const SUBCOMMANDS = ["create", "run", "status", "diff", "promote", "destroy", "list", "prune", "baseline", "compare", "help"] as const
 
 function listOutput(sandboxes: LabSandbox[]): string {
   if (sandboxes.length === 0) {
@@ -40,6 +43,9 @@ function helpOutput(): string {
     "  diff [id]               Write a patch and show its stat; does not modify the checkout",
     "  promote [id]            Apply the patch after confirmation and only if HEAD is unchanged",
     "  destroy [id]            Remove the worktree after explicit confirmation; reports stay",
+    "  prune [days]            Dry-run or remove stale sandboxes, reports and orphan worktrees",
+    "  baseline [selection]    Store the latest successful run as the baseline",
+    "  compare [selection]     Compare the latest run against the stored baseline",
     "  list                    List known sandboxes",
     "",
     "Integrity categories: all, unit, integration, property, chaos, concurrency, fuzz, snapshot, install, manual, smoke",
@@ -60,6 +66,9 @@ export default tool({
     adapter: tool.schema.enum(["auto", "integrity", "node"]).optional().describe("Adapter selection for create"),
     label: tool.schema.string().optional().describe("Optional label for a new sandbox"),
     confirmed: tool.schema.boolean().optional().describe("Set to true only after the user explicitly confirms"),
+    allowMoved: tool.schema.boolean().optional().describe("Allow promotion when the checkout HEAD moved since create; applies the patch with three-way merge"),
+    olderThanDays: tool.schema.number().optional().describe("Retention age in days for prune; defaults to 30"),
+    runId: tool.schema.string().optional().describe("Run id; omit to use the latest run in the sandbox"),
   },
   async execute(args, context) {
     try {
@@ -75,6 +84,32 @@ export default tool({
       if (subcommand === "list") {
         const sandboxes = await listSandboxes(projectRoot)
         return { title: "Test Lab Sandboxes", output: listOutput(sandboxes), metadata: { count: sandboxes.length } }
+      }
+
+      if (subcommand === "prune") {
+        const result = await pruneSandboxes({
+          projectRoot,
+          olderThanDays: args.olderThanDays,
+          confirmed: args.confirmed === true,
+        })
+        const lines = [
+          result.dryRun ? "Lab prune: dry run" : "Lab prune: completed",
+          `  retention: ${result.olderThanDays} days`,
+          `  candidates: ${result.candidates.length}`,
+        ]
+        for (const candidate of result.candidates) {
+          lines.push(`    ${candidate.id}  ${candidate.reason}  ${candidate.action}${candidate.path ? `  ${candidate.path}` : ""}`)
+        }
+        if (result.dryRun) {
+          lines.push("", "Re-run with confirmed: true to apply the prune.")
+        } else {
+          lines.push("", `Removed: ${result.removed.length}`, `Marked destroyed: ${result.markedDestroyed.length}`, `Orphan worktrees: ${result.orphanWorktrees.length}`)
+        }
+        return {
+          title: result.dryRun ? "Lab Prune: Dry Run" : "Lab Prune: Completed",
+          output: lines.join("\n"),
+          metadata: { dryRun: result.dryRun, candidates: result.candidates.length, removed: result.removed.length },
+        }
       }
 
       if (subcommand === "create") {
@@ -159,7 +194,7 @@ export default tool({
       }
 
       if (subcommand === "diff") {
-        const diff = await collectDiff(projectRoot, sandbox)
+        const diff = await reviewDiff(projectRoot, sandbox)
         return {
           title: diff.empty ? "Lab Diff: empty" : "Lab Diff",
           output: formatDiff(diff),
@@ -190,7 +225,7 @@ export default tool({
             metadata: { sandboxId: sandbox.id, requiresConfirmation: true, warnings },
           }
         }
-        const diff = await promoteDiff(projectRoot, sandbox)
+        const diff = await promoteDiff(projectRoot, sandbox, { allowMoved: args.allowMoved === true })
         return {
           title: "Lab Patch Promoted",
           output: [
@@ -218,6 +253,68 @@ export default tool({
           title: "Lab Sandbox Destroyed",
           output: `Removed ${sandbox.id}. Reports remain under ${projectRoot}/reports/lab.`,
           metadata: { sandboxId: sandbox.id, destroyed: true },
+        }
+      }
+
+      if (subcommand === "baseline") {
+        const summary = args.runId
+          ? await readRunSummary(projectRoot, sandbox.id, args.runId)
+          : await latestRunSummary(projectRoot, sandbox.id)
+        if (!summary) throw new Error(`No run found for sandbox ${sandbox.id}`)
+        const selection = args.category
+          ? { category: args.category }
+          : args.profile
+            ? { profile: args.profile }
+            : summary.selection
+        if (JSON.stringify(selection) !== JSON.stringify(summary.selection)) {
+          throw new Error("The baseline selection must match the run selection")
+        }
+        if (summary.status !== "passed") throw new Error("Only a passed run can become a baseline")
+        const baseline = createBaseline(summary, sandbox.baseCommit)
+        const file = await writeBaseline(projectRoot, baseline)
+        return {
+          title: "Lab Baseline Stored",
+          output: `Stored baseline for ${summary.adapter} ${selection.profile ? `profile ${selection.profile}` : `category ${selection.category ?? "all"}`}.\n  file: ${file}\n  run: ${summary.runId}\n  commit: ${sandbox.baseCommit.slice(0, 12)}`,
+          metadata: { sandboxId: sandbox.id, runId: summary.runId, baselinePath: file },
+        }
+      }
+
+      if (subcommand === "compare") {
+        const summary = args.runId
+          ? await readRunSummary(projectRoot, sandbox.id, args.runId)
+          : await latestRunSummary(projectRoot, sandbox.id)
+        if (!summary) throw new Error(`No run found for sandbox ${sandbox.id}`)
+        const selection = args.category
+          ? { category: args.category }
+          : args.profile
+            ? { profile: args.profile }
+            : summary.selection
+        if (JSON.stringify(selection) !== JSON.stringify(summary.selection)) {
+          throw new Error("The comparison selection must match the run selection")
+        }
+        const baseline = await readBaseline(projectRoot, summary.adapter, selection)
+        if (!baseline) {
+          return {
+            title: "Lab Compare: No Baseline",
+            output: `No baseline exists for ${summary.adapter} ${selection.profile ? `profile ${selection.profile}` : `category ${selection.category ?? "all"}`}. Store one with subcommand baseline first.`,
+            metadata: { sandboxId: sandbox.id, runId: summary.runId, hasBaseline: false },
+          }
+        }
+        const comparison = compareRunToBaseline(summary, baseline)
+        const jsonPath = comparisonPath(projectRoot, sandbox.id, summary.runId)
+        const markdownPath = comparisonMarkdownPath(projectRoot, sandbox.id, summary.runId)
+        await writeJsonAtomic(jsonPath, comparison)
+        await writeTextAtomic(markdownPath, comparisonMarkdown(comparison))
+        return {
+          title: comparison.status === "pass" ? "Lab Compare: Pass" : "Lab Compare: Regressed",
+          output: `${formatComparison(comparison)}\n\nReports: ${jsonPath}\n${markdownPath}`,
+          metadata: {
+            sandboxId: sandbox.id,
+            runId: summary.runId,
+            regressed: comparison.status === "regressed",
+            jsonPath,
+            markdownPath,
+          },
         }
       }
 

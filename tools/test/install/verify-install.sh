@@ -48,6 +48,10 @@ expect_path tools/speckit-lab.ts
 expect_path tools/lab/core/runner.ts
 expect_path tools/lab/adapters/integrity.ts
 expect_path tools/lab/vitest.config.lab.ts
+expect_path tools/lab/core/diff.ts
+expect_path tools/lab/core/prune.ts
+expect_path tools/lab/core/baseline.ts
+expect_path tools/lab/core/flakes.ts
 expect_path tools/shared/state/plan.ts
 expect_path tools/shared/state/apply.ts
 expect_path tools/shared/state/recovery.ts

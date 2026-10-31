@@ -3,7 +3,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { execFileSync } from "node:child_process"
 import { createTempWorktree, destroyTempWorktree, mockContext, repoPath, repoRootDir } from "../helpers/setup"
-import { collectDiff, promoteDiff } from "../../lab/core/diff"
+import { collectDiff, promoteDiff, reviewDiff } from "../../lab/core/diff"
 import { readRegistry } from "../../lab/core/registry"
 import { removeWorktree } from "../../lab/core/git"
 import { runLabProcess } from "../../lab/core/runner"
@@ -85,7 +85,7 @@ describe("lab worktree lifecycle", () => {
     await fs.mkdir(path.dirname(improved), { recursive: true })
     await fs.writeFile(improved, "// improved\n", "utf-8")
 
-    const diff = await collectDiff(repo, sandbox)
+    const diff = await reviewDiff(repo, sandbox)
     expect(diff.empty).toBe(false)
     expect(diff.files).toContain("README.md")
     expect(diff.files).toContain("tools/test/unit/improved.test.ts")
@@ -290,5 +290,53 @@ describe("speckit-lab tool", () => {
     expect(destroyed.title).toBe("Lab Sandbox Destroyed")
     const registry = await readRegistry(repo)
     expect(registry.sandboxes.find((entry) => entry.id === sandboxId)?.status).toBe("destroyed")
+  })
+})
+
+describe("promotion safety", () => {
+  it("refuses to promote when the checkout is dirty", async () => {
+    const sandbox = await createSandbox({ projectRoot: repo, adapter: "node" })
+    await fs.writeFile(path.join(sandbox.sandboxRoot, "README.md"), "sandbox\n", "utf-8")
+
+    await reviewDiff(repo, sandbox)
+    await fs.writeFile(path.join(repo, "unrelated.txt"), "dirty\n", "utf-8")
+
+    await expect(promoteDiff(repo, sandbox)).rejects.toThrow(/uncommitted changes/)
+    expect(await readText(path.join(repo, "README.md"))).toBe("base\n")
+    expect((await loadSandbox(repo, sandbox.id)).status).toBe("active")
+  })
+
+  it("refuses to promote a patch that was not reviewed", async () => {
+    const sandbox = await createSandbox({ projectRoot: repo, adapter: "node" })
+    await fs.writeFile(path.join(sandbox.sandboxRoot, "README.md"), "sandbox\n", "utf-8")
+
+    await expect(promoteDiff(repo, sandbox)).rejects.toThrow(/Run diff/)
+    expect((await loadSandbox(repo, sandbox.id)).status).toBe("active")
+  })
+
+  it("refuses to promote when the sandbox changes after review", async () => {
+    const sandbox = await createSandbox({ projectRoot: repo, adapter: "node" })
+    await fs.writeFile(path.join(sandbox.sandboxRoot, "README.md"), "sandbox\n", "utf-8")
+
+    await reviewDiff(repo, sandbox)
+    await fs.writeFile(path.join(sandbox.sandboxRoot, "README.md"), "changed again\n", "utf-8")
+
+    await expect(promoteDiff(repo, sandbox)).rejects.toThrow(/review the patch/)
+    expect((await loadSandbox(repo, sandbox.id)).status).toBe("active")
+  })
+
+  it("allows a reviewed patch to apply with three-way merge after HEAD moves", async () => {
+    const sandbox = await createSandbox({ projectRoot: repo, adapter: "node" })
+    await fs.writeFile(path.join(sandbox.sandboxRoot, "README.md"), "sandbox\n", "utf-8")
+
+    await reviewDiff(repo, sandbox)
+
+    await writeRepoFile("checkout-moved.txt", "moved\n")
+    git(["add", "-A"])
+    git(["commit", "-m", "move checkout"])
+
+    await promoteDiff(repo, sandbox, { allowMoved: true })
+    expect(await readText(path.join(repo, "README.md"))).toBe("sandbox\n")
+    expect((await loadSandbox(repo, sandbox.id)).status).toBe("promoted")
   })
 })

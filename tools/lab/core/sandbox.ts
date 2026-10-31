@@ -65,14 +65,17 @@ export async function createSandbox(options: CreateSandboxOptions): Promise<LabS
     const lockDetails = sandboxLockfile
       ? { lockfile: sandboxLockfile.file, lockHash: sandboxLockfile.hash, manager: sandboxLockfile.manager }
       : {}
+    const sourceDetails = sourceLockfile
+      ? { sourceLockfile: sourceLockfile.file, sourceLockHash: sourceLockfile.hash }
+      : {}
 
     if (sourceLockfile && sandboxLockfile && !locksMatch) {
-      dependencies = { strategy: "pending", ...lockDetails, updatedAt: now }
+      dependencies = { strategy: "pending", ...lockDetails, ...sourceDetails, updatedAt: now }
       warnings.push(
         `The sandbox lockfile (${sandboxLockfile.file}) differs from the checkout lockfile (${sourceLockfile.file}); dependencies will be installed in the sandbox before the first run`,
       )
     } else if (sourceLockfile && !sandboxLockfile) {
-      dependencies = { strategy: "missing", ...lockDetails, updatedAt: now }
+      dependencies = { strategy: "missing", ...lockDetails, ...sourceDetails, updatedAt: now }
       warnings.push(
         `The sandbox is missing ${sourceLockfile.file}; run destroy and create a new sandbox before running tests`,
       )
@@ -80,14 +83,14 @@ export async function createSandbox(options: CreateSandboxOptions): Promise<LabS
       const dependencyWarning = await linkNodeModules(repoRoot, sandboxRoot)
       if (dependencyWarning) {
         warnings.push(dependencyWarning)
-        dependencies = { strategy: "missing", ...lockDetails, updatedAt: now }
+        dependencies = { strategy: "missing", ...lockDetails, ...sourceDetails, updatedAt: now }
       } else {
-        dependencies = { strategy: "linked", ...lockDetails, updatedAt: now }
+        dependencies = { strategy: "linked", ...lockDetails, ...sourceDetails, updatedAt: now }
       }
     } else if (sandboxHasNodeModules) {
-      dependencies = { strategy: "linked", ...lockDetails, updatedAt: now }
+      dependencies = { strategy: "linked", ...lockDetails, ...sourceDetails, updatedAt: now }
     } else {
-      dependencies = { strategy: "missing", ...lockDetails, updatedAt: now }
+      dependencies = { strategy: "missing", ...lockDetails, ...sourceDetails, updatedAt: now }
       if (sandboxLockfile) {
         warnings.push("node_modules is absent in the sandbox; dependencies will be installed before the first run")
       } else {
@@ -147,9 +150,16 @@ export async function loadSandbox(
   return sandbox
 }
 
-export async function markPromoted(projectRoot: string, id: string): Promise<LabSandbox | null> {
+export async function markPromoted(
+  projectRoot: string,
+  id: string,
+  details: { patchHash?: string; appliedHead?: string } = {},
+): Promise<LabSandbox | null> {
   return updateSandbox(projectRoot, id, {
     status: "promoted",
+    promotedAt: new Date().toISOString(),
+    promotedHead: details.appliedHead,
+    promotedPatchHash: details.patchHash,
   })
 }
 

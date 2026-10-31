@@ -6,12 +6,15 @@ import type {
   LabRunSummary,
   LabSandbox,
   LabSelection,
+  LabFlakeResult,
   LabStep,
   LabStepResult,
 } from "./types"
 import { ensureDependencies } from "./dependencies"
 import { ensureRunDir, makeRunId, writeRunSummary } from "./registry"
+import { detectFlake, flakeMarkdown } from "./flakes"
 import { runLabProcess } from "./runner"
+import { writeJsonAtomic, writeTextAtomic } from "./fs"
 import {
   aggregateTotals,
   emptyTotals,
@@ -86,8 +89,10 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
     projectRoot: options.projectRoot,
     sandbox,
     reportDir,
+    signal: options.signal,
   })
   const results: LabStepResult[] = []
+  const flakes: LabFlakeResult[] = []
   const notes: string[] = dependency.note ? [dependency.note] : []
 
   for (const [index, step] of steps.entries()) {
@@ -119,6 +124,7 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
       command: step.command,
       args: step.args,
       code: result.code,
+      seed: step.seed,
       status,
       durationMs: Date.now() - stepStarted,
       timedOut: result.timedOut,
@@ -130,16 +136,34 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
     }
     results.push(stepResult)
 
+    if (failed && step.rerun && stepResult.tests?.failures && stepResult.tests.failures.length > 0) {
+      const flake = await detectFlake({ step, result: stepResult, sandbox, reportDir, runProcess: runLabProcess })
+      if (flake) {
+        stepResult.flake = flake
+        flakes.push(flake)
+        notes.push(`${step.label}: ${flake.classification}`)
+      }
+    }
+
     if (failed) {
       if (result.timedOut) notes.push(`${step.label} timed out after ${formatDuration(stepResult.durationMs)}`)
       if (result.aborted) notes.push(`${step.label} was aborted`)
       const failures = failureLines(combined)
       if (failures.length > 0) notes.push(`${step.label}: ${failures.join(" | ")}`)
-      if (!step.optional) {
+      const flake = stepResult.flake
+      const canContinue = Boolean(step.continueOnFailure && flake && (flake.classification === "flaky" || flake.classification === "order-dependent"))
+      if (!step.optional && !canContinue) {
         notes.push(`Stopped after ${step.label} because the step failed`)
         break
       }
     }
+  }
+
+  let flakePath: string | undefined
+  if (flakes.length > 0) {
+    flakePath = path.join(reportDir, "flakes.json")
+    await writeJsonAtomic(flakePath, flakes)
+    await writeTextAtomic(path.join(reportDir, "flakes.md"), flakeMarkdown(flakes))
   }
 
   const finishedAt = new Date().toISOString()
@@ -155,6 +179,7 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
     runId,
     sandboxId: sandbox.id,
     adapter: adapter.id,
+    commit: sandbox.baseCommit,
     selection,
     startedAt,
     finishedAt,
@@ -164,6 +189,8 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
     totals,
     coverage,
     notes,
+    flakes,
+    flakePath,
     summaryPath: path.join(reportDir, "summary.json"),
   }
   await writeRunSummary(options.projectRoot, summary)

@@ -15,6 +15,22 @@ export interface LabPlanContext {
   reportDir: string
 }
 
+export interface LabRerunContext {
+  files: string[]
+  seed?: string
+  attempt: number
+  kind: "same" | "shuffled"
+}
+
+export interface LabRerunPlan {
+  label: string
+  command: string
+  args: string[]
+  timeoutMs?: number
+  reportFile?: string
+  seed?: string
+}
+
 export interface LabStep {
   label: string
   command: string
@@ -24,6 +40,9 @@ export interface LabStep {
   coverageFile?: string
   optional?: boolean
   requiresConfirmation?: boolean
+  continueOnFailure?: boolean
+  seed?: string
+  rerun?: (context: LabRerunContext) => LabRerunPlan
 }
 
 export interface LabProfile {
@@ -47,6 +66,8 @@ export interface LabDependencyState {
   strategy: "linked" | "pending" | "installed" | "missing"
   lockfile?: string
   lockHash?: string
+  sourceLockfile?: string
+  sourceLockHash?: string
   manager?: LabPackageManager
   logPath?: string
   updatedAt?: string
@@ -64,6 +85,12 @@ export interface LabSandbox {
   status: LabSandboxStatus
   warnings: string[]
   dependencies?: LabDependencyState
+  lastDiffAt?: string
+  lastDiffHash?: string
+  lastDiffPath?: string
+  promotedAt?: string
+  promotedHead?: string
+  promotedPatchHash?: string
   lastRunAt?: string
   lastRunStatus?: string
   lastRunId?: string
@@ -81,6 +108,7 @@ export interface LabTestTotals {
   skipped: number
   durationMs: number
   slowest: Array<{ name: string; durationMs: number }>
+  failures?: Array<{ name: string; file: string }>
 }
 
 export interface LabCoverageTotals {
@@ -106,8 +134,30 @@ export interface LabStepResult {
   truncated: boolean
   logPath: string
   outputTail: string
+  seed?: string
   tests?: LabTestTotals
   coverage?: LabCoverageSummary
+  flake?: LabFlakeResult
+}
+
+export interface LabFlakeAttempt {
+  kind: "same" | "shuffled"
+  attempt: number
+  seed?: string
+  files: string[]
+  status: "passed" | "failed"
+  failed: Array<{ name: string; file: string }>
+  durationMs: number
+  logPath: string
+  outputTail: string
+}
+
+export interface LabFlakeResult {
+  classification: "real" | "flaky" | "order-dependent" | "inconclusive"
+  failedTests: Array<{ name: string; file: string }>
+  attempts: LabFlakeAttempt[]
+  seeds: string[]
+  notes: string[]
 }
 
 export interface LabRunSummary {
@@ -115,6 +165,7 @@ export interface LabRunSummary {
   runId: string
   sandboxId: string
   adapter: string
+  commit?: string
   selection: LabSelection
   startedAt: string
   finishedAt: string
@@ -124,5 +175,7 @@ export interface LabRunSummary {
   totals: LabTestTotals
   coverage: LabCoverageSummary | null
   notes: string[]
+  flakes?: LabFlakeResult[]
+  flakePath?: string
   summaryPath: string
 }
