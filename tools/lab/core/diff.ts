@@ -1,7 +1,7 @@
 import crypto from "node:crypto"
 import path from "node:path"
 import type { LabSandbox } from "./types"
-import { makeLabId, writeTextAtomic } from "./fs"
+import { makeLabId, readJson, writeTextAtomic, writeJsonAtomic } from "./fs"
 import { applyPatch, collectPatch, headCommit } from "./git"
 import { ensureDiffDir, getSandbox, updateSandbox } from "./registry"
 import { markPromoted } from "./sandbox"

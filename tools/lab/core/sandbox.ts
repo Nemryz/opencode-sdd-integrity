@@ -4,6 +4,8 @@ import path from "node:path"
 import type { LabDependencyState, LabSandbox } from "./types"
 import { hasNodeModules, readLockfile } from "./dependencies"
 import { makeLabId } from "./fs"
+import { ensureLabHome, labPaths } from "./home"
+import { disableSandboxHooks, prepareSandboxPermissions } from "./permissions"
 import {
   createWorktree,
   findGitRoot,
@@ -12,12 +14,14 @@ import {
   overlayUncommitted,
   removeWorktree,
 } from "./git"
+import { appendLabAudit } from "./audit"
 import {
   getSandbox,
   latestSandbox,
   updateSandbox,
   upsertSandbox,
 } from "./registry"
+import { WORKTREE_PROVIDER } from "./types"
 
 export interface CreateSandboxOptions {
   projectRoot: string
@@ -32,7 +36,8 @@ export async function createSandbox(options: CreateSandboxOptions): Promise<LabS
   }
   const baseCommit = await headCommit(repoRoot)
   const id = makeLabId()
-  const sandboxRoot = path.join(os.tmpdir(), "sdd-lab", id)
+  const sandboxRoot = path.join(labPaths(options.projectRoot).sandboxes, id)
+  await ensureLabHome(options.projectRoot)
   const warnings: string[] = []
   let dependencies: LabDependencyState = {
     strategy: "missing",
@@ -41,6 +46,8 @@ export async function createSandbox(options: CreateSandboxOptions): Promise<LabS
 
   try {
     await createWorktree(repoRoot, sandboxRoot)
+    await prepareSandboxPermissions(sandboxRoot)
+    await disableSandboxHooks(sandboxRoot)
     try {
       await overlayUncommitted(repoRoot, sandboxRoot)
     } catch (error) {
@@ -116,6 +123,18 @@ export async function createSandbox(options: CreateSandboxOptions): Promise<LabS
     dependencies,
   }
   await upsertSandbox(options.projectRoot, sandbox)
+  await appendLabAudit({
+    kind: "lab_created",
+    projectRoot: options.projectRoot,
+    when: new Date().toISOString(),
+    sandboxId: sandbox.id,
+    isolationProvider: WORKTREE_PROVIDER.id,
+    details: {
+      adapter: sandbox.adapter,
+      repoRoot: sandbox.repoRoot,
+      created: sandbox.createdAt,
+    },
+  })
   return sandbox
 }
 
@@ -163,9 +182,18 @@ export async function markPromoted(
   })
 }
 
-export async function destroySandbox(projectRoot: string, sandbox: LabSandbox): Promise<LabSandbox | null> {
+export async function destroySandbox(projectRoot: string, sandbox: LabSandbox, confirmed: boolean): Promise<LabSandbox | null> {
+  if (confirmed !== true) throw new Error("Confirm lab destroy with confirmed true before the sandbox is removed")
   await removeWorktree(sandbox.repoRoot, sandbox.sandboxRoot)
   const updated = await updateSandbox(projectRoot, sandbox.id, { status: "destroyed" })
+  await appendLabAudit({
+    kind: "lab_destroyed",
+    projectRoot,
+    when: new Date().toISOString(),
+    sandboxId: sandbox.id,
+    isolationProvider: WORKTREE_PROVIDER.id,
+    details: { destroyed: sandbox.sandboxRoot },
+  })
   return updated
 }
 

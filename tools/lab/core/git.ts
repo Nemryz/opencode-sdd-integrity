@@ -1,6 +1,7 @@
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { assertRealInsideWorkspace } from "./paths"
 import { runLabProcess, type LabProcessResult } from "./runner"
 
 const GIT_TIMEOUT_MS = 2 * 60 * 1000
@@ -72,7 +73,11 @@ export async function overlayUncommitted(repoRoot: string, sandboxRoot: string):
 
   let patched = false
   if (diff.stdout.trim() !== "") {
-    const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "sdd-lab-patch-"))
+    const patchBase = path.join(sandboxRoot, ".opencode-lab-overlays")
+    await fs.mkdir(patchBase, { recursive: true })
+    await fs.chmod(patchBase, 0o700)
+    const temporary = await fs.mkdtemp(path.join(patchBase, "overlay-"))
+
     const patchFile = path.join(temporary, "overlay.patch")
     try {
       await fs.writeFile(patchFile, diff.stdout, "utf-8")
@@ -90,10 +95,10 @@ export async function overlayUncommitted(repoRoot: string, sandboxRoot: string):
   if (untrackedResult.code !== 0) {
     throw new Error(`Could not list untracked files: ${(untrackedResult.stderr || untrackedResult.stdout).trim()}`)
   }
-  const untracked = untrackedResult.stdout.split("\0").filter(Boolean)
+  const untracked = untrackedResult.stdout.split("\0").filter(Boolean).filter((relative) => !relative.startsWith(".opencode/"))
   for (const relative of untracked) {
-    const source = path.join(repoRoot, relative)
-    const destination = path.join(sandboxRoot, relative)
+    const destination = await assertRealInsideWorkspace(sandboxRoot, relative)
+    const source = path.resolve(repoRoot, relative)
     const stat = await fs.lstat(source)
     if (stat.isSymbolicLink()) {
       await fs.mkdir(path.dirname(destination), { recursive: true })
@@ -185,6 +190,7 @@ export async function applyPatch(
     "--porcelain",
     "--",
     ".",
+    ":(exclude).opencode",
     ":(exclude)reports",
     ":(exclude).lab-cache",
     ":(exclude)node_modules",

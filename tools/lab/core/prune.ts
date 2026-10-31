@@ -1,10 +1,11 @@
 import fs from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
+import type { LabSandbox } from "./types"
 import { findGitRoot, listWorktrees, removeWorktree } from "./git"
+import { labPaths } from "./home"
 import { labRoot, readRegistry, registryLock, sandboxReportDir, writeRegistry } from "./registry"
 import { withLabLock } from "./fs"
-import type { LabSandbox } from "./types"
+import { appendLabAudit } from "./audit"
 
 export interface LabPruneOptions {
   projectRoot: string
@@ -37,10 +38,11 @@ function ageDays(sandbox: LabSandbox, now: Date): number {
   return Math.floor((now.getTime() - time) / (24 * 60 * 60 * 1000))
 }
 
-function isLabWorktreePath(value: string): boolean {
-  const labRoot = path.join(os.tmpdir(), "sdd-lab")
+// Only worktrees under the project sandboxes tree belong to this lab, so paths elsewhere are never touched.
+function isLabWorktreePath(projectRoot: string, value: string): boolean {
+  const sandboxesRoot = path.resolve(labPaths(projectRoot).sandboxes)
   const resolved = path.resolve(value)
-  return resolved === labRoot || resolved.startsWith(labRoot + path.sep)
+  return resolved === sandboxesRoot || resolved.startsWith(sandboxesRoot + path.sep)
 }
 
 export async function pruneSandboxes(options: LabPruneOptions): Promise<LabPruneResult> {
@@ -86,7 +88,7 @@ export async function pruneSandboxes(options: LabPruneOptions): Promise<LabPrune
 
     const worktrees = await listWorktrees(repoRoot)
     for (const worktree of worktrees) {
-      if (!isLabWorktreePath(worktree)) continue
+      if (!isLabWorktreePath(options.projectRoot, worktree)) continue
       const id = path.basename(worktree)
       if (knownIds.has(id)) continue
       orphanWorktrees.push(worktree)
@@ -111,7 +113,7 @@ export async function pruneSandboxes(options: LabPruneOptions): Promise<LabPrune
       candidates,
       removed: [],
       markedDestroyed: [],
-      orphanWorktrees: [],
+      orphanWorktrees,
     }
   }
 
@@ -127,6 +129,19 @@ export async function pruneSandboxes(options: LabPruneOptions): Promise<LabPrune
   for (const worktree of orphanWorktrees) {
     await removeWorktree(repoRoot, worktree).catch(() => null)
   }
+
+  await appendLabAudit({
+    kind: "lab_pruned",
+    projectRoot: options.projectRoot,
+    when: new Date().toISOString(),
+    isolationProvider: "n/a",
+    details: {
+      removed,
+      markedDestroyed,
+      orphanWorktrees,
+      olderThanDays,
+    },
+  })
 
   return {
     dryRun: false,

@@ -72,7 +72,7 @@ describe("lab worktree lifecycle", () => {
       "// untracked\n",
     )
 
-    await destroySandbox(repo, sandbox)
+    await destroySandbox(repo, sandbox, true)
     await expect(fs.lstat(sandbox.sandboxRoot)).rejects.toMatchObject({ code: "ENOENT" })
     const registry = await readRegistry(repo)
     expect(registry.sandboxes.find((entry) => entry.id === sandbox.id)?.status).toBe("destroyed")

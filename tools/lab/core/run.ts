@@ -11,10 +11,12 @@ import type {
   LabStepResult,
 } from "./types"
 import { ensureDependencies } from "./dependencies"
+import { appendLabAudit } from "./audit"
 import { ensureRunDir, makeRunId, writeRunSummary } from "./registry"
 import { detectFlake, flakeMarkdown } from "./flakes"
 import { runLabProcess } from "./runner"
 import { writeJsonAtomic, writeTextAtomic } from "./fs"
+import { WORKTREE_PROVIDER } from "./types"
 import {
   aggregateTotals,
   emptyTotals,
@@ -102,11 +104,6 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
       cwd: sandbox.sandboxRoot,
       timeoutMs: step.timeoutMs ?? 15 * 60 * 1000,
       signal: options.signal,
-      env: {
-        NO_COLOR: "1",
-        FORCE_COLOR: "0",
-        OPENCODE_LAB: "1",
-      },
     })
     await writeStepLog(logPath, step, result)
 
@@ -135,6 +132,19 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
       coverage: coverage ?? undefined,
     }
     results.push(stepResult)
+    await appendLabAudit({
+      kind: "lab_run",
+      projectRoot: options.projectRoot,
+      when: new Date().toISOString(),
+      sandboxId: sandbox.id,
+      isolationProvider: WORKTREE_PROVIDER.id,
+      details: {
+        step: step.label,
+        code: result.code,
+        timedOut: result.timedOut,
+        selection,
+      },
+    })
 
     if (failed && step.rerun && stepResult.tests?.failures && stepResult.tests.failures.length > 0) {
       const flake = await detectFlake({ step, result: stepResult, sandbox, reportDir, runProcess: runLabProcess })

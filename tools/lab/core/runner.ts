@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process"
+import { DEFAULT_LAB_ENV, SAFE_HINTS, safeLabEnvironment } from "./environment"
 
 export interface LabProcessOptions {
   cwd: string
@@ -97,9 +98,17 @@ export function runLabProcess(command: string, args: string[], options: LabProce
     }
 
     try {
+      const env = safeLabEnvironment(process.env, SAFE_HINTS, {
+        ...DEFAULT_LAB_ENV,
+        FORCE_COLOR: "0",
+        NO_COLOR: "1",
+        NO_PROXY: "*",
+        no_proxy: "*",
+        ...options.env,
+      })
       child = spawn(command, args, {
         cwd: options.cwd,
-        env: { ...process.env, ...options.env },
+        env,
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
         detached: process.platform !== "win32",

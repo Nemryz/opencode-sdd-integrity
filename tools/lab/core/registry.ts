@@ -2,17 +2,19 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import type { LabRegistry, LabRunSummary, LabSandbox } from "./types"
 import { makeLabId, readJson, withLabLock, writeJsonAtomic } from "./fs"
+import { labPaths } from "./home"
+import { ensureLabHome } from "./home"
 
 export function labRoot(projectRoot: string): string {
-  return path.join(projectRoot, "reports", "lab")
+  return labPaths(projectRoot).reports
 }
 
 export function registryFile(projectRoot: string): string {
-  return path.join(labRoot(projectRoot), "registry.json")
+  return path.join(labPaths(projectRoot).registry, "registry.json")
 }
 
 export function registryLock(projectRoot: string): string {
-  return path.join(labRoot(projectRoot), "registry.lock")
+  return path.join(labPaths(projectRoot).registry, "registry.lock")
 }
 
 export function sandboxReportDir(projectRoot: string, sandboxId: string): string {
@@ -60,6 +62,7 @@ export async function latestSandbox(projectRoot: string): Promise<LabSandbox | n
 }
 
 export async function upsertSandbox(projectRoot: string, sandbox: LabSandbox): Promise<void> {
+  await ensureLabHome(projectRoot)
   await withLabLock(registryLock(projectRoot), async () => {
     const registry = await readRegistry(projectRoot)
     const index = registry.sandboxes.findIndex((entry) => entry.id === sandbox.id)
@@ -74,6 +77,7 @@ export async function updateSandbox(
   id: string,
   patch: Partial<LabSandbox>,
 ): Promise<LabSandbox | null> {
+  await ensureLabHome(projectRoot)
   return withLabLock(registryLock(projectRoot), async () => {
     const registry = await readRegistry(projectRoot)
     const index = registry.sandboxes.findIndex((entry) => entry.id === id)

@@ -173,10 +173,10 @@ async function installCommand(
   root: string,
 ): Promise<{ manager: string; args: string[] }> {
   if (manager === "npm") {
-    return { manager, args: ["ci", "--no-audit", "--no-fund"] }
+    return { manager, args: ["ci", "--ignore-scripts", "--no-audit", "--no-fund"] }
   }
   if (manager === "pnpm") {
-    return { manager, args: ["install", "--frozen-lockfile", "--prefer-offline"] }
+    return { manager, args: ["install", "--frozen-lockfile", "--ignore-scripts", "--prefer-offline"] }
   }
   if (manager === "yarn") {
     let berry = false
@@ -188,10 +188,10 @@ async function installCommand(
     }
     return {
       manager,
-      args: berry ? ["install", "--immutable"] : ["install", "--frozen-lockfile"],
+      args: berry ? ["install", "--immutable", "--ignore-scripts"] : ["install", "--frozen-lockfile", "--ignore-scripts"],
     }
   }
-  return { manager, args: ["install", "--frozen-lockfile"] }
+  return { manager, args: ["install", "--frozen-lockfile", "--ignore-scripts"] }
 }
 
 export async function installDependencies(

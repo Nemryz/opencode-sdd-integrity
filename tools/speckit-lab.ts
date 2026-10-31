@@ -52,7 +52,7 @@ function helpOutput(): string {
     "Profiles: quick, standard, hard, soak",
     "Generic adapter categories and profiles come from package.json scripts.",
     "",
-    "The lab never runs mutation tests; reports live under reports/lab and stay out of git.",
+    "The lab never runs mutation tests and keeps its state under .opencode/lab, which stays out of git.",
   ].join("\n")
 }
 
@@ -161,7 +161,7 @@ export default tool({
           : { profile: args.profile ?? "quick" }
         const preview = adapter.plan(selection, {
           sandboxRoot: sandbox.sandboxRoot,
-          reportDir: path.join(projectRoot, "reports", "lab", sandbox.id, "preview"),
+          reportDir: path.join(projectRoot, ".opencode", "lab", "reports", sandbox.id, "preview"),
         })
         if (preview.some((step) => step.requiresConfirmation) && !args.confirmed) {
           return {
@@ -244,14 +244,14 @@ export default tool({
         if (!args.confirmed) {
           return {
             title: "Confirm Destroy",
-            output: `Destroy removes the sandbox worktree at ${sandbox.sandboxRoot}. Reports and patches under reports/lab stay. Re-run with confirmed: true after the user confirms.`,
+            output: `Destroy removes the sandbox worktree at ${sandbox.sandboxRoot}. Reports and patches under .opencode/lab stay. Re-run with confirmed: true after the user confirms.`,
             metadata: { sandboxId: sandbox.id, requiresConfirmation: true },
           }
         }
-        await destroySandbox(projectRoot, sandbox)
+        await destroySandbox(projectRoot, sandbox, args.confirmed === true)
         return {
           title: "Lab Sandbox Destroyed",
-          output: `Removed ${sandbox.id}. Reports remain under ${projectRoot}/reports/lab.`,
+          output: `Removed ${sandbox.id}. Reports remain under ${projectRoot}/.opencode/lab.`,
           metadata: { sandboxId: sandbox.id, destroyed: true },
         }
       }

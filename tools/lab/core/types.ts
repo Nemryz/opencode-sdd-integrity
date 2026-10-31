@@ -49,6 +49,21 @@ export interface LabProfile {
   description: string
 }
 
+export type SandboxProviderId = "worktree" | "os-sandbox" | "container" | "vm"
+
+// Names the isolation layer used by a sandbox in audit events, with n/a for actions outside one.
+export type LabIsolationProvider = SandboxProviderId | "n/a"
+
+export const WORKTREE_PROVIDER: SandboxProvider = {
+  id: "worktree",
+  description: "A disposable git worktree for a trusted checkout",
+}
+
+export interface SandboxProvider {
+  id: SandboxProviderId
+  description: string
+}
+
 export interface LabAdapter {
   id: string
   description: string

@@ -53,7 +53,7 @@ describe("lab dependency preparation", () => {
       warnings: [],
     }
     await upsertSandbox(project, sandbox)
-    const reportDir = path.join(project, "reports", "lab", sandbox.id, "runs", "run-1")
+    const reportDir = path.join(project, ".opencode", "lab", "reports", sandbox.id, "runs", "run-1")
 
     const result = await ensureDependencies({ projectRoot: project, sandbox, reportDir })
     expect(result.sandbox.dependencies).toMatchObject({

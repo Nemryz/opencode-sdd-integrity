@@ -63,7 +63,7 @@ describe("lab prune", () => {
 
   it("removes stale destroyed sandboxes and their reports when confirmed", async () => {
     const root = path.join(repo, "sandbox", "old")
-    const reportDir = path.join(repo, "reports", "lab", "old-sandbox")
+    const reportDir = path.join(repo, ".opencode", "lab", "reports", "old-sandbox")
     await fs.mkdir(root, { recursive: true })
     await fs.mkdir(reportDir, { recursive: true })
     await fs.writeFile(path.join(reportDir, "summary.json"), "{}", "utf-8")
@@ -77,7 +77,7 @@ describe("lab prune", () => {
 
   it("marks a missing active sandbox as destroyed without deleting recent reports", async () => {
     const root = path.join(repo, "sandbox", "missing")
-    const reportDir = path.join(repo, "reports", "lab", "missing-sandbox")
+    const reportDir = path.join(repo, ".opencode", "lab", "reports", "missing-sandbox")
     await fs.mkdir(reportDir, { recursive: true })
     const recent = sandbox("missing-sandbox", "active", root)
     recent.createdAt = new Date().toISOString()

@@ -8,6 +8,7 @@ import type {
   LabTestTotals,
 } from "./types"
 import { readJson, writeJsonAtomic, writeTextAtomic } from "./fs"
+import { ensureLabHome, labPaths } from "./home"
 
 export interface LabBaselineOptions {
   durationTolerancePct?: number
@@ -84,7 +85,8 @@ export function selectionKey(selection: LabSelection): string {
 }
 
 export function baselinePath(projectRoot: string, adapter: string, selection: LabSelection): string {
-  return path.join(projectRoot, "reports", "lab", "baselines", safeSegment(adapter), `${selectionKey(selection)}.json`)
+  const homes = labPaths(projectRoot)
+  return path.join(homes.baselines, safeSegment(adapter), `${selectionKey(selection)}.json`)
 }
 
 export async function readBaseline(projectRoot: string, adapter: string, selection: LabSelection): Promise<LabBaseline | null> {
@@ -92,6 +94,7 @@ export async function readBaseline(projectRoot: string, adapter: string, selecti
 }
 
 export async function writeBaseline(projectRoot: string, baseline: LabBaseline): Promise<string> {
+  await ensureLabHome(projectRoot)
   const file = baselinePath(projectRoot, baseline.adapter, baseline.selection)
   await writeJsonAtomic(file, baseline)
   return file
@@ -318,9 +321,9 @@ export function comparisonMarkdown(comparison: LabComparison): string {
 }
 
 export function comparisonPath(projectRoot: string, sandboxId: string, runId: string): string {
-  return path.join(projectRoot, "reports", "lab", sandboxId, "comparisons", `compare-${runId}.json`)
+  return path.join(labPaths(projectRoot).reports, sandboxId, "comparisons", `compare-${runId}.json`)
 }
 
 export function comparisonMarkdownPath(projectRoot: string, sandboxId: string, runId: string): string {
-  return path.join(projectRoot, "reports", "lab", sandboxId, "comparisons", `compare-${runId}.md`)
+  return path.join(labPaths(projectRoot).reports, sandboxId, "comparisons", `compare-${runId}.md`)
 }
