@@ -321,9 +321,11 @@ The installer CLI stays outside the batches, because the current Stryker setup m
 
 ### Current baseline
 
-The full matrix was last measured on 2026-10-23 against `1943c8c`: sixteen batches, 8780 mutants (5895 valid), 4221 killed, 1178 survived and 482 without coverage, for a combined score of 71,84% after about 71 minutes in Actions.
+The full matrix was last measured on 2026-10-24 against `e49f386`: sixteen batches, 8790 mutants (5905 valid), 4339 killed, 16 timed out, 1131 survived and 419 without coverage, for a combined score of 73,75% after about 78 minutes in Actions.
+The commit measured is the last commit before the V1 to V2 migration; its production tree matches the code released as 3.2.1, because the later changes are tests, fixtures, docs, CI and version metadata.
 Three batches sit in the high band (`plugin-events` 92,86%, `tools-config-guard` 83,33%, `snapshot-restore` 82,35%), and `plugin-shims` reports 0,00% because its two valid mutants have no coverage.
-The lowest meaningful batches are `tools-archive` 55,94% and `shared-state-files` 57,06%, both split for this release, and their survivors are recorded as follow-up work instead of hidden in the aggregate.
+The previous archive and state-file gaps are closed by the directed suites: `tools-archive` rose to 79,72%, `shared-state-files` to 75,14% and `shared-state-engine` to 75,19%.
+The lowest meaningful batches are now `tools-recovery` 62,48%, `shared-state` 63,67% and `tools-authoring` 65,42%; the remaining file-level follow-up is `speckit-delta`, `speckit-health`, `speckit-selfheal`, `speckit-approve` and `schemas.ts`.
 The per batch figures and the survivor decisions are in `reports/mutation-testing-analysis.md`.
 
 ### One place computes the score
