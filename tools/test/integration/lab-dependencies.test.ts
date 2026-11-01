@@ -4,6 +4,7 @@ import path from "node:path"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
 import { ensureDependencies } from "../../lab/core/dependencies"
 import { upsertSandbox } from "../../lab/core/registry"
+import { labPaths } from "../../lab/core/home"
 import type { LabSandbox } from "../../lab/core/types"
 
 let project: string | null = null
@@ -18,7 +19,7 @@ afterEach(async () => {
 describe("lab dependency preparation", () => {
   it("installs from the sandbox lockfile and records the install", async () => {
     project = await createTempWorktree()
-    const sandboxRoot = path.join(project, "sandbox")
+    const sandboxRoot = path.join(labPaths(project).sandboxes, "dependency-sandbox")
     await fs.mkdir(sandboxRoot, { recursive: true })
     await fs.writeFile(
       path.join(sandboxRoot, "package.json"),

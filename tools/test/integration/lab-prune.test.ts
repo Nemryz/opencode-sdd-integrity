@@ -6,6 +6,7 @@ import { createTempWorktree, destroyTempWorktree, mockContext, repoRootDir } fro
 import { createSandbox, destroySandbox, loadSandbox } from "../../lab/core/sandbox"
 import { pruneSandboxes } from "../../lab/core/prune"
 import { readRegistry, upsertSandbox } from "../../lab/core/registry"
+import { labPaths } from "../../lab/core/home"
 import { removeWorktree } from "../../lab/core/git"
 import speckitLab from "../../speckit-lab"
 import type { LabSandbox } from "../../lab/core/types"
@@ -35,12 +36,12 @@ afterEach(async () => {
   await destroyTempWorktree(repo)
 })
 
-function sandbox(id: string, status: LabSandbox["status"], root: string): LabSandbox {
+function sandbox(id: string, status: LabSandbox["status"], name: string): LabSandbox {
   return {
     id,
     projectRoot: repo,
     repoRoot: repo,
-    sandboxRoot: root,
+    sandboxRoot: path.join(labPaths(repo).sandboxes, name),
     adapter: "node",
     baseCommit: "0".repeat(40),
     createdAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
@@ -51,9 +52,9 @@ function sandbox(id: string, status: LabSandbox["status"], root: string): LabSan
 
 describe("lab prune", () => {
   it("dry-runs stale destroyed sandboxes without deleting them", async () => {
-    const root = path.join(repo, "sandbox", "old")
+    const root = path.join(labPaths(repo).sandboxes, "old")
     await fs.mkdir(root, { recursive: true })
-    await upsertSandbox(repo, sandbox("old-sandbox", "destroyed", root))
+    await upsertSandbox(repo, sandbox("old-sandbox", "destroyed", "old"))
 
     const result = await pruneSandboxes({ projectRoot: repo, olderThanDays: 30, confirmed: false })
     expect(result.dryRun).toBe(true)
@@ -62,12 +63,12 @@ describe("lab prune", () => {
   })
 
   it("removes stale destroyed sandboxes and their reports when confirmed", async () => {
-    const root = path.join(repo, "sandbox", "old")
+    const root = path.join(labPaths(repo).sandboxes, "old")
     const reportDir = path.join(repo, ".opencode", "lab", "reports", "old-sandbox")
     await fs.mkdir(root, { recursive: true })
     await fs.mkdir(reportDir, { recursive: true })
     await fs.writeFile(path.join(reportDir, "summary.json"), "{}", "utf-8")
-    await upsertSandbox(repo, sandbox("old-sandbox", "destroyed", root))
+    await upsertSandbox(repo, sandbox("old-sandbox", "destroyed", "old"))
 
     const result = await pruneSandboxes({ projectRoot: repo, olderThanDays: 30, confirmed: true })
     expect(result.removed).toContain("old-sandbox")
@@ -76,10 +77,10 @@ describe("lab prune", () => {
   })
 
   it("marks a missing active sandbox as destroyed without deleting recent reports", async () => {
-    const root = path.join(repo, "sandbox", "missing")
+    const root = path.join(labPaths(repo).sandboxes, "missing")
     const reportDir = path.join(repo, ".opencode", "lab", "reports", "missing-sandbox")
     await fs.mkdir(reportDir, { recursive: true })
-    const recent = sandbox("missing-sandbox", "active", root)
+    const recent = sandbox("missing-sandbox", "active", "missing")
     recent.createdAt = new Date().toISOString()
     await upsertSandbox(repo, recent)
 
@@ -92,9 +93,9 @@ describe("lab prune", () => {
 
 describe("speckit-lab prune command", () => {
   it("dry-runs through the tool and applies only after confirmation", async () => {
-    const root = path.join(repo, "sandbox", "old")
+    const root = path.join(labPaths(repo).sandboxes, "old")
     await fs.mkdir(root, { recursive: true })
-    await upsertSandbox(repo, sandbox("old-sandbox", "destroyed", root))
+    await upsertSandbox(repo, sandbox("old-sandbox", "destroyed", "old"))
 
     const dry = await speckitLab.execute({ subcommand: "prune", olderThanDays: 30 }, mockContext(repo))
     expect(dry.title).toBe("Lab Prune: Dry Run")

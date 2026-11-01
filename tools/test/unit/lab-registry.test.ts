@@ -3,6 +3,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
 import { readRegistry, registryLock, upsertSandbox } from "../../lab/core/registry"
+import { labPaths } from "../../lab/core/home"
 import type { LabSandbox } from "../../lab/core/types"
 
 let project: string | null = null
@@ -19,7 +20,7 @@ function sandbox(projectRoot: string, id: string): LabSandbox {
     id,
     projectRoot,
     repoRoot: projectRoot,
-    sandboxRoot: path.join(projectRoot, "sandbox", id),
+    sandboxRoot: path.join(labPaths(projectRoot).sandboxes, id),
     adapter: "node",
     baseCommit: "0".repeat(40),
     createdAt: new Date().toISOString(),
