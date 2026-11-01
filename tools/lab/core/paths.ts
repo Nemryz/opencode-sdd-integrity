@@ -32,6 +32,10 @@ function normalizeRelative(value: string): string {
   if (path.isAbsolute(normalized)) throw new LabPathError(`The lab rejects an absolute path outside the workspace: ${value}`)
   if (pathFragments(normalized).includes("..")) throw new LabPathError(`The lab rejects traversal out of the workspace: ${value}`)
   if (pathFragments(normalized).length === 0 || normalized === ".") throw new LabPathError("The lab needs a non empty relative path")
+  for (const segment of pathFragments(normalized)) {
+    if (segment !== segment.trim()) throw new LabPathError(`The lab rejects a path segment with surrounding whitespace: ${value}`)
+    if (/\.$/.test(segment) && segment.length > 1) throw new LabPathError(`The lab rejects a path segment ending in a dot: ${value}`)
+  }
   return normalized
 }
 
@@ -47,10 +51,28 @@ export function resolveInside(workspace: string, candidate: string): string {
   return joined
 }
 
-// Best effort canonical check because an existing link out of the workspace is still an escape.
+// Detects a Windows junction or reparse point by probing readlink on a directory that lstat does not mark as a symlink.
+async function isReparsePoint(target: string): Promise<boolean> {
+  let stat
+  try {
+    stat = await fs.lstat(target)
+  } catch {
+    return false
+  }
+  if (!stat.isDirectory() || stat.isSymbolicLink()) return false
+  try {
+    await fs.readlink(target)
+    return true
+  } catch {
+    return false
+  }
+}
 export async function assertRealInsideWorkspace(workspace: string, candidate: string): Promise<string> {
   const joined = resolveInside(workspace, candidate)
   const workspaceRoot = path.resolve(workspace)
+  if (await isReparsePoint(joined)) {
+    throw new LabPathError(`The lab rejects a reparse point inside the workspace: ${candidate}`)
+  }
   try {
     const real = await fs.realpath(joined)
     if (real !== workspaceRoot && !real.startsWith(workspaceRoot + path.sep)) {
@@ -82,7 +104,12 @@ async function assertComponentsInsideWorkspace(workspaceRoot: string, joined: st
       // The component is also missing, which stays harmless unless a link shows up later in the chain.
       continue
     }
-    if (!stat.isSymbolicLink()) continue
+    if (!stat.isSymbolicLink()) {
+      if (stat.isDirectory() && (await isReparsePoint(prefix))) {
+        throw new LabPathError(`The lab rejects a reparse point inside the workspace: ${candidate}`)
+      }
+      continue
+    }
     const target = await fs.readlink(prefix)
     const resolvedTarget = path.resolve(path.dirname(prefix), target)
     if (resolvedTarget !== workspaceRoot && !resolvedTarget.startsWith(workspaceRoot + path.sep)) {

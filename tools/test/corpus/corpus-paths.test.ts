@@ -134,6 +134,31 @@ describe("corpus toctou window", () => {
   })
 })
 
+describe("corpus ambiguous paths", () => {
+  it("rejects segments with surrounding whitespace or a trailing dot", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-ws-"))
+    try {
+      expect(() => resolveInside(workspace, "a /b")).toThrow(LabPathError)
+      expect(() => resolveInside(workspace, "dir.")).toThrow(LabPathError)
+      expect(() => resolveInside(workspace, "a /b")).toThrow(LabPathError)
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true })
+    }
+  })
+
+  it("keeps a normal directory from being mistaken for a reparse point", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-ws-"))
+    try {
+      const dir = path.join(workspace, "normal")
+      await fs.mkdir(dir, { recursive: true })
+      const real = await assertRealInsideWorkspace(workspace, "normal")
+      expect(real).toBe(dir)
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true })
+    }
+  })
+})
+
 describe("corpus sandbox containment", () => {
   it("keeps the lab home under the project and matches only paths inside its sandbox tree", async () => {
     const repo = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-repo-"))
