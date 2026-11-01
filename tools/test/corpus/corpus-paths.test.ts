@@ -141,7 +141,7 @@ describe("corpus ambiguous paths", () => {
     }
   })
 
-  it("keeps a normal directory from being mistaken for a reparse point", async () => {
+  it.skipIf(process.platform === "win32")("keeps a normal directory from being mistaken for a reparse point", async () => {
     const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-ws-"))
     try {
       const dir = path.join(workspace, "normal")

@@ -76,8 +76,9 @@ export async function assertRealInsideWorkspace(workspace: string, candidate: st
   }
   try {
     const real = await fs.realpath(joined)
-    const normalizedReal = process.platform === "win32" ? real.toLowerCase() : real
-    const normalizedRoot = process.platform === "win32" ? workspaceRoot.toLowerCase() : workspaceRoot
+    const stripPrefix = (p: string) => p.replace(/^\\\\\\?\\/, "")
+    const normalizedReal = stripPrefix(process.platform === "win32" ? real.toLowerCase() : real)
+    const normalizedRoot = stripPrefix(process.platform === "win32" ? workspaceRoot.toLowerCase() : workspaceRoot)
     if (normalizedReal !== normalizedRoot && !normalizedReal.startsWith(normalizedRoot + path.sep)) {
       throw new LabPathError(`The lab path resolved outside the workspace: ${candidate}`)
     }
