@@ -143,11 +143,12 @@ Manage point-in-time snapshots of the SDD state. Uses `speckit-snapshot` tool.
 Automatic verified snapshots run before phase transitions, tasks approval, and `--fix` operations (audit, clean, health, selfheal). If the snapshot fails, the operation is blocked and nothing changes; failed fixes leave a post-failure snapshot. `/health` recovers interrupted restores with `--fix`.
 `restore` requires user confirmation (`confirmed: true`); `list` reports Recovery Readiness.
 
-### `/lab [create|run <category|profile>|status|diff|promote|destroy|prune|baseline|compare|list]`
+### `/lab [create|run <category|profile>|status|diff|promote|destroy|disable|enable|prune|baseline|compare|list]`
 Run non-mutation tests in an isolated git worktree. Uses `speckit-lab` tool with `subcommand`.
-Categories: `all`, `unit`, `integration`, `property`, `chaos`, `concurrency`, `fuzz`, `snapshot`, `install`, `manual`, `smoke`.
+Categories: `all`, `unit`, `integration`, `property`, `chaos`, `concurrency`, `fuzz`, `snapshot`, `install`, `manual`, `security`, `smoke`.
 Profiles: `quick`, `standard`, `hard`, `soak`. The lab excludes `*-mutation.test.ts`, `*-mutation-*.test.ts`, `*-kill-survivors.test.ts` and `*-kill.test.ts`.
 `diff` before `promote`; `promote` and `destroy` require user confirmation (`confirmed: true`). `soak` and `smoke` are heavy and confirmation gated.
+`disable` and `enable` require `confirmed: true` and flip the lab kill switch (`OPENCODE_LAB_DISABLED=1`); while it holds, `create` and `run` are safe no-ops and status, destroy and prune keep working. The `security` category runs the safe attack corpus under `tools/test/corpus`.
 `promote` refuses if the checkout HEAD moved after `create`. Lockfile changes or a missing `node_modules` install dependencies inside the sandbox before the run.
 
 ### `/matrix [<batch> [batch...]|all]`

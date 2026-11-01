@@ -49,7 +49,19 @@ Dependency installation runs with lifecycle scripts disabled (`--ignore-scripts`
 
 ## Hooks and network guardrails
 
-Git hooks are neutralized inside every sandbox by pointing `core.hooksPath` at an absent local directory, so a worktree cannot execute hooks inherited from the checkout. The `OPENCODE_LAB_NETWORK=none` marker and the default `denyNetwork` control express that sandbox runs should not open network connections, and any command line that mentions `sudo`, `docker`, `firejail`, `bubblewrap` or `systemd-nspawn` is flagged as needing a no-exec adapter before it can run.
+Git hooks are neutralized inside every sandbox by enabling `extensions.worktreeConfig` and pointing the worktree-scoped `core.hooksPath` at an empty local directory, so the override lives in the sandbox's own `config.worktree` and the checkout keeps its original hooks untouched. Every run re-applies that setting, so a tampered sandbox run cannot reactivate hooks before the next step executes. The `OPENCODE_LAB_NETWORK=none` marker and the default `denyNetwork` control express that sandbox runs should not open network connections, and any command line that mentions `sudo`, `docker`, `firejail`, `bubblewrap` or `systemd-nspawn` is flagged as needing a no-exec adapter before it can run.
+
+## Kill switch
+
+The lab has one switch that holds above everything else. `OPENCODE_LAB_DISABLED=1` in the environment wins over any file, and `disable` writes `.opencode/lab/policy.json` owned by the project with `0600` permissions. While the switch holds, `create` and `run` return a `Lab Disabled` safe no-op before anything is planned, loaded or spawned, so a hostile step list in the backlog never starts. `status`, `diff`, `promote`, `destroy`, `prune`, list and compare keep working, because shutting down must not strand state on disk. `enable` clears the file after the same explicit confirmation both subcommands demand, and every policy change appends a `lab_policy` event to the audit trail.
+
+## Cross validation
+
+The registry is rewritten by every lab action, so every command revalidates a registry entry before it acts on it. A read refuses an id outside `A-Za-z0-9._-`, a `sandboxRoot` that does not resolve into the project's `.opencode/lab/sandboxes` tree, or a fixture whose roots are missing, and the error names the file. `promote` runs a second cross check on the loaded entry, refuses a destroyed sandbox, and compares the recorded patch hash with the patch it is about to apply, so a tampered or stale registry entry cannot instruct promotion. `destroy` rechecks the containment itself before removing the worktree, so even a registry bypass cannot point `rm` at a host path. Promotion also records `lab_promoted` with the applied patch hash and the checkout head, which closes the audit gap between writing the patch and applying it.
+
+## Limit enforcement
+
+Every sandbox child runs through the same runner. Output is capped at 4 MB by default and a step may set `maxOutputBytes`, so a flooding test cannot exhaust memory. Timeouts kill the whole process group, which covers grandchildren spawned by the test. A step may also request `limits` with `cpuSeconds` and `memoryBytes`; on POSIX those wrap the command in `prlimit` so the kernel enforces the ceiling, and on any system where `prlimit` is missing the lab refuses the step instead of running unbounded, so limits never downgrade silently.
 
 ## Audit trail
 
@@ -71,6 +83,7 @@ The integrity adapter discovers the repository through its package name or throu
 | `snapshot` | `tools/test/snapshot` |
 | `install` | `tools/test/install` |
 | `manual` | `tools/test/manual` |
+| `security` | `tools/test/corpus` |
 | `smoke` | The real OpenCode 2 CLI smoke script; POSIX only and confirmation gated |
 
 Profiles combine steps:
@@ -91,6 +104,10 @@ The mutation suites stay out of every category and profile. The exact exclusions
 
 The lab never starts Stryker, never reads a mutation score and never writes to `mutation-batches.json` or the Stryker configuration. The mutation workflow remains `/matrix` and `/baseline`.
 
+## The attack corpus
+
+The `security` category runs the corpus under `tools/test/corpus`, a collection of hostile fixtures the lab's own tests attack with. Traversal candidates, symlinks aimed outside the workspace, hardlink survival, a swapped symlink between two checks, environment leaks, shell metacharacters in argv, a patch with traversal targets, a rewritten registry, a rewritten lockfile, a lifecycle script payload, re-enabled hooks and flooding or runaway children each meet the exact guard that must refuse them. The corpus documents the live permissions without ever pointing at the host, so a regression in the security layer becomes a failing test with the attack that proves it.
+
 ## What the sandbox contains
 
 `create` resolves the repository root with git, creates a detached worktree from `HEAD`, and then replays the checkout's uncommitted work:
@@ -102,6 +119,8 @@ The lab never starts Stryker, never reads a mutation score and never writes to `
 - The run uses `tools/lab/vitest.config.lab.ts`, which puts the Vite cache in `.lab-cache` inside the sandbox and coverage under the run report directory.
 
 The sandbox does not copy ignored files other than the dependency tree it prepares. If a test needs an ignored local file, copy it into the sandbox manually; the lab does not guess which ignored files are safe.
+
+A lockfile that someone rewrote after the sandbox was created is a tamper signal, not an update. The dependency decision compares the sandbox lockfile against the hash recorded at create time, and when the sandbox lockfile moved while no install inside the sandbox proves the change, the lab refuses with a clear error and leaves the checkout untouched.
 
 ## Promotion
 
