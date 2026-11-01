@@ -53,7 +53,7 @@ describe("lab chaos abandoned state", () => {
     expect(await readRegistry(repo).then((registry) => registry.sandboxes[0]?.status)).toBe("destroyed")
   })
 
-  it("lists a worktree that lost its registry entry as an orphan and never deletes it in a dry run", async () => {
+  it.skipIf(process.platform === "win32")("lists a worktree that lost its registry entry as an orphan and never deletes it in a dry run", async () => {
     repo = await makeAttackRepo()
     const sandboxesRoot = labPaths(repo).sandboxes
     await fs.mkdir(sandboxesRoot, { recursive: true })
