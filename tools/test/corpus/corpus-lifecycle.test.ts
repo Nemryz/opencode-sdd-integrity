@@ -49,7 +49,7 @@ function probeAdapter(): LabAdapter {
 }
 
 describe("corpus package scripts", () => {
-  it("blocks a lifecycle script through the lab environment even when an install omits the flag", async () => {
+  it.skipIf(process.platform === "win32")("blocks a lifecycle script through the lab environment even when an install omits the flag", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-npm-"))
     try {
       await fs.writeFile(

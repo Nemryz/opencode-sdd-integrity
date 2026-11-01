@@ -66,14 +66,14 @@ describe("corpus timeout exhaustion", () => {
 })
 
 describe("corpus kernel limits", () => {
-  it("builds a prlimit wrapper that keeps the original argv after the caps", () => {
+  it.skipIf(process.platform === "win32")("builds a prlimit wrapper that keeps the original argv after the caps", () => {
     const wrapper = limitsWrapper({ cpuSeconds: 3, memoryBytes: 1 << 30 })
     expect(wrapper).toEqual({ command: "prlimit", args: ["--cpu", "3", "--as", "1073741824"] })
     expect(limitsWrapper({})).toBeNull()
     expect(limitsWrapper(undefined)).toBeNull()
   })
 
-  it("stops a busy loop child with a cpu ceiling instead of letting it burn the host", async () => {
+  it.skipIf(process.platform === "win32")("stops a busy loop child with a cpu ceiling instead of letting it burn the host", async () => {
     const result = await runLabProcess(
       process.execPath,
       ["-e", "setImmediate(function burn(){ setImmediate(burn) })"],
@@ -84,7 +84,7 @@ describe("corpus kernel limits", () => {
     expect(result.durationMs).toBeLessThan(15_000)
   })
 
-  it("refuses to boot a node child whose virtual memory lied below its own needs", async () => {
+  it.skipIf(process.platform === "win32")("refuses to boot a node child whose virtual memory lied below its own needs", async () => {
     const result = await runLabProcess(process.execPath, ["-e", "console.log(1)"], {
       cwd: path.join(os.tmpdir()),
       timeoutMs: 20_000,

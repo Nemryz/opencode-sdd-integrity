@@ -27,8 +27,9 @@ export function pathFragments(value: string): string[] {
 
 function normalizeRelative(value: string): string {
   if (/[\u0000-\u001f]/.test(value)) throw new LabPathError("The lab rejects control characters in paths")
-  if (/\\/.test(value)) throw new LabPathError("The lab rejects backslash paths because they split on another platform")
-  const normalized = path.normalize(value)
+  if (process.platform !== "win32" && /\\/.test(value)) throw new LabPathError("The lab rejects backslash paths because they split on another platform")
+  const slashNormalized = process.platform === "win32" ? value.replace(/\\/g, "/") : value
+  const normalized = path.normalize(slashNormalized)
   if (path.isAbsolute(normalized)) throw new LabPathError(`The lab rejects an absolute path outside the workspace: ${value}`)
   if (pathFragments(normalized).includes("..")) throw new LabPathError(`The lab rejects traversal out of the workspace: ${value}`)
   if (pathFragments(normalized).length === 0 || normalized === ".") throw new LabPathError("The lab needs a non empty relative path")
@@ -121,7 +122,7 @@ async function assertComponentsInsideWorkspace(workspaceRoot: string, joined: st
 // Rejects an absolute or parent path before it can point outside the sandbox.
 export function assertInsideWorkspace(workspace: string, value: string): void {
   if (typeof value !== "string" || value.trim() === "") throw new LabPathError("The lab needs a path inside the workspace")
-  if (/\\/.test(value)) throw new LabPathError("The lab rejects backslash paths because they split on another platform")
+  if (process.platform !== "win32" && /\\/.test(value)) throw new LabPathError("The lab rejects backslash paths because they split on another platform")
   if (/[\u0000-\u001f]/.test(value)) throw new LabPathError("The lab rejects control characters in paths")
   for (const segment of pathFragments(value)) {
     if (segment !== segment.trim()) throw new LabPathError(`The lab rejects a path segment with surrounding whitespace: ${value}`)
@@ -143,6 +144,7 @@ function isTraversal(value: string): boolean {
 // Offers a synchronous guard for paths that arrive with a cwd, so an absolute or parent candidate fails before spawn.
 export function insideWorkspace(workspace: string, candidate: string): string {
   if (typeof candidate !== "string" || candidate.trim() === "" || candidate === "." || candidate === "..") throw new LabPathError("The lab needs a path inside the workspace")
+  if (process.platform !== "win32" && /\\/.test(candidate)) throw new LabPathError("The lab rejects backslash paths because they split on another platform")
   for (const segment of pathFragments(candidate)) {
     if (segment !== segment.trim()) throw new LabPathError(`The lab rejects a path segment with surrounding whitespace: ${candidate}`)
     if (/\.$/.test(segment) && segment.length > 1) throw new LabPathError(`The lab rejects a path segment ending in a dot: ${candidate}`)
