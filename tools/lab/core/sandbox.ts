@@ -21,6 +21,7 @@ import {
   updateSandbox,
   upsertSandbox,
 } from "./registry"
+import { isLabSandboxRoot } from "./home"
 import { WORKTREE_PROVIDER } from "./types"
 
 export interface CreateSandboxOptions {
@@ -174,16 +175,31 @@ export async function markPromoted(
   id: string,
   details: { patchHash?: string; appliedHead?: string } = {},
 ): Promise<LabSandbox | null> {
-  return updateSandbox(projectRoot, id, {
+  const updated = await updateSandbox(projectRoot, id, {
     status: "promoted",
     promotedAt: new Date().toISOString(),
     promotedHead: details.appliedHead,
     promotedPatchHash: details.patchHash,
   })
+  if (updated) {
+    await appendLabAudit({
+      kind: "lab_promoted",
+      projectRoot,
+      when: new Date().toISOString(),
+      sandboxId: id,
+      isolationProvider: WORKTREE_PROVIDER.id,
+      details: { patchHash: details.patchHash, appliedHead: details.appliedHead },
+    })
+  }
+  return updated
 }
 
+// Destroys a sandbox only after a second containment check, so a tampered registry entry cannot delete host paths.
 export async function destroySandbox(projectRoot: string, sandbox: LabSandbox, confirmed: boolean): Promise<LabSandbox | null> {
   if (confirmed !== true) throw new Error("Confirm lab destroy with confirmed true before the sandbox is removed")
+  if (!isLabSandboxRoot(projectRoot, sandbox.sandboxRoot)) {
+    throw new Error(`Lab sandbox ${sandbox.id} claims a root outside ${labPaths(projectRoot).sandboxes}; refusing to destroy`)
+  }
   await removeWorktree(sandbox.repoRoot, sandbox.sandboxRoot)
   const updated = await updateSandbox(projectRoot, sandbox.id, { status: "destroyed" })
   await appendLabAudit({

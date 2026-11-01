@@ -4,6 +4,7 @@ import type { LabSandbox } from "./types"
 import { makeLabId, readJson, writeTextAtomic, writeJsonAtomic } from "./fs"
 import { applyPatch, collectPatch, headCommit } from "./git"
 import { ensureDiffDir, getSandbox, updateSandbox } from "./registry"
+import { validatePromotion } from "./crosscheck"
 import { markPromoted } from "./sandbox"
 
 export interface SandboxDiff {
@@ -51,6 +52,11 @@ export async function promoteDiff(
   options: { allowMoved?: boolean } = {},
 ): Promise<SandboxDiff> {
   const currentSandbox = (await getSandbox(projectRoot, sandbox.id)) ?? sandbox
+  const reviewedHash = currentSandbox.lastDiffHash
+  const check = validatePromotion(projectRoot, currentSandbox, { reviewedPatchHash: reviewedHash })
+  if (!check.ok) {
+    throw new Error(`The sandbox failed the registry cross check and promotion stopped: ${check.findings.join("; ")}`)
+  }
   const diff = await collectDiff(projectRoot, sandbox)
   if (diff.empty) throw new Error("The sandbox has no changes to promote")
   if (diff.currentHead !== diff.baseCommit && !options.allowMoved) {
@@ -58,7 +64,7 @@ export async function promoteDiff(
       `The checkout moved from ${diff.baseCommit.slice(0, 12)} to ${diff.currentHead.slice(0, 12)} since sandbox ${sandbox.id} was created; no files were promoted. The patch is at ${diff.patchPath}. Create a new sandbox against the current HEAD.`,
     )
   }
-  if (currentSandbox.lastDiffHash !== diff.patchHash) {
+  if (reviewedHash !== diff.patchHash) {
     throw new Error(`Run diff after the latest sandbox change and review the patch before promoting. The reviewed patch hash is ${currentSandbox.lastDiffHash ?? "missing"} and the current patch hash is ${diff.patchHash}.`)
   }
   await applyPatch(sandbox.repoRoot, diff.patchPath, diff.baseCommit, { allowMoved: options.allowMoved })

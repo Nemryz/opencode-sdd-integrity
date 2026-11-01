@@ -45,7 +45,17 @@ expect_path tools/speckit-status.ts
 expect_path tools/speckit-evidence.ts
 expect_path tools/speckit-archive.ts
 expect_path tools/speckit-lab.ts
+expect_path tools/lab/core/audit.ts
+expect_path tools/lab/core/crosscheck.ts
+expect_path tools/lab/core/environment.ts
+expect_path tools/lab/core/home.ts
+expect_path tools/lab/core/index.ts
+expect_path tools/lab/core/paths.ts
+expect_path tools/lab/core/permissions.ts
+expect_path tools/lab/core/policy.ts
+expect_path tools/lab/core/provider.ts
 expect_path tools/lab/core/runner.ts
+expect_path tools/lab/core/security.ts
 expect_path tools/lab/adapters/integrity.ts
 expect_path tools/lab/vitest.config.lab.ts
 expect_path tools/lab/core/diff.ts

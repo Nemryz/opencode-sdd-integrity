@@ -42,11 +42,23 @@ export async function verifyDirectoryUsable(dir: string, writable: boolean): Pro
 
 export const DISABLED_HOOKS_DIR = ".opencode-lab-disabled-hooks"
 
-// A worktree may share its git dir with the checkout, so point hook execution at an absent local path.
+// Writes hooksPath into the worktree config so sandbox hooks die while the checkout keeps its own hooks.
 export async function disableSandboxHooks(sandboxRoot: string): Promise<boolean> {
-  const result = await runLabProcess("git", ["config", "--local", "core.hooksPath", DISABLED_HOOKS_DIR], {
+  const enable = await runLabProcess("git", ["config", "extensions.worktreeConfig", "true"], {
     cwd: sandboxRoot,
     timeoutMs: 10_000,
   })
-  return result.code === 0
+  if (enable.code !== 0) return false
+  await fs.mkdir(path.join(sandboxRoot, DISABLED_HOOKS_DIR), { recursive: true })
+  const result = await runLabProcess("git", ["config", "--worktree", "core.hooksPath", DISABLED_HOOKS_DIR], {
+    cwd: sandboxRoot,
+    timeoutMs: 10_000,
+  })
+  if (result.code !== 0) return false
+  // The shared config may still carry hooksPath from the checkout, so the worktree value must win.
+  const shared = await runLabProcess("git", ["config", "--worktree", "--get", "core.hooksPath"], {
+    cwd: sandboxRoot,
+    timeoutMs: 10_000,
+  })
+  return shared.code === 0 && shared.stdout.trim() === DISABLED_HOOKS_DIR
 }

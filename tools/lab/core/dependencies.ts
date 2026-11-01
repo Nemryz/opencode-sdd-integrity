@@ -143,6 +143,13 @@ export function planDependencyAction(input: DependencyInput): DependencyDecision
     }
   }
 
+  if (current?.lockHash && sandbox && current.lockfile === sandbox.file && current.lockHash !== sandbox.hash && !sandboxHasNodeModules) {
+    return {
+      action: "error",
+      reason: "The sandbox lockfile was rewritten after the sandbox was created and no install in the sandbox confirms it; create a new sandbox",
+    }
+  }
+
   if (source && sameLockfile(source, sandbox)) {
     if (sandboxHasNodeModules) {
       return { action: "ready", reason: "Lockfiles match and dependencies are present" }

@@ -10,10 +10,11 @@ import { formatRunSummary } from "./lab/core/report"
 import { createBaseline, compareRunToBaseline, formatComparison, readBaseline, writeBaseline, comparisonMarkdown, comparisonMarkdownPath, comparisonPath } from "./lab/core/baseline"
 import { runLab } from "./lab/core/run"
 import { createSandbox, destroySandbox, formatSandbox, loadSandbox } from "./lab/core/sandbox"
+import { isLabDisabled, setLabDisabled, LAB_DISABLED_ENV } from "./lab/core/policy"
 import { pruneSandboxes } from "./lab/core/prune"
 import type { LabSandbox } from "./lab/core/types"
 
-const SUBCOMMANDS = ["create", "run", "status", "diff", "promote", "destroy", "list", "prune", "baseline", "compare", "help"] as const
+const SUBCOMMANDS = ["create", "run", "status", "diff", "promote", "destroy", "disable", "enable", "list", "prune", "baseline", "compare", "help"] as const
 
 function listOutput(sandboxes: LabSandbox[]): string {
   if (sandboxes.length === 0) {
@@ -43,16 +44,19 @@ function helpOutput(): string {
     "  diff [id]               Write a patch and show its stat; does not modify the checkout",
     "  promote [id]            Apply the patch after confirmation and only if HEAD is unchanged",
     "  destroy [id]            Remove the worktree after explicit confirmation; reports stay",
+    "  disable                 Kill switch, future create and run calls become safe no-ops",
+    "  enable                  Revert the kill switch after explicit confirmation",
     "  prune [days]            Dry-run or remove stale sandboxes, reports and orphan worktrees",
     "  baseline [selection]    Store the latest successful run as the baseline",
     "  compare [selection]     Compare the latest run against the stored baseline",
     "  list                    List known sandboxes",
     "",
-    "Integrity categories: all, unit, integration, property, chaos, concurrency, fuzz, snapshot, install, manual, smoke",
+    "Integrity categories: all, unit, integration, property, chaos, concurrency, fuzz, snapshot, install, manual, security, smoke",
     "Profiles: quick, standard, hard, soak",
     "Generic adapter categories and profiles come from package.json scripts.",
     "",
     "The lab never runs mutation tests and keeps its state under .opencode/lab, which stays out of git.",
+    `The ${LAB_DISABLED_ENV}=1 environment variable or subcommand disable implements the kill switch.`,
   ].join("\n")
 }
 
@@ -112,7 +116,34 @@ export default tool({
         }
       }
 
+      if (subcommand === "disable" || subcommand === "enable") {
+        const disabled = subcommand === "disable"
+        if (args.confirmed !== true) {
+          const action = disabled ? "Disable the lab" : "Re-enable the lab"
+          return {
+            title: "Confirm Lab Kill Switch",
+            output: `${action} by writing .opencode/lab/policy.json. Create and run become safe no-ops while disabled, status and destroy keep working. Re-run with confirmed: true after the user confirms.`,
+            metadata: { requiresConfirmation: true, disabled },
+          }
+        }
+        const policyPath = await setLabDisabled(projectRoot, disabled)
+        return {
+          title: disabled ? "Lab Disabled" : "Lab Enabled",
+          output: disabled
+            ? `The lab kill switch is on at ${policyPath}. Create and run are safe no-ops until enable runs.`
+            : `The lab kill switch is off at ${policyPath}. Sandboxes can be created again.`,
+          metadata: { disabled, policyPath },
+        }
+      }
+
       if (subcommand === "create") {
+        if (await isLabDisabled(projectRoot)) {
+          return {
+            title: "Lab Disabled",
+            output: "The lab kill switch holds, so create is a safe no-op. Run enable after the user confirms, or unset the kill switch environment variable.",
+            metadata: { safeNoOp: true },
+          }
+        }
         const warnings = await getProjectRootWarnings(projectRoot)
         if (warnings.length > 0 && !args.confirmed) {
           return {
@@ -128,6 +159,14 @@ export default tool({
           title: "Lab Sandbox Created",
           output: `${formatSandbox(sandbox)}\n\nNext: run a category such as unit, or a profile such as quick.`,
           metadata: { sandboxId: sandbox.id, sandboxRoot: sandbox.sandboxRoot, adapter: sandbox.adapter },
+        }
+      }
+
+      if (subcommand === "run" && (await isLabDisabled(projectRoot))) {
+        return {
+          title: "Lab Disabled",
+          output: "The lab kill switch holds, so run is a safe no-op and no step started. Run enable after the user confirms to resume runs.",
+          metadata: { safeNoOp: true },
         }
       }
 

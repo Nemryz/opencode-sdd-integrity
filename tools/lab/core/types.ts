@@ -36,6 +36,8 @@ export interface LabStep {
   command: string
   args: string[]
   timeoutMs?: number
+  maxOutputBytes?: number
+  limits?: LabStepLimits
   reportFile?: string
   coverageFile?: string
   optional?: boolean
@@ -43,6 +45,12 @@ export interface LabStep {
   continueOnFailure?: boolean
   seed?: string
   rerun?: (context: LabRerunContext) => LabRerunPlan
+}
+
+// Carries the kernel backed caps a sandbox may enforce on a child when the host exposes them.
+export interface LabStepLimits {
+  cpuSeconds?: number
+  memoryBytes?: number
 }
 
 export interface LabProfile {

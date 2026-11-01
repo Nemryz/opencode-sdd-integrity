@@ -24,6 +24,7 @@ const CATEGORIES: LabAdapter["categories"] = {
   snapshot: { description: "Exact command output", paths: ["tools/test/snapshot"] },
   install: { description: "Installer surface and CLI", paths: ["tools/test/install"] },
   manual: { description: "Workflow scripts and manual cases", paths: ["tools/test/manual"] },
+  security: { description: "The safe attack corpus that validates lab invariants", paths: ["tools/test/corpus"] },
   smoke: { description: "The real OpenCode 2 CLI smoke probe", paths: [] },
 }
 

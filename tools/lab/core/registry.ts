@@ -4,6 +4,30 @@ import type { LabRegistry, LabRunSummary, LabSandbox } from "./types"
 import { makeLabId, readJson, withLabLock, writeJsonAtomic } from "./fs"
 import { labPaths } from "./home"
 import { ensureLabHome } from "./home"
+import { isLabSandboxRoot } from "./home"
+import { safeSegment } from "./paths"
+
+const SAFE_ID = /^[A-Za-z0-9._-]+$/
+
+// Rejects a registry entry that a mutating process could have authored, before any command trusts it.
+function sanitizeRegistryEntry(entry: LabSandbox, projectRoot: string, file: string): LabSandbox {
+  if (!entry || typeof entry !== "object") {
+    throw new Error(`Lab registry entry is not an object inside ${file}`)
+  }
+  if (typeof entry.id !== "string" || !SAFE_ID.test(entry.id)) {
+    throw new Error(`Lab registry entry carries an unsafe id inside ${file}`)
+  }
+  if (typeof entry.sandboxRoot !== "string" || entry.sandboxRoot.trim() === "") {
+    throw new Error(`Lab registry entry ${entry.id} is missing its sandbox root inside ${file}`)
+  }
+  if (!isLabSandboxRoot(projectRoot, entry.sandboxRoot)) {
+    throw new Error(`Lab registry entry ${entry.id} claims a sandbox root outside ${labPaths(projectRoot).sandboxes} inside ${file}`)
+  }
+  if (typeof entry.repoRoot !== "string" || entry.repoRoot.trim() === "") {
+    throw new Error(`Lab registry entry ${entry.id} is missing its repository root inside ${file}`)
+  }
+  return entry
+}
 
 export function labRoot(projectRoot: string): string {
   return labPaths(projectRoot).reports
@@ -34,12 +58,21 @@ export function makeRunId(): string {
 }
 
 export async function readRegistry(projectRoot: string): Promise<LabRegistry> {
-  const parsed = await readJson<LabRegistry>(registryFile(projectRoot))
+  const file = registryFile(projectRoot)
+  let parsed: LabRegistry | null
+  try {
+    parsed = await readJson<LabRegistry>(file)
+  } catch {
+    throw new Error(`Lab registry is unreadable: ${file}`)
+  }
   if (!parsed) return { version: 1, sandboxes: [] }
   if (parsed.version !== 1 || !Array.isArray(parsed.sandboxes)) {
-    throw new Error(`Lab registry is unreadable: ${registryFile(projectRoot)}`)
+    throw new Error(`Lab registry is unreadable: ${file}`)
   }
-  return parsed
+  return {
+    version: 1,
+    sandboxes: parsed.sandboxes.map((entry) => sanitizeRegistryEntry(entry as LabSandbox, projectRoot, file)),
+  }
 }
 
 export async function writeRegistry(projectRoot: string, registry: LabRegistry): Promise<void> {

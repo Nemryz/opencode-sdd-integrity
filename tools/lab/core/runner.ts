@@ -1,10 +1,16 @@
-import { spawn, type ChildProcess } from "node:child_process"
+import { spawn, spawnSync, type ChildProcess } from "node:child_process"
 import { DEFAULT_LAB_ENV, SAFE_HINTS, safeLabEnvironment } from "./environment"
+
+export interface LabProcessLimits {
+  cpuSeconds?: number
+  memoryBytes?: number
+}
 
 export interface LabProcessOptions {
   cwd: string
   timeoutMs?: number
   maxOutputBytes?: number
+  limits?: LabProcessLimits
   env?: NodeJS.ProcessEnv
   signal?: AbortSignal
 }
@@ -21,6 +27,34 @@ export interface LabProcessResult {
 
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000
 const DEFAULT_OUTPUT_LIMIT = 4 * 1024 * 1024
+
+let prlimitAvailable: boolean | null = null
+
+function hasPrlimit(): boolean {
+  if (prlimitAvailable !== null) return prlimitAvailable
+  const probe = spawnSync("prlimit", ["--version"], { stdio: "ignore", windowsHide: true })
+  prlimitAvailable = !probe.error && probe.status === 0
+  return prlimitAvailable
+}
+
+// Wraps the command in prlimit on POSIX so cpu and memory caps come from the kernel, and errors instead of downgrading.
+export function limitsWrapper(limits: LabProcessLimits | undefined): { command: string; args: string[] } | null {
+  if (!limits || (limits.cpuSeconds === undefined && limits.memoryBytes === undefined)) return null
+  if (process.platform === "win32") {
+    throw new Error("The lab cannot enforce cpu or memory limits on Windows yet; remove the limits or run on POSIX")
+  }
+  if (!hasPrlimit()) {
+    throw new Error("The requested cpu or memory limits need prlimit on PATH; remove the limits or install util-linux")
+  }
+  const args: string[] = []
+  if (limits.cpuSeconds !== undefined) {
+    args.push("--cpu", String(Math.floor(limits.cpuSeconds)))
+  }
+  if (limits.memoryBytes !== undefined) {
+    args.push("--as", String(Math.floor(limits.memoryBytes)))
+  }
+  return { command: "prlimit", args }
+}
 
 function terminateTree(child: ChildProcess): void {
   const pid = child.pid
@@ -106,7 +140,10 @@ export function runLabProcess(command: string, args: string[], options: LabProce
         no_proxy: "*",
         ...options.env,
       })
-      child = spawn(command, args, {
+      const wrapper = limitsWrapper(options.limits)
+      const finalCommand = wrapper ? wrapper.command : command
+      const finalArgs = wrapper ? [...wrapper.args, "--", command, ...args] : args
+      child = spawn(finalCommand, finalArgs, {
         cwd: options.cwd,
         env,
         stdio: ["ignore", "pipe", "pipe"],

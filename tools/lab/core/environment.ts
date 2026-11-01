@@ -1,3 +1,5 @@
+import { isDenylistedEnvironmentKey } from "./security"
+
 // The parent keys a child may inherit, so project secrets never flow into a sandbox command.
 export const SAFE_HINTS: string[] = [
   "PATH",
@@ -87,5 +89,5 @@ export function safeLabEnvironment(
 
 export function deniedEnvironmentKeys(environment: NodeJS.ProcessEnv): string[] {
   const denySet = new Set(LAB_ENV_DENY.map((entry) => entry.toUpperCase()))
-  return Object.keys(environment).filter((key) => denySet.has(key.toUpperCase()))
+  return Object.keys(environment).filter((key) => denySet.has(key.toUpperCase()) || isDenylistedEnvironmentKey(key))
 }

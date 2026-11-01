@@ -12,6 +12,7 @@ import type {
 } from "./types"
 import { ensureDependencies } from "./dependencies"
 import { appendLabAudit } from "./audit"
+import { disableSandboxHooks } from "./permissions"
 import { ensureRunDir, makeRunId, writeRunSummary } from "./registry"
 import { detectFlake, flakeMarkdown } from "./flakes"
 import { runLabProcess } from "./runner"
@@ -85,6 +86,12 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
     throw new Error("This run is heavy or touches an external system; re-run with confirmed: true after asking the user")
   }
 
+  // Re-neutrals any hooksPath a previous untrusted run may have rewritten, because the worktree git dir is shared.
+  const hooksDisabled = await disableSandboxHooks(sandbox.sandboxRoot)
+  if (!hooksDisabled) {
+    throw new Error("Could not disable git hooks inside the sandbox; refusing to run untrusted code")
+  }
+
   const startedAt = new Date().toISOString()
   const started = Date.now()
   const dependency = await ensureDependencies({
@@ -103,6 +110,8 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
     const result = await runLabProcess(step.command, step.args, {
       cwd: sandbox.sandboxRoot,
       timeoutMs: step.timeoutMs ?? 15 * 60 * 1000,
+      maxOutputBytes: step.maxOutputBytes,
+      limits: step.limits,
       signal: options.signal,
     })
     await writeStepLog(logPath, step, result)
