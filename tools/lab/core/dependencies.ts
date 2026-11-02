@@ -207,12 +207,9 @@ export async function installDependencies(
   options: { signal?: AbortSignal } = {},
 ): Promise<{ command: string; args: string[]; result: LabProcessResult }> {
   const install = await installCommand(lockfile.manager, root)
-  // .cmd shims cannot be spawned directly on Windows; cmd.exe resolves the shim through PATHEXT.
-  const command = process.platform === "win32" ? (process.env.ComSpec ?? "cmd.exe") : install.manager
-  const args =
-    process.platform === "win32"
-      ? ["/d", "/s", "/c", [install.manager, ...install.args].join(" ")]
-      : install.args
+  // The runner resolves package manager shims itself, so the install keeps one argv on every platform.
+  const command = install.manager
+  const args = install.args
   const result = await runLabProcess(command, args, {
     cwd: root,
     timeoutMs: INSTALL_TIMEOUT_MS,

@@ -1,4 +1,6 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process"
+import { existsSync } from "node:fs"
+import path from "node:path"
 import { DEFAULT_LAB_ENV, SAFE_HINTS, safeLabEnvironment } from "./environment"
 
 export interface LabProcessLimits {
@@ -84,6 +86,51 @@ function terminateTree(child: ChildProcess): void {
   }, 1500).unref()
 }
 
+export interface LabSpawnInvocation {
+  command: string
+  args: string[]
+  verbatim: boolean
+}
+
+// Wraps a token in the quotes cmd.exe expects and doubles an inner quote because cmd has no backslash escape.
+function quoteCmdArgument(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`
+}
+
+// Scans PATH with PATHEXT so a bare name that resolves to a batch shim is distinguishable from a real executable.
+function findShimOnPath(command: string, env: NodeJS.ProcessEnv): string | null {
+  const entries = (env.PATH ?? env.Path ?? "").split(path.delimiter)
+  const extensions = (env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter((entry) => entry !== "")
+  for (const entry of entries) {
+    if (entry === "") continue
+    for (const extension of extensions) {
+      const candidate = path.join(entry, `${command}${extension}`)
+      if (existsSync(candidate)) return /\.(cmd|bat)$/i.test(candidate) ? candidate : null
+    }
+  }
+  return null
+}
+
+// Keeps the direct spawn for real executables and routes cmd and bat shims through ComSpec with one verbatim tail.
+export function normalizeSpawnInvocation(
+  command: string,
+  args: string[],
+  platform: string = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): LabSpawnInvocation {
+  if (platform !== "win32") return { command, args, verbatim: false }
+  let shim: string | null = null
+  if (/\.(cmd|bat)$/i.test(command)) shim = command
+  else if (!/[\\/]/.test(command)) shim = findShimOnPath(command, env)
+  if (!shim) return { command, args, verbatim: false }
+  for (const value of [shim, ...args]) {
+    if (/[\u0000-\u001f]/.test(value)) throw new Error("The lab refuses control characters in a cmd.exe command line")
+    if (value.includes("%")) throw new Error("The lab refuses percent signs in a cmd.exe command line because cmd expands environment variables")
+  }
+  const payload = [shim, ...args].map(quoteCmdArgument).join(" ")
+  return { command: env.ComSpec ?? "cmd.exe", args: ["/d", "/s", "/c", `"${payload}"`], verbatim: true }
+}
+
 export function runLabProcess(command: string, args: string[], options: LabProcessOptions): Promise<LabProcessResult> {
   return new Promise((resolve) => {
     const started = Date.now()
@@ -141,14 +188,16 @@ export function runLabProcess(command: string, args: string[], options: LabProce
         ...options.env,
       })
       const wrapper = limitsWrapper(options.limits)
-      const finalCommand = wrapper ? wrapper.command : command
-      const finalArgs = wrapper ? [...wrapper.args, "--", command, ...args] : args
-      child = spawn(finalCommand, finalArgs, {
+      const invocation = wrapper
+        ? { command: wrapper.command, args: [...wrapper.args, "--", command, ...args], verbatim: false }
+        : normalizeSpawnInvocation(command, args)
+      child = spawn(invocation.command, invocation.args, {
         cwd: options.cwd,
         env,
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
         detached: process.platform !== "win32",
+        windowsVerbatimArguments: invocation.verbatim,
       })
     } catch (error) {
       resolve({

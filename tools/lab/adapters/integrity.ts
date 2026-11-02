@@ -4,7 +4,6 @@ import type { LabAdapter, LabPlanContext, LabSelection, LabStep } from "../core/
 
 const VITEST_CONFIG = "tools/lab/vitest.config.lab.ts"
 const VITEST_BIN = "node_modules/vitest/vitest.mjs"
-const NPM = process.platform === "win32" ? "npm.cmd" : "npm"
 
 const EXCLUDES = [
   "**/*-mutation.test.ts",
@@ -106,7 +105,7 @@ function vitestStep(
 function npmStep(label: string, script: string, timeoutMs: number): LabStep {
   return {
     label,
-    command: NPM,
+    command: "npm",
     args: ["run", script],
     timeoutMs,
   }
