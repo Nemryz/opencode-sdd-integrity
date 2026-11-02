@@ -398,7 +398,7 @@ describe("lab session prune", () => {
     const audit = await readLabAudit(repo)
     const pruned = audit.filter((entry) => entry.kind === "lab_session_pruned")
     expect(pruned).toHaveLength(1)
-    expect(pruned[0].details?.removed).toEqual([expired.id, corrupt.id].sort())
+    expect([...(pruned[0].details?.removed as string[])].sort()).toEqual([expired.id, corrupt.id].sort())
   })
 
   it("closes sessions whose sandbox died and refuses their later resume", async () => {
