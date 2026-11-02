@@ -16,6 +16,7 @@ import { disableSandboxHooks } from "./permissions"
 import { ensureRunDir, makeRunId, writeRunSummary } from "./registry"
 import { detectFlake, flakeMarkdown } from "./flakes"
 import { runLabProcess } from "./runner"
+import { PROVIDER_LIBRARY } from "./provider"
 import { writeJsonAtomic, writeTextAtomic } from "./fs"
 import {
   aggregateTotals,
@@ -77,6 +78,12 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
   const { adapter, sandbox, selection } = options
   validateSelection(adapter, selection)
 
+  const provider = PROVIDER_LIBRARY[sandbox.provider]
+  const availability = provider.availability()
+  if (!availability.available) {
+    throw new Error(`The ${sandbox.provider} provider is unavailable for this run: ${availability.reason}`)
+  }
+
   const runId = makeRunId()
   const reportDir = await ensureRunDir(options.projectRoot, sandbox.id, runId)
   const steps = adapter.plan(selection, { sandboxRoot: sandbox.sandboxRoot, reportDir })
@@ -112,6 +119,13 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
       maxOutputBytes: step.maxOutputBytes,
       limits: step.limits,
       signal: options.signal,
+      env: {
+        OPENCODE_LAB_NETWORK: sandbox.policy.network,
+        ...(sandbox.policy.network === "allowlist"
+          ? { OPENCODE_LAB_NETWORK_ALLOW: sandbox.policy.networkAllow.join(",") }
+          : {}),
+      },
+      allowList: sandbox.policy.secrets === "allowlist" ? sandbox.policy.secretsAllow : [],
     })
     await writeStepLog(logPath, step, result)
 

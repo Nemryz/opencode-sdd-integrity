@@ -24,6 +24,7 @@ import {
 } from "./registry"
 import { isLabSandboxRoot } from "./home"
 import { resolveProvider, type ProviderSelection } from "./provider"
+import { readLabPolicy } from "./policy"
 
 export interface CreateSandboxOptions {
   projectRoot: string
@@ -35,7 +36,8 @@ export interface CreateSandboxOptions {
 
 export async function createSandbox(options: CreateSandboxOptions): Promise<LabSandbox> {
   const trust = options.trust ?? "trusted"
-  const decision = resolveProvider({ trust, provider: options.provider ?? "auto" })
+  const labPolicy = await readLabPolicy(options.projectRoot)
+  const decision = resolveProvider({ trust, provider: options.provider ?? "auto", network: labPolicy.network })
   const providerId = decision.id
   const repoRoot = await findGitRoot(options.projectRoot)
   if (!repoRoot) {
@@ -124,7 +126,7 @@ export async function createSandbox(options: CreateSandboxOptions): Promise<LabS
     adapter: options.adapter,
     provider: providerId,
     trust,
-    policy: defaultSandboxPolicy(),
+    policy: { ...defaultSandboxPolicy(), network: labPolicy.network, networkAllow: labPolicy.networkAllow },
     label: options.label,
     baseCommit,
     createdAt: new Date().toISOString(),

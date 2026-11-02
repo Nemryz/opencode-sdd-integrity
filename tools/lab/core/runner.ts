@@ -14,6 +14,7 @@ export interface LabProcessOptions {
   maxOutputBytes?: number
   limits?: LabProcessLimits
   env?: NodeJS.ProcessEnv
+  allowList?: string[]
   signal?: AbortSignal
 }
 
@@ -190,7 +191,7 @@ export function runLabProcess(command: string, args: string[], options: LabProce
     }
 
     try {
-      const env = safeLabEnvironment(process.env, SAFE_HINTS, {
+      const env = safeLabEnvironment(process.env, [...SAFE_HINTS, ...(options.allowList ?? [])], {
         ...DEFAULT_LAB_ENV,
         FORCE_COLOR: "0",
         NO_COLOR: "1",

@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest"
 import path from "node:path"
+import fs from "node:fs/promises"
 import { makeAttackRepo, destroyAttackRepo } from "../helpers/corpus"
 import { createSandbox, destroySandbox } from "../../lab/core/sandbox"
 import { readRegistry, writeRegistry } from "../../lab/core/registry"
@@ -23,6 +24,7 @@ import type {
   SandboxProvider,
   SandboxProviderId,
 } from "../../lab/core/types"
+import { readLabPolicy, setLabDisabled, labPolicyFile } from "../../lab/core/policy"
 
 let project: string | null = null
 
@@ -142,12 +144,63 @@ describe("lab policy resolver", () => {
     expect(() => resolveProvider({ trust: "hostile" })).toThrow(/reserved/)
   })
 
-  it("honors an explicit provider request and fails loudly when it is unavailable", () => {
+  it("refuses to honor a network allowlist through a kernel enforcing provider", () => {
     const library = fakeLibrary({ container: { available: true, reason: "docker ready" } })
-    const decision = resolveProvider({ trust: "trusted", provider: "container" }, library)
-    expect(decision.id).toBe("container")
-    expect(decision.reason).toContain("explicit")
-    expect(() => resolveProvider({ trust: "trusted", provider: "container" })).toThrow(/explicitly/)
+    expect(() => resolveProvider({ trust: "trusted", provider: "container", network: "allowlist" }, library)).toThrow(/cannot honor a network allowlist/)
+    expect(() => resolveProvider({ trust: "trusted", network: "allowlist" })).not.toThrow()
+    expect(resolveProvider({ trust: "trusted", network: "allowlist" }).id).toBe("worktree")
+  })
+
+  it("refuses an auto allowlist for anything but a trusted workload", () => {
+    const library = fakeLibrary({
+      "os-sandbox": { available: true, reason: "unshare ready" },
+      container: { available: true, reason: "docker ready" },
+    })
+    expect(() => resolveProvider({ trust: "suspicious", network: "allowlist" }, library)).toThrow(/cannot honor a network allowlist/)
+  })
+})
+
+describe("lab network policy", () => {
+  it("reads network and allowlist fields from the policy file", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, network: "allowlist", networkAllow: ["registry.example"] }, null, 2))
+    const policy = await readLabPolicy(project as string)
+    expect(policy.network).toBe("allowlist")
+    expect(policy.networkAllow).toEqual(["registry.example"])
+  })
+
+  it("falls back to none when the policy file carries an invalid network value", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, network: "wide" }, null, 2))
+    const policy = await readLabPolicy(project as string)
+    expect(policy.network).toBe("none")
+  })
+
+  it("records the policy file network setting on a new sandbox", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, network: "allowlist", networkAllow: ["registry.example"] }, null, 2))
+    const sandbox = await createSandbox({ projectRoot: project as string, adapter: "node", trust: "trusted" })
+    expect(sandbox.policy.network).toBe("allowlist")
+    expect(sandbox.policy.networkAllow).toEqual(["registry.example"])
+    await destroySandbox(project as string, sandbox, true)
+  })
+
+  it("preserves network settings when the kill switch flips", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, network: "allowlist", networkAllow: ["registry.example"] }, null, 2))
+    await setLabDisabled(project as string, true)
+    const policy = await readLabPolicy(project as string)
+    expect(policy.disabled).toBe(true)
+    expect(policy.network).toBe("allowlist")
+    expect(policy.networkAllow).toEqual(["registry.example"])
   })
 })
 

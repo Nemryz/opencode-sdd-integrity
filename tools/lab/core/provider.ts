@@ -1,4 +1,4 @@
-import type { ProviderAvailability, SandboxProvider, SandboxProviderId, SandboxTrust } from "./types"
+import type { ProviderAvailability, SandboxNetworkPolicy, SandboxProvider, SandboxProviderId, SandboxTrust } from "./types"
 import { WORKTREE_PROVIDER } from "./types"
 
 function notWired(id: SandboxProviderId): () => ProviderAvailability {
@@ -52,6 +52,7 @@ export interface ProviderDecision {
 interface ResolveProviderRequest {
   trust: SandboxTrust
   provider?: ProviderSelection
+  network?: SandboxNetworkPolicy
 }
 
 // Maps workload trust onto a provider chain, picks the first available entry and refuses to settle for a weaker level.
@@ -61,11 +62,21 @@ export function resolveProvider(
 ): ProviderDecision {
   const selection = request.provider ?? "auto"
   if (selection !== "auto") {
+    if (request.network === "allowlist" && selection !== "worktree") {
+      throw new Error(
+        `The ${selection} provider cannot honor a network allowlist because it blocks all egress at the kernel level`,
+      )
+    }
     const availability = library[selection].availability()
     if (!availability.available) {
       throw new Error(`The ${selection} provider was requested explicitly but is unavailable: ${availability.reason}`)
     }
     return { id: selection, reason: `an explicit request selects the ${selection} provider` }
+  }
+  if (request.network === "allowlist" && request.trust !== "trusted") {
+    throw new Error(
+      `The auto policy cannot honor a network allowlist for a ${request.trust} workload because every provider on its chain blocks all egress, use network none or a trusted workload`,
+    )
   }
   const chain: readonly SandboxProviderId[] =
     request.trust === "trusted"
