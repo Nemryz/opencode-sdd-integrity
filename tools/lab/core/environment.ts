@@ -78,8 +78,9 @@ export function safeLabEnvironment(
   defaults: NodeJS.ProcessEnv = {},
 ): NodeJS.ProcessEnv {
   const sanitized: NodeJS.ProcessEnv = {}
+  // The allowlist alone cannot be trusted, so a denied key is dropped even when a caller names it.
   for (const key of allowList) {
-    if (key in parentEnvironment) sanitized[key] = parentEnvironment[key] ?? ""
+    if (key in parentEnvironment && !isDeniedEnvironmentKey(key)) sanitized[key] = parentEnvironment[key] ?? ""
   }
   for (const [key, value] of Object.entries(defaults)) {
     if (typeof value !== "undefined") sanitized[key] = value
@@ -87,7 +88,11 @@ export function safeLabEnvironment(
   return sanitized
 }
 
+// One verdict for a parent key so the sanitizer and the audit view can never disagree.
+export function isDeniedEnvironmentKey(key: string): boolean {
+  return LAB_ENV_DENY.some((entry) => entry.toUpperCase() === key.toUpperCase()) || isDenylistedEnvironmentKey(key)
+}
+
 export function deniedEnvironmentKeys(environment: NodeJS.ProcessEnv): string[] {
-  const denySet = new Set(LAB_ENV_DENY.map((entry) => entry.toUpperCase()))
-  return Object.keys(environment).filter((key) => denySet.has(key.toUpperCase()) || isDenylistedEnvironmentKey(key))
+  return Object.keys(environment).filter((key) => isDeniedEnvironmentKey(key))
 }
