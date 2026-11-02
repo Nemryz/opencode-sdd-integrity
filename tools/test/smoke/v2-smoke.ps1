@@ -70,6 +70,14 @@ function Invoke-TimedOpencode([string]$Cli, [string[]]$CliArgs, [string]$OutFile
   return [int]$Record.Code
 }
 
+# Writes a grading script into the workspace and runs it from disk so Windows PowerShell never has to pass code through argv.
+function Invoke-NodeCheck([string]$Script, [string]$WorkDir) {
+  $CheckPath = Join-Path $WorkDir ("smoke-check-" + [guid]::NewGuid().ToString("N").Substring(0, 6) + ".cjs")
+  [System.IO.File]::WriteAllText($CheckPath, $Script)
+  node $CheckPath
+  return $LASTEXITCODE
+}
+
 $Opencode = Resolve-CliPath "opencode"
 if ($null -eq $Opencode) {
   Write-Host "FAIL: opencode is not on PATH"
@@ -183,8 +191,8 @@ if (hidden.length > 0) {
 }
 process.exit(0)
 '@
-  node -e $RegistryCheck
-  if ($LASTEXITCODE -eq 0) {
+  $RegistryCode = Invoke-NodeCheck -Script $RegistryCheck -WorkDir $Work
+  if ($RegistryCode -eq 0) {
     Pass "the registry lists all 16 tools with direct exposure"
   } else {
     Fail "the tool registry dump does not match the expected surface"
@@ -208,8 +216,8 @@ for (const line of lines) {
 }
 process.exit(1)
 '@
-  node -e $StatusEvidenceCheck
-  if ($LASTEXITCODE -eq 0) {
+  $StatusEvidenceCode = Invoke-NodeCheck -Script $StatusEvidenceCheck -WorkDir $Work
+  if ($StatusEvidenceCode -eq 0) {
     Pass "the model called speckit-status directly"
   } else {
     LlmEvidence "the status run has no completed speckit-status call (the model or the network may be down)"
@@ -226,8 +234,8 @@ try {
 const entry = (perf.stats || []).find((stat) => stat.tool === "speckit-status")
 process.exit(entry && entry.calls >= 1 ? 0 : 1)
 '@
-  node -e $PerfCheck
-  if ($LASTEXITCODE -eq 0) {
+  $PerfCode = Invoke-NodeCheck -Script $PerfCheck -WorkDir $Work
+  if ($PerfCode -eq 0) {
     Pass "the perfmon plugin recorded the call"
   } else {
     LlmEvidence "perfmon has no speckit-status entry (the model evidence is missing)"
