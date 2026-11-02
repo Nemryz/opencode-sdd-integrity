@@ -286,3 +286,22 @@ describe("corpus windows junctions", () => {
     }
   })
 })
+
+describe("corpus cross platform path verdicts", () => {
+  it.each(["a", "a/b", "deep/nested/file.txt", "segment.with.dots", "0123"])(
+    "resolves the portable shape %s to the same workspace path on every platform",
+    (candidate) => {
+      const expected = path.resolve(os.tmpdir(), ...candidate.split("/"))
+      expect(resolveInside(os.tmpdir(), candidate)).toBe(expected)
+      expect(insideWorkspace(os.tmpdir(), candidate)).toBe(expected)
+      expect(() => assertInsideWorkspace(os.tmpdir(), candidate)).not.toThrow()
+    },
+  )
+
+  // The POSIX rejection pairs with the Windows normalization case above so one input always splits the same way.
+  it.skipIf(process.platform === "win32")("rejects a plain backslash name on POSIX before any filesystem use", () => {
+    expect(() => resolveInside(os.tmpdir(), "a\\b")).toThrow(LabPathError)
+    expect(() => insideWorkspace(os.tmpdir(), "a\\b")).toThrow(LabPathError)
+    expect(() => assertInsideWorkspace(os.tmpdir(), "a\\b")).toThrow(LabPathError)
+  })
+})
