@@ -113,7 +113,11 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
   for (const [index, step] of steps.entries()) {
     const stepStarted = Date.now()
     const logPath = path.join(reportDir, `step-${index + 1}.log`)
-    const result = await runLabProcess(step.command, step.args, {
+    const wrapped = provider.wrap(step.command, step.args, {
+      cwd: sandbox.sandboxRoot,
+      containerImage: sandbox.policy.containerImage,
+    })
+    const result = await runLabProcess(wrapped.command, wrapped.args, {
       cwd: sandbox.sandboxRoot,
       timeoutMs: step.timeoutMs ?? 15 * 60 * 1000,
       maxOutputBytes: step.maxOutputBytes,

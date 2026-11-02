@@ -23,6 +23,17 @@ function osSandboxAvailability(): ProviderAvailability {
   return { available: true, reason: "Linux user, network, pid and mount namespaces are available" }
 }
 
+function containerAvailability(): ProviderAvailability {
+  const probe = spawnSync("docker", ["info"], { stdio: "ignore", timeout: 10000 })
+  if (probe.error) {
+    return { available: false, reason: `The container provider could not run docker: ${probe.error.message}` }
+  }
+  if (probe.status !== 0) {
+    return { available: false, reason: `The container provider probe exited with status ${probe.status ?? "unknown"}, so the docker daemon is probably unavailable` }
+  }
+  return { available: true, reason: "Docker daemon is available" }
+}
+
 function refuseWrap(id: SandboxProviderId): SandboxProvider["wrap"] {
   return () => {
     throw new Error(`The ${id} provider refuses to wrap a command because it is not wired in this phase`)
@@ -43,9 +54,32 @@ export const PROVIDER_LIBRARY: Record<SandboxProviderId, SandboxProvider> = {
   },
   container: {
     id: "container",
-    description: "A disposable container run",
-    availability: notWired("container"),
-    wrap: refuseWrap("container"),
+    description: "A disposable container run with no network",
+    availability: () => containerAvailability(),
+    wrap: (command, args, context) => {
+      const image = context.containerImage && context.containerImage.trim() !== "" ? context.containerImage : "node:22"
+      const argv = [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "-e",
+        "HOME=/tmp",
+        "-e",
+        "CI=opencode-lab",
+        "-e",
+        "OPENCODE_LAB=1",
+        "-v",
+        `${context.cwd}:/workspace`,
+        "-w",
+        "/workspace",
+      ]
+      if (typeof process.getuid === "function" && typeof process.getgid === "function") {
+        argv.push("--user", `${process.getuid()}:${process.getgid()}`)
+      }
+      argv.push(image, command, ...args)
+      return { command: "docker", args: argv }
+    },
   },
   vm: {
     id: "vm",

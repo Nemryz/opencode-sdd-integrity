@@ -73,7 +73,7 @@ describe("lab provider contract", () => {
   })
 
   it("reports every unwired provider as unavailable instead of pretending", () => {
-    for (const id of ["container", "vm"] as const) {
+    for (const id of ["vm"] as const) {
       const availability = PROVIDER_LIBRARY[id].availability()
       expect(availability.available).toBe(false)
       expect(availability.reason).toContain("not wired")
@@ -81,7 +81,7 @@ describe("lab provider contract", () => {
   })
 
   it("refuses to wrap a command through an unwired provider", () => {
-    for (const id of ["container", "vm"] as const) {
+    for (const id of ["vm"] as const) {
       expect(() => PROVIDER_LIBRARY[id].wrap("node", [], { cwd: "/tmp" })).toThrow(/not wired/)
     }
   })
@@ -307,6 +307,27 @@ describe("lab os sandbox provider", () => {
 
   it.runIf(!osAvailable)("reports why the namespace provider cannot run on this host", () => {
     const availability = PROVIDER_LIBRARY["os-sandbox"].availability()
+    expect(availability.available).toBe(false)
+    expect(availability.reason.length).toBeGreaterThan(0)
+  })
+})
+
+describe("lab container provider", () => {
+  const containerAvailable = PROVIDER_LIBRARY.container.availability().available
+
+  it.runIf(containerAvailable)("wraps a command in a docker run with no network", () => {
+    const uid = typeof process.getuid === "function" ? process.getuid() : undefined
+    const gid = typeof process.getgid === "function" ? process.getgid() : undefined
+    const userArgs = typeof uid === "number" && typeof gid === "number" ? ["--user", `${uid}:${gid}`] : []
+    const wrapped = PROVIDER_LIBRARY.container.wrap("node", ["--version"], { cwd: "/tmp", containerImage: "node:22" })
+    expect(wrapped).toEqual({
+      command: "docker",
+      args: ["run", "--rm", "--network", "none", "-e", "HOME=/tmp", "-e", "CI=opencode-lab", "-e", "OPENCODE_LAB=1", "-v", "/tmp:/workspace", "-w", "/workspace", ...userArgs, "node:22", "node", "--version"],
+    })
+  })
+
+  it.runIf(!containerAvailable)("reports why the container provider cannot run on this host", () => {
+    const availability = PROVIDER_LIBRARY.container.availability()
     expect(availability.available).toBe(false)
     expect(availability.reason.length).toBeGreaterThan(0)
   })

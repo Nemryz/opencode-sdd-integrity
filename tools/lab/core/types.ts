@@ -158,6 +158,7 @@ export interface ProviderAvailability {
 
 export interface SandboxProviderContext {
   cwd: string
+  containerImage?: string
 }
 
 export const WORKTREE_PROVIDER: SandboxProvider = {
