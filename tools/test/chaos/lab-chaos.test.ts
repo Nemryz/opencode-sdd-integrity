@@ -9,6 +9,7 @@ import { labPaths } from "../../lab/core/home"
 import { appendLabAudit, labAuditFile, readLabAudit } from "../../lab/core/audit"
 import { makeAttackRepo, destroyAttackRepo, git } from "../helpers/corpus"
 import type { LabSandbox } from "../../lab/core/types"
+import { defaultSandboxPolicy } from "../../lab/core/types"
 
 let repo: string | null = null
 
@@ -102,6 +103,9 @@ describe("lab chaos registry race recovery", () => {
       repoRoot: repo,
       sandboxRoot: path.join(labPaths(repo).sandboxes, "seed"),
       adapter: "probe",
+      provider: "worktree",
+      trust: "trusted",
+      policy: defaultSandboxPolicy(),
       baseCommit: "0".repeat(40),
       createdAt: new Date().toISOString(),
       status: "active",
@@ -126,6 +130,9 @@ describe("lab chaos registry race recovery", () => {
       repoRoot: repo,
       sandboxRoot: path.join(labPaths(repo).sandboxes, "seed"),
       adapter: "probe",
+      provider: "worktree",
+      trust: "trusted",
+      policy: defaultSandboxPolicy(),
       baseCommit: "0".repeat(40),
       createdAt: new Date().toISOString(),
       status: "active",

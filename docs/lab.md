@@ -75,7 +75,7 @@ Windows cannot use prlimit, so a step that asks for kernel limits fails with an 
 
 ## Audit trail
 
-Every lab action appends one line to `.opencode/lab/audit/lab-audit.jsonl`: create, run, promote, destroy, prune and policy events. The audit directory and file are owned by the creating process, the file switches to read-only `0400` after each append, and the record carries the sandbox id, the isolation provider and a timestamped chronology that a later session can read to reconstruct what happened. Audit events deliberately do not log the parent environment, so secrets never reach the trail.
+Every lab action appends one line to `.opencode/lab/audit/lab-audit.jsonl`: create, run, promote, destroy, prune and policy events. The audit directory and file are owned by the creating process, the file switches to read-only `0400` after each append, and the record carries the sandbox id, the isolation provider, the workload trust level and a timestamped chronology that a later session can read to reconstruct what happened. Audit events deliberately do not log the parent environment, so secrets never reach the trail.
 
 ## Categories and profiles
 

@@ -7,6 +7,7 @@ import { pruneSandboxes } from "../../lab/core/prune"
 import { labPaths } from "../../lab/core/home"
 import { makeAttackRepo, destroyAttackRepo } from "../helpers/corpus"
 import type { LabSandbox } from "../../lab/core/types"
+import { defaultSandboxPolicy } from "../../lab/core/types"
 
 let repo: string | null = null
 let created: LabSandbox[] = []
@@ -36,6 +37,9 @@ describe("lab concurrency registry writes", () => {
         repoRoot: repo,
         sandboxRoot: path.join(labPaths(repo).sandboxes, id),
         adapter: "probe",
+        provider: "worktree",
+        trust: "trusted",
+        policy: defaultSandboxPolicy(),
         baseCommit: "0".repeat(40),
         createdAt: new Date().toISOString(),
         status: "active",

@@ -17,7 +17,6 @@ import { ensureRunDir, makeRunId, writeRunSummary } from "./registry"
 import { detectFlake, flakeMarkdown } from "./flakes"
 import { runLabProcess } from "./runner"
 import { writeJsonAtomic, writeTextAtomic } from "./fs"
-import { WORKTREE_PROVIDER } from "./types"
 import {
   aggregateTotals,
   emptyTotals,
@@ -146,7 +145,7 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
       projectRoot: options.projectRoot,
       when: new Date().toISOString(),
       sandboxId: sandbox.id,
-      isolationProvider: WORKTREE_PROVIDER.id,
+      isolationProvider: sandbox.provider,
       details: {
         step: step.label,
         code: result.code,

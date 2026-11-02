@@ -5,6 +5,7 @@ import { createTempWorktree, destroyTempWorktree } from "../helpers/setup"
 import { readRegistry, registryLock, upsertSandbox } from "../../lab/core/registry"
 import { labPaths } from "../../lab/core/home"
 import type { LabSandbox } from "../../lab/core/types"
+import { defaultSandboxPolicy } from "../../lab/core/types"
 
 let project: string | null = null
 
@@ -22,6 +23,9 @@ function sandbox(projectRoot: string, id: string): LabSandbox {
     repoRoot: projectRoot,
     sandboxRoot: path.join(labPaths(projectRoot).sandboxes, id),
     adapter: "node",
+    provider: "worktree",
+    trust: "trusted",
+    policy: defaultSandboxPolicy(),
     baseCommit: "0".repeat(40),
     createdAt: new Date().toISOString(),
     status: "active",

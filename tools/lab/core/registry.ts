@@ -1,6 +1,8 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import type { LabRegistry, LabRunSummary, LabSandbox } from "./types"
+import { isSandboxTrust, sanitizeSandboxPolicy } from "./types"
+import { DEFAULT_PROVIDER_ID, isSandboxProviderId } from "./provider"
 import { makeLabId, readJson, withLabLock, writeJsonAtomic } from "./fs"
 import { labPaths } from "./home"
 import { ensureLabHome } from "./home"
@@ -26,7 +28,19 @@ function sanitizeRegistryEntry(entry: LabSandbox, projectRoot: string, file: str
   if (typeof entry.repoRoot !== "string" || entry.repoRoot.trim() === "") {
     throw new Error(`Lab registry entry ${entry.id} is missing its repository root inside ${file}`)
   }
-  return entry
+  if (entry.provider !== undefined && !isSandboxProviderId(entry.provider)) {
+    throw new Error(`Lab registry entry ${entry.id} carries an unknown provider inside ${file}`)
+  }
+  if (entry.trust !== undefined && !isSandboxTrust(entry.trust)) {
+    throw new Error(`Lab registry entry ${entry.id} carries an unknown trust level inside ${file}`)
+  }
+  // Entries written before the provider era hydrate to the worktree default instead of failing the whole registry.
+  return {
+    ...entry,
+    provider: entry.provider ?? DEFAULT_PROVIDER_ID,
+    trust: entry.trust ?? "trusted",
+    policy: sanitizeSandboxPolicy(entry.policy),
+  }
 }
 
 export function labRoot(projectRoot: string): string {

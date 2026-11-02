@@ -1,7 +1,8 @@
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import type { LabDependencyState, LabSandbox } from "./types"
+import type { LabDependencyState, LabSandbox, SandboxProviderId, SandboxTrust } from "./types"
+import { defaultSandboxPolicy } from "./types"
 import { hasNodeModules, readLockfile } from "./dependencies"
 import { makeLabId } from "./fs"
 import { ensureLabHome, labPaths } from "./home"
@@ -22,15 +23,24 @@ import {
   upsertSandbox,
 } from "./registry"
 import { isLabSandboxRoot } from "./home"
-import { WORKTREE_PROVIDER } from "./types"
+import { DEFAULT_PROVIDER_ID, PROVIDER_LIBRARY } from "./provider"
 
 export interface CreateSandboxOptions {
   projectRoot: string
   adapter: string
   label?: string
+  trust?: SandboxTrust
+  provider?: SandboxProviderId
 }
 
 export async function createSandbox(options: CreateSandboxOptions): Promise<LabSandbox> {
+  const trust = options.trust ?? "trusted"
+  const providerId = options.provider ?? DEFAULT_PROVIDER_ID
+  const provider = PROVIDER_LIBRARY[providerId]
+  const availability = provider.availability()
+  if (!availability.available) {
+    throw new Error(`The ${providerId} provider is unavailable for this sandbox: ${availability.reason}`)
+  }
   const repoRoot = await findGitRoot(options.projectRoot)
   if (!repoRoot) {
     throw new Error("The test lab needs a git repository; initialize git or run the lab in a checkout")
@@ -116,6 +126,9 @@ export async function createSandbox(options: CreateSandboxOptions): Promise<LabS
     repoRoot,
     sandboxRoot,
     adapter: options.adapter,
+    provider: providerId,
+    trust,
+    policy: defaultSandboxPolicy(),
     label: options.label,
     baseCommit,
     createdAt: new Date().toISOString(),
@@ -129,9 +142,10 @@ export async function createSandbox(options: CreateSandboxOptions): Promise<LabS
     projectRoot: options.projectRoot,
     when: new Date().toISOString(),
     sandboxId: sandbox.id,
-    isolationProvider: WORKTREE_PROVIDER.id,
+    isolationProvider: providerId,
     details: {
       adapter: sandbox.adapter,
+      trust: sandbox.trust,
       repoRoot: sandbox.repoRoot,
       created: sandbox.createdAt,
     },
@@ -187,7 +201,7 @@ export async function markPromoted(
       projectRoot,
       when: new Date().toISOString(),
       sandboxId: id,
-      isolationProvider: WORKTREE_PROVIDER.id,
+      isolationProvider: updated.provider,
       details: { patchHash: details.patchHash, appliedHead: details.appliedHead },
     })
   }
@@ -207,7 +221,7 @@ export async function destroySandbox(projectRoot: string, sandbox: LabSandbox, c
     projectRoot,
     when: new Date().toISOString(),
     sandboxId: sandbox.id,
-    isolationProvider: WORKTREE_PROVIDER.id,
+    isolationProvider: sandbox.provider,
     details: { destroyed: sandbox.sandboxRoot },
   })
   return updated
@@ -219,6 +233,7 @@ export function formatSandbox(sandbox: LabSandbox): string {
     `  path: ${sandbox.sandboxRoot}`,
     `  repository: ${sandbox.repoRoot}`,
     `  adapter: ${sandbox.adapter}`,
+    `  provider: ${sandbox.provider} (${sandbox.trust})`,
     `  base: ${sandbox.baseCommit.slice(0, 12)}`,
     `  created: ${sandbox.createdAt}`,
     `  status: ${sandbox.status}`,

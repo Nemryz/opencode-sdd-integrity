@@ -10,6 +10,7 @@ import { labPaths } from "../../lab/core/home"
 import { removeWorktree } from "../../lab/core/git"
 import speckitLab from "../../speckit-lab"
 import type { LabSandbox } from "../../lab/core/types"
+import { defaultSandboxPolicy } from "../../lab/core/types"
 
 let repo: string
 
@@ -43,6 +44,9 @@ function sandbox(id: string, status: LabSandbox["status"], name: string): LabSan
     repoRoot: repo,
     sandboxRoot: path.join(labPaths(repo).sandboxes, name),
     adapter: "node",
+    provider: "worktree",
+    trust: "trusted",
+    policy: defaultSandboxPolicy(),
     baseCommit: "0".repeat(40),
     createdAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
     status,
