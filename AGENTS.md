@@ -277,7 +277,7 @@ Call a skill with: `skill({ name: "speckit-spec-writer" })`
 | `speckit-archive` | Archive a completed feature to archive/YYYY-MM-DD-NNN-slug | `featureDir` (optional), `confirmed` (bool) |
 | `speckit-phase` | Advance the feature phase to impl or complete after implementation | `phase` (impl/complete) |
 | `speckit-snapshot` | Create, inspect, restore, and prune point-in-time snapshots of the SDD state | `subcommand` (create/list/verify/preview/restore/pin/unpin/drill/prune/recover), `id` (or "latest"), `mode`, `files`, `label`, `confirmed` |
-| `speckit-lab` | Create an isolated worktree, run non-mutation test categories or profiles, and promote reviewed patches | `subcommand` (create/run/status/diff/promote/destroy/prune/baseline/compare/list/help), `id`, `category`, `profile`, `adapter`, `label`, `confirmed`, `allowMoved`, `olderThanDays`, `runId` |
+| `speckit-lab` | Create an isolated worktree, run non-mutation test categories or profiles, and promote reviewed patches | `subcommand` (create/run/status/diff/promote/destroy/prune/baseline/compare/list/help), `id`, `category`, `profile`, `adapter`, `label`, `trust`, `provider`, `confirmed`, `allowMoved`, `olderThanDays`, `runId` |
 | `speckit-mutation` | List, run, and aggregate the mutation batches of the kit itself, which only works inside a checkout of the repository | `subcommand` (list/run/aggregate), batch ids appended to `run` |
 
 ---

@@ -8,7 +8,7 @@ Use the `speckit-lab` tool, which owns the worktree lifecycle described in `docs
 
 1. Map `$ARGUMENTS` to the tool call:
    - empty or `list` → subcommand `list`
-   - `create [label]` → subcommand `create`, with `label` when provided
+   - `create [label] [trust=<trusted|suspicious|untrusted|hostile>] [provider=<auto|worktree|os-sandbox|container|vm>]` → subcommand `create`, with `label`, `trust` and `provider` when provided, the auto policy resolves the provider from the trust level
    - `run <category|profile> [id]` → subcommand `run`, with `category` or `profile`, and `id` when provided
    - `status [id]` → subcommand `status`
    - `diff [id]` → subcommand `diff`

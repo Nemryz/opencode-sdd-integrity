@@ -1,4 +1,4 @@
-import type { ProviderAvailability, SandboxProvider, SandboxProviderId } from "./types"
+import type { ProviderAvailability, SandboxProvider, SandboxProviderId, SandboxTrust } from "./types"
 import { WORKTREE_PROVIDER } from "./types"
 
 function notWired(id: SandboxProviderId): () => ProviderAvailability {
@@ -39,6 +39,64 @@ export const DEFAULT_PROVIDER_ID: SandboxProviderId = "worktree"
 
 export function isSandboxProviderId(value: unknown): value is SandboxProviderId {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(PROVIDER_LIBRARY, value)
+}
+
+// auto is a selection policy rather than a provider id, so the type keeps it apart from the library keys.
+export type ProviderSelection = "auto" | SandboxProviderId
+
+export interface ProviderDecision {
+  id: SandboxProviderId
+  reason: string
+}
+
+interface ResolveProviderRequest {
+  trust: SandboxTrust
+  provider?: ProviderSelection
+}
+
+// Maps workload trust onto a provider chain, picks the first available entry and refuses to settle for a weaker level.
+export function resolveProvider(
+  request: ResolveProviderRequest,
+  library: Record<SandboxProviderId, SandboxProvider> = PROVIDER_LIBRARY,
+): ProviderDecision {
+  const selection = request.provider ?? "auto"
+  if (selection !== "auto") {
+    const availability = library[selection].availability()
+    if (!availability.available) {
+      throw new Error(`The ${selection} provider was requested explicitly but is unavailable: ${availability.reason}`)
+    }
+    return { id: selection, reason: `an explicit request selects the ${selection} provider` }
+  }
+  const chain: readonly SandboxProviderId[] =
+    request.trust === "trusted"
+      ? ["worktree"]
+      : request.trust === "suspicious"
+        ? ["os-sandbox", "container"]
+        : request.trust === "untrusted"
+          ? ["container"]
+          : ["vm"]
+  const failures: string[] = []
+  for (const id of chain) {
+    const availability = library[id].availability()
+    if (availability.available) {
+      return {
+        id,
+        reason:
+          failures.length === 0
+            ? `auto resolves a ${request.trust} workload to the ${id} provider`
+            : `auto falls back to the ${id} provider after ${failures.join(" and ")}`,
+      }
+    }
+    failures.push(`${id} is unavailable (${availability.reason})`)
+  }
+  if (request.trust === "hostile") {
+    throw new Error(
+      `The auto policy cannot decide for a hostile workload because ${failures.join(" and ")} and the vm provider stays reserved until a later phase wires it`,
+    )
+  }
+  throw new Error(
+    `The auto policy cannot decide for a ${request.trust} workload because ${failures.join(" and ")} and downgrading to a weaker provider is not allowed`,
+  )
 }
 
 export function describeProvider(id: SandboxProviderId): string {

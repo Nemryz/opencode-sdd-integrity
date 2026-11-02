@@ -1,7 +1,7 @@
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import type { LabDependencyState, LabSandbox, SandboxProviderId, SandboxTrust } from "./types"
+import type { LabDependencyState, LabSandbox, SandboxTrust } from "./types"
 import { defaultSandboxPolicy } from "./types"
 import { hasNodeModules, readLockfile } from "./dependencies"
 import { makeLabId } from "./fs"
@@ -23,24 +23,20 @@ import {
   upsertSandbox,
 } from "./registry"
 import { isLabSandboxRoot } from "./home"
-import { DEFAULT_PROVIDER_ID, PROVIDER_LIBRARY } from "./provider"
+import { resolveProvider, type ProviderSelection } from "./provider"
 
 export interface CreateSandboxOptions {
   projectRoot: string
   adapter: string
   label?: string
   trust?: SandboxTrust
-  provider?: SandboxProviderId
+  provider?: ProviderSelection
 }
 
 export async function createSandbox(options: CreateSandboxOptions): Promise<LabSandbox> {
   const trust = options.trust ?? "trusted"
-  const providerId = options.provider ?? DEFAULT_PROVIDER_ID
-  const provider = PROVIDER_LIBRARY[providerId]
-  const availability = provider.availability()
-  if (!availability.available) {
-    throw new Error(`The ${providerId} provider is unavailable for this sandbox: ${availability.reason}`)
-  }
+  const decision = resolveProvider({ trust, provider: options.provider ?? "auto" })
+  const providerId = decision.id
   const repoRoot = await findGitRoot(options.projectRoot)
   if (!repoRoot) {
     throw new Error("The test lab needs a git repository; initialize git or run the lab in a checkout")
@@ -146,6 +142,7 @@ export async function createSandbox(options: CreateSandboxOptions): Promise<LabS
     details: {
       adapter: sandbox.adapter,
       trust: sandbox.trust,
+      providerReason: decision.reason,
       repoRoot: sandbox.repoRoot,
       created: sandbox.createdAt,
     },

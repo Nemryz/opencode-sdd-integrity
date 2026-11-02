@@ -10,12 +10,19 @@ import {
   PROVIDER_LIBRARY,
   describeProvider,
   isSandboxProviderId,
+  resolveProvider,
 } from "../../lab/core/provider"
 import {
   defaultSandboxPolicy,
   sanitizeSandboxPolicy,
 } from "../../lab/core/types"
-import type { LabRegistry, LabSandbox } from "../../lab/core/types"
+import type {
+  LabRegistry,
+  LabSandbox,
+  ProviderAvailability,
+  SandboxProvider,
+  SandboxProviderId,
+} from "../../lab/core/types"
 
 let project: string | null = null
 
@@ -25,6 +32,17 @@ afterEach(async () => {
     project = null
   }
 })
+
+// Builds a library whose availability answers come from the test instead of the host tooling.
+function fakeLibrary(
+  overrides: Partial<Record<SandboxProviderId, ProviderAvailability>>,
+): Record<SandboxProviderId, SandboxProvider> {
+  const library: Record<SandboxProviderId, SandboxProvider> = { ...PROVIDER_LIBRARY }
+  for (const [id, availability] of Object.entries(overrides) as [SandboxProviderId, ProviderAvailability][]) {
+    library[id] = { ...library[id], availability: () => availability }
+  }
+  return library
+}
 
 function bareEntry(projectRoot: string, id: string): LabSandbox {
   return {
@@ -72,6 +90,64 @@ describe("lab provider contract", () => {
     expect(isSandboxProviderId(7)).toBe(false)
     expect(DEFAULT_PROVIDER_ID).toBe("worktree")
     expect(describeProvider("worktree")).toContain("worktree")
+  })
+})
+
+describe("lab policy resolver", () => {
+  it("resolves a trusted workload to the worktree provider", () => {
+    const decision = resolveProvider({ trust: "trusted" })
+    expect(decision.id).toBe("worktree")
+    expect(decision.reason).toContain("trusted workload")
+  })
+
+  it("keeps a suspicious workload on os-sandbox when the namespace tool works", () => {
+    const library = fakeLibrary({ "os-sandbox": { available: true, reason: "unshare ready" } })
+    expect(resolveProvider({ trust: "suspicious" }, library).id).toBe("os-sandbox")
+  })
+
+  it("falls back visibly to container when os-sandbox cannot run", () => {
+    const library = fakeLibrary({
+      "os-sandbox": { available: false, reason: "user namespaces are disabled" },
+      container: { available: true, reason: "docker ready" },
+    })
+    const decision = resolveProvider({ trust: "suspicious" }, library)
+    expect(decision.id).toBe("container")
+    expect(decision.reason).toContain("falls back")
+    expect(decision.reason).toContain("user namespaces are disabled")
+  })
+
+  it("refuses an untrusted workload when the container is down instead of downgrading", () => {
+    const library = fakeLibrary({
+      worktree: { available: true, reason: "always available" },
+      container: { available: false, reason: "docker daemon down" },
+    })
+    expect(() => resolveProvider({ trust: "untrusted" }, library)).toThrow(/docker daemon down/)
+    expect(() => resolveProvider({ trust: "untrusted" }, library)).toThrow(/not allowed/)
+  })
+
+  it("never resolves a non trusted workload to the worktree even when it is the only one up", () => {
+    const library = fakeLibrary({
+      "os-sandbox": { available: false, reason: "missing" },
+      container: { available: false, reason: "missing" },
+      vm: { available: false, reason: "missing" },
+    })
+    for (const trust of ["suspicious", "untrusted", "hostile"] as const) {
+      expect(() => resolveProvider({ trust }, library)).toThrow(/cannot decide/)
+    }
+  })
+
+  it("reserves the vm provider for hostile workloads and names it when it is missing", () => {
+    const library = fakeLibrary({ vm: { available: true, reason: "vm runner ready" } })
+    expect(resolveProvider({ trust: "hostile" }, library).id).toBe("vm")
+    expect(() => resolveProvider({ trust: "hostile" })).toThrow(/reserved/)
+  })
+
+  it("honors an explicit provider request and fails loudly when it is unavailable", () => {
+    const library = fakeLibrary({ container: { available: true, reason: "docker ready" } })
+    const decision = resolveProvider({ trust: "trusted", provider: "container" }, library)
+    expect(decision.id).toBe("container")
+    expect(decision.reason).toContain("explicit")
+    expect(() => resolveProvider({ trust: "trusted", provider: "container" })).toThrow(/explicitly/)
   })
 })
 
@@ -126,25 +202,17 @@ describe("lab sandbox provider recording", () => {
     await destroySandbox(project as string, sandbox, true)
   })
 
-  it("records an explicit trust level on the sandbox and its audit trail", async () => {
-    project = await makeAttackRepo()
-    const sandbox = await createSandbox({
-      projectRoot: project as string,
-      adapter: "node",
-      trust: "untrusted",
-    })
-    expect(sandbox.trust).toBe("untrusted")
-    expect(sandbox.provider).toBe("worktree")
-    const audit = await readLabAudit(project as string)
-    const created = audit.find((entry) => entry.kind === "lab_created" && entry.sandboxId === sandbox.id)
-    expect(created?.details).toMatchObject({ trust: "untrusted" })
-    await destroySandbox(project as string, sandbox, true)
-  })
-
-  it("refuses to create a sandbox through a provider that is not wired yet", async () => {
+  it("hands the workload trust to the policy resolver instead of assuming worktree", async () => {
     project = await makeAttackRepo()
     await expect(
-      createSandbox({ projectRoot: project as string, adapter: "node", provider: "os-sandbox" }),
+      createSandbox({ projectRoot: project as string, adapter: "node", trust: "hostile" }),
+    ).rejects.toThrow(/hostile workload/)
+  })
+
+  it("refuses to create a sandbox through the reserved vm provider", async () => {
+    project = await makeAttackRepo()
+    await expect(
+      createSandbox({ projectRoot: project as string, adapter: "node", provider: "vm" }),
     ).rejects.toThrow(/unavailable/)
   })
 })

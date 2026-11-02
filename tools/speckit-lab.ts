@@ -12,7 +12,8 @@ import { runLab } from "./lab/core/run"
 import { createSandbox, destroySandbox, formatSandbox, loadSandbox } from "./lab/core/sandbox"
 import { isLabDisabled, setLabDisabled, LAB_DISABLED_ENV } from "./lab/core/policy"
 import { pruneSandboxes } from "./lab/core/prune"
-import type { LabSandbox } from "./lab/core/types"
+import type { LabSandbox, SandboxTrust } from "./lab/core/types"
+import type { ProviderSelection } from "./lab/core/provider"
 
 const SUBCOMMANDS = ["create", "run", "status", "diff", "promote", "destroy", "disable", "enable", "list", "prune", "baseline", "compare", "help"] as const
 
@@ -38,7 +39,7 @@ function helpOutput(): string {
     "speckit-lab: isolated, non-mutation test runs",
     "",
     "Subcommands:",
-    "  create [label]          Create a git worktree sandbox and prepare dependencies",
+    "  create [label]          Create a git worktree sandbox and prepare dependencies; trust and provider tune the auto policy",
     "  run <category|profile>  Run tests inside the newest sandbox",
     "  status [id]             Show the sandbox, dirty files and the latest run",
     "  diff [id]               Write a patch and show its stat; does not modify the checkout",
@@ -69,6 +70,8 @@ export default tool({
     profile: tool.schema.string().optional().describe("Run profile: quick, standard, hard or soak"),
     adapter: tool.schema.enum(["auto", "integrity", "node"]).optional().describe("Adapter selection for create"),
     label: tool.schema.string().optional().describe("Optional label for a new sandbox"),
+    trust: tool.schema.enum(["trusted", "suspicious", "untrusted", "hostile"]).optional().describe("Workload trust for create, the auto policy resolves it into a provider (default: trusted)"),
+    provider: tool.schema.enum(["auto", "worktree", "os-sandbox", "container", "vm"]).optional().describe("Provider selection for create, auto resolves from trust (default: auto)"),
     confirmed: tool.schema.boolean().optional().describe("Set to true only after the user explicitly confirms"),
     allowMoved: tool.schema.boolean().optional().describe("Allow promotion when the checkout HEAD moved since create; applies the patch with three-way merge"),
     olderThanDays: tool.schema.number().optional().describe("Retention age in days for prune; defaults to 30"),
@@ -154,7 +157,13 @@ export default tool({
         }
         const repoRoot = (await findGitRoot(projectRoot)) ?? projectRoot
         const adapter = await selectAdapter(repoRoot, (args.adapter ?? "auto") as AdapterChoice)
-        const sandbox = await createSandbox({ projectRoot, adapter: adapter.id, label: args.label })
+        const sandbox = await createSandbox({
+          projectRoot,
+          adapter: adapter.id,
+          label: args.label,
+          trust: args.trust as SandboxTrust | undefined,
+          provider: args.provider as ProviderSelection | undefined,
+        })
         return {
           title: "Lab Sandbox Created",
           output: `${formatSandbox(sandbox)}\n\nNext: run a category such as unit, or a profile such as quick.`,
