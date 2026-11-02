@@ -84,8 +84,10 @@ export const PROVIDER_LIBRARY: Record<SandboxProviderId, SandboxProvider> = {
   vm: {
     id: "vm",
     description: "A disposable virtual machine reserved for hostile workloads",
-    availability: notWired("vm"),
-    wrap: refuseWrap("vm"),
+    availability: () => ({ available: false, reason: "The vm provider is reserved for hostile workloads and is not wired in this phase" }),
+    wrap: () => {
+      throw new Error("The vm provider is reserved for hostile workloads and is not wired in this phase, so it refuses to wrap a command")
+    },
   },
 }
 

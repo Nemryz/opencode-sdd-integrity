@@ -333,6 +333,15 @@ describe("lab container provider", () => {
   })
 })
 
+describe("lab vm provider", () => {
+  it("stays reserved and explains why it cannot run", () => {
+    const availability = PROVIDER_LIBRARY.vm.availability()
+    expect(availability.available).toBe(false)
+    expect(availability.reason).toContain("reserved")
+    expect(() => PROVIDER_LIBRARY.vm.wrap("node", [], { cwd: "/tmp" })).toThrow(/reserved/)
+  })
+})
+
 describe("lab sandbox policy validation", () => {
   it("falls back to the safe defaults when no policy was stored", () => {
     expect(sanitizeSandboxPolicy(undefined)).toEqual(defaultSandboxPolicy())
