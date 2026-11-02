@@ -175,3 +175,73 @@ describe("corpus sandbox containment", () => {
     expect(() => insideWorkspace("/tmp", "/etc/passwd")).toThrow(LabPathError)
   })
 })
+
+describe("corpus windows reserved device names", () => {
+  it.each([
+    "CON",
+    "CON.txt",
+    "con",
+    "aux",
+    "AUX.log",
+    "NUL",
+    "nul.tar.gz",
+    "COM1",
+    "com9",
+    "LPT1",
+    "lpt7",
+    "nested/prn",
+    "deep/vector/COM4.out",
+  ])("rejects the reserved device name %s before any filesystem use", (candidate) => {
+    expect(() => resolveInside(os.tmpdir(), candidate)).toThrow(LabPathError)
+    expect(() => assertInsideWorkspace(os.tmpdir(), candidate)).toThrow(LabPathError)
+    expect(() => insideWorkspace(os.tmpdir(), candidate)).toThrow(LabPathError)
+  })
+
+  it("refuses ids that name a reserved Windows device", () => {
+    expect(() => safeSegment("con")).toThrow(LabPathError)
+    expect(() => safeSegment("NUL.txt")).toThrow(LabPathError)
+    expect(() => safeSegment("LPT3")).toThrow(LabPathError)
+  })
+})
+
+describe("corpus windows drive letters and UNC targets", () => {
+  it.each([
+    "C:",
+    "D:/host.txt",
+    "e:marker.txt",
+    "nested/F:/leak.txt",
+  ])("rejects the drive letter path %s because it is absolute on Windows", (candidate) => {
+    expect(() => resolveInside(os.tmpdir(), candidate)).toThrow(LabPathError)
+    expect(() => assertInsideWorkspace(os.tmpdir(), candidate)).toThrow(LabPathError)
+    expect(() => insideWorkspace(os.tmpdir(), candidate)).toThrow(LabPathError)
+  })
+
+  it.each([
+    "//server/share/payload",
+    "\\\\server\\share\\payload",
+  ])("rejects the UNC path %s everywhere", (candidate) => {
+    expect(() => resolveInside(os.tmpdir(), candidate)).toThrow(LabPathError)
+    expect(() => assertInsideWorkspace(os.tmpdir(), candidate)).toThrow(LabPathError)
+    expect(() => insideWorkspace(os.tmpdir(), candidate)).toThrow(LabPathError)
+  })
+})
+
+describe("corpus windows accepted shapes", () => {
+  it.runIf(process.platform === "win32")("normalizes backslash separators so the same fragment list is guarded", () => {
+    const resolved = resolveInside(os.tmpdir(), "a\\b\\file.txt")
+    expect(resolved.startsWith(path.resolve(os.tmpdir()) + path.sep)).toBe(true)
+    expect(insideWorkspace(os.tmpdir(), "a\\b\\file.txt")).toBe(path.resolve(os.tmpdir(), "a", "b", "file.txt"))
+  })
+
+  it.runIf(process.platform === "win32")("keeps a differently cased directory inside the workspace", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-casing-"))
+    try {
+      const dir = path.join(workspace, "Casing")
+      await fs.mkdir(dir)
+      expect(() => resolveInside(workspace, "Casing")).not.toThrow()
+      await expect(assertRealInsideWorkspace(workspace, "casing")).resolves.toBe(dir)
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true })
+    }
+  })
+})

@@ -114,3 +114,47 @@ describe("Property: assertInsideWorkspace rejects everything resolveInside rejec
     }
   })
 })
+
+describe("Property: Windows hazards never pass any guard", () => {
+  const devices = ["CON", "PRN", "AUX", "NUL", "COM1", "COM5", "COM9", "LPT1", "LPT4", "LPT9"]
+  const decorations = ["", ".txt", ".md"]
+  const prefixes = ["", "nested/", "deeper/level/"]
+
+  it("for every reserved device name, every guard throws", () => {
+    fc.assert(
+      fc.property(fc.constantFrom(...devices), fc.constantFrom(...decorations), fc.constantFrom(...prefixes), (device, decoration, prefix) => {
+        const candidate = `${prefix}${device}${decoration}`
+        expect(() => resolveInside(os.tmpdir(), candidate)).toThrow(LabPathError)
+        expect(() => assertInsideWorkspace(os.tmpdir(), candidate)).toThrow(LabPathError)
+        expect(() => insideWorkspace(os.tmpdir(), candidate)).toThrow(LabPathError)
+      }),
+      { numRuns: 200 },
+    )
+  })
+
+  const letters = ["c", "d", "z", "C", "D", "Z"]
+  const tails = [":", ":/host.txt", ":marker.txt"]
+  const leadings = ["", "nested/"]
+
+  it("for every drive letter shape, every guard throws", () => {
+    fc.assert(
+      fc.property(fc.constantFrom(...letters), fc.constantFrom(...tails), fc.constantFrom(...leadings), (letter, tail, leading) => {
+        const candidate = `${leading}${letter}${tail}`
+        expect(() => resolveInside(os.tmpdir(), candidate)).toThrow(LabPathError)
+        expect(() => assertInsideWorkspace(os.tmpdir(), candidate)).toThrow(LabPathError)
+        expect(() => insideWorkspace(os.tmpdir(), candidate)).toThrow(LabPathError)
+      }),
+      { numRuns: 150 },
+    )
+  })
+
+  it("for every device stem, safeSegment throws instead of producing a sandbox id", () => {
+    fc.assert(
+      fc.property(fc.constantFrom(...devices), (device) => {
+        expect(() => safeSegment(device.toLowerCase())).toThrow(LabPathError)
+        expect(() => safeSegment(`${device}.txt`)).toThrow(LabPathError)
+      }),
+      { numRuns: 100 },
+    )
+  })
+})
