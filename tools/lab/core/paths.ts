@@ -173,6 +173,7 @@ export function assertInsideWorkspace(workspace: string, value: string): void {
   if (typeof value !== "string" || value.trim() === "") throw new LabPathError("The lab needs a path inside the workspace")
   if (process.platform !== "win32" && /\\/.test(value)) throw new LabPathError("The lab rejects backslash paths because they split on another platform")
   if (/[\u0000-\u001f]/.test(value)) throw new LabPathError("The lab rejects control characters in paths")
+  if (pathFragments(value).length === 0) throw new LabPathError("The lab needs a non empty relative path")
   screenRelativeSegments(pathFragments(value), value)
   const normalized = path.resolve(workspace)
   if (isTraversal(value)) throw new LabPathError(`The lab rejects traversal out of the workspace: ${value}`)
@@ -191,6 +192,7 @@ function isTraversal(value: string): boolean {
 export function insideWorkspace(workspace: string, candidate: string): string {
   if (typeof candidate !== "string" || candidate.trim() === "" || candidate === "." || candidate === "..") throw new LabPathError("The lab needs a path inside the workspace")
   if (process.platform !== "win32" && /\\/.test(candidate)) throw new LabPathError("The lab rejects backslash paths because they split on another platform")
+  if (pathFragments(candidate).length === 0) throw new LabPathError("The lab needs a non empty relative path")
   screenRelativeSegments(pathFragments(candidate), candidate)
   const root = path.resolve(workspace)
   const resolved = path.resolve(root, candidate)
