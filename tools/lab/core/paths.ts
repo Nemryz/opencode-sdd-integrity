@@ -114,8 +114,8 @@ async function isReparsePoint(target: string): Promise<boolean> {
   }
 }
 export async function assertRealInsideWorkspace(workspace: string, candidate: string): Promise<string> {
-  const joined = resolveInside(workspace, candidate)
-  const workspaceRoot = path.resolve(workspace)
+  const workspaceRoot = await fs.realpath(path.resolve(workspace)).catch(() => path.resolve(workspace))
+  const joined = resolveInside(workspaceRoot, candidate)
   if (await isReparsePoint(joined)) {
     throw new LabPathError(`The lab rejects a reparse point inside the workspace: ${candidate}`)
   }

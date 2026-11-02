@@ -141,13 +141,13 @@ describe("corpus ambiguous paths", () => {
     }
   })
 
-  it.skipIf(process.platform === "win32")("keeps a normal directory from being mistaken for a reparse point", async () => {
+  it("keeps a normal directory from being mistaken for a reparse point", async () => {
     const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-ws-"))
     try {
       const dir = path.join(workspace, "normal")
       await fs.mkdir(dir, { recursive: true })
       const real = await assertRealInsideWorkspace(workspace, "normal")
-      expect(real).toBe(dir)
+      expect(real).toBe(await fs.realpath(dir))
     } finally {
       await fs.rm(workspace, { recursive: true, force: true })
     }
@@ -239,7 +239,7 @@ describe("corpus windows accepted shapes", () => {
       const dir = path.join(workspace, "Casing")
       await fs.mkdir(dir)
       expect(() => resolveInside(workspace, "Casing")).not.toThrow()
-      await expect(assertRealInsideWorkspace(workspace, "casing")).resolves.toBe(dir)
+      await expect(assertRealInsideWorkspace(workspace, "casing")).resolves.toBe(await fs.realpath(dir))
     } finally {
       await fs.rm(workspace, { recursive: true, force: true })
     }
