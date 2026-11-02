@@ -111,6 +111,17 @@ function findShimOnPath(command: string, env: NodeJS.ProcessEnv): string | null 
   return null
 }
 
+// Looks up an exact file name across PATH entries so a quoted shim token never depends on the cmd search rules.
+function resolveOnPath(file: string, env: NodeJS.ProcessEnv): string | null {
+  const entries = (env.PATH ?? env.Path ?? "").split(path.delimiter)
+  for (const entry of entries) {
+    if (entry === "") continue
+    const candidate = path.join(entry, file)
+    if (existsSync(candidate)) return candidate
+  }
+  return null
+}
+
 // Keeps the direct spawn for real executables and routes cmd and bat shims through ComSpec with one verbatim tail.
 export function normalizeSpawnInvocation(
   command: string,
@@ -120,7 +131,7 @@ export function normalizeSpawnInvocation(
 ): LabSpawnInvocation {
   if (platform !== "win32") return { command, args, verbatim: false }
   let shim: string | null = null
-  if (/\.(cmd|bat)$/i.test(command)) shim = command
+  if (/\.(cmd|bat)$/i.test(command)) shim = /[\\/]/.test(command) ? command : (resolveOnPath(command, env) ?? command)
   else if (!/[\\/]/.test(command)) shim = findShimOnPath(command, env)
   if (!shim) return { command, args, verbatim: false }
   for (const value of [shim, ...args]) {

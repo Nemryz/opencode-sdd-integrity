@@ -46,6 +46,18 @@ describe("corpus spawn invocation", () => {
     expect(invocation.args[3]).toBe('""npm.cmd" "run" "a b" "x&y""')
   })
 
+  it("resolves an explicit shim name against the injected path instead of trusting cmd search", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-shim-"))
+    try {
+      await fs.writeFile(path.join(root, "npm.cmd"), "@echo off\r\n", "utf-8")
+      const invocation = normalizeSpawnInvocation("npm.cmd", ["--version"], "win32", { PATH: root, ComSpec: "cmd.exe" })
+      expect(invocation.command).toBe("cmd.exe")
+      expect(invocation.args[3]).toContain(path.join(root, "npm.cmd"))
+    } finally {
+      await fs.rm(root, { recursive: true, force: true })
+    }
+  })
+
   it("refuses percent signs on the cmd route instead of letting cmd expand them", () => {
     expect(() => normalizeSpawnInvocation("npm.cmd", ["--prefix=%PATH%"], "win32", {})).toThrow("percent signs")
   })
@@ -64,7 +76,7 @@ describe("corpus windows cmd shims", () => {
 
   it.runIf(process.platform === "win32")("accepts an explicit cmd shim name as the command", async () => {
     const result = await runLabProcess("npm.cmd", ["--version"], { cwd: os.tmpdir(), timeoutMs: 30_000 })
-    expect(result.code).toBe(0)
+    expect(result.code, `stderr: ${result.stderr}`).toBe(0)
     expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/)
   })
 
