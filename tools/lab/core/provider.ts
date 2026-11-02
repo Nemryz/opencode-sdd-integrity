@@ -1,8 +1,26 @@
+import { spawnSync } from "node:child_process"
 import type { ProviderAvailability, SandboxNetworkPolicy, SandboxProvider, SandboxProviderId, SandboxTrust } from "./types"
 import { WORKTREE_PROVIDER } from "./types"
 
 function notWired(id: SandboxProviderId): () => ProviderAvailability {
   return () => ({ available: false, reason: `The ${id} provider is not wired in this phase` })
+}
+
+function osSandboxAvailability(): ProviderAvailability {
+  if (process.platform !== "linux") {
+    return { available: false, reason: `The os-sandbox provider needs Linux namespaces and ${process.platform} does not expose them` }
+  }
+  const probe = spawnSync("unshare", ["--user", "--map-root-user", "--net", "--pid", "--fork", "--kill-child", "--mount-proc", "true"], {
+    stdio: "ignore",
+    timeout: 5000,
+  })
+  if (probe.error) {
+    return { available: false, reason: `The os-sandbox provider could not run unshare: ${probe.error.message}` }
+  }
+  if (probe.status !== 0) {
+    return { available: false, reason: `The os-sandbox provider probe exited with status ${probe.status ?? "unknown"}, so user namespaces are probably disabled` }
+  }
+  return { available: true, reason: "Linux user, network, pid and mount namespaces are available" }
 }
 
 function refuseWrap(id: SandboxProviderId): SandboxProvider["wrap"] {
@@ -16,9 +34,12 @@ export const PROVIDER_LIBRARY: Record<SandboxProviderId, SandboxProvider> = {
   worktree: WORKTREE_PROVIDER,
   "os-sandbox": {
     id: "os-sandbox",
-    description: "An OS enforced sandbox such as namespaces or seatbelt",
-    availability: notWired("os-sandbox"),
-    wrap: refuseWrap("os-sandbox"),
+    description: "An OS enforced sandbox using Linux user, network, pid and mount namespaces",
+    availability: () => osSandboxAvailability(),
+    wrap: (command, args) => ({
+      command: "unshare",
+      args: ["--user", "--map-root-user", "--net", "--pid", "--fork", "--kill-child", "--mount-proc", command, ...args],
+    }),
   },
   container: {
     id: "container",

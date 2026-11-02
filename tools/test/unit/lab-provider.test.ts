@@ -25,6 +25,7 @@ import type {
   SandboxProviderId,
 } from "../../lab/core/types"
 import { readLabPolicy, setLabDisabled, labPolicyFile } from "../../lab/core/policy"
+import { runLabProcess } from "../../lab/core/runner"
 
 let project: string | null = null
 
@@ -72,7 +73,7 @@ describe("lab provider contract", () => {
   })
 
   it("reports every unwired provider as unavailable instead of pretending", () => {
-    for (const id of ["os-sandbox", "container", "vm"] as const) {
+    for (const id of ["container", "vm"] as const) {
       const availability = PROVIDER_LIBRARY[id].availability()
       expect(availability.available).toBe(false)
       expect(availability.reason).toContain("not wired")
@@ -80,7 +81,7 @@ describe("lab provider contract", () => {
   })
 
   it("refuses to wrap a command through an unwired provider", () => {
-    for (const id of ["os-sandbox", "container", "vm"] as const) {
+    for (const id of ["container", "vm"] as const) {
       expect(() => PROVIDER_LIBRARY[id].wrap("node", [], { cwd: "/tmp" })).toThrow(/not wired/)
     }
   })
@@ -280,6 +281,34 @@ describe("lab offline cache", () => {
     expect(policy.disabled).toBe(true)
     expect(policy.offline).toBe(true)
     expect(policy.registries).toEqual(["registry.example"])
+  })
+})
+
+describe("lab os sandbox provider", () => {
+  const osAvailable = PROVIDER_LIBRARY["os-sandbox"].availability().available
+
+  it.runIf(osAvailable)("wraps a command in a Linux namespace with no network", () => {
+    const wrapped = PROVIDER_LIBRARY["os-sandbox"].wrap("node", ["--version"], { cwd: "/tmp" })
+    expect(wrapped).toEqual({
+      command: "unshare",
+      args: ["--user", "--map-root-user", "--net", "--pid", "--fork", "--kill-child", "--mount-proc", "node", "--version"],
+    })
+  })
+
+  it.runIf(osAvailable)("blocks outbound TCP from inside the namespace", async () => {
+    const wrapped = PROVIDER_LIBRARY["os-sandbox"].wrap(process.execPath, [
+      "-e",
+      "const net=require('node:net'); const s=net.connect({host:'1.1.1.1',port:80}); s.on('error',(e)=>{console.log('NETERR',e.code);process.exit(0)}); s.on('connect',()=>{console.log('CONNECTED');process.exit(1)}); setTimeout(()=>{console.log('TIMEOUT');process.exit(1)},3000)",
+    ], { cwd: process.cwd() })
+    const result = await runLabProcess(wrapped.command, wrapped.args, { cwd: process.cwd(), timeoutMs: 10000 })
+    expect(result.code).toBe(0)
+    expect(result.stdout).toContain("NETERR ENETUNREACH")
+  })
+
+  it.runIf(!osAvailable)("reports why the namespace provider cannot run on this host", () => {
+    const availability = PROVIDER_LIBRARY["os-sandbox"].availability()
+    expect(availability.available).toBe(false)
+    expect(availability.reason.length).toBeGreaterThan(0)
   })
 })
 
