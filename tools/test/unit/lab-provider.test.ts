@@ -204,6 +204,50 @@ describe("lab network policy", () => {
   })
 })
 
+describe("lab secrets policy", () => {
+  it("reads secrets and allowlist fields from the policy file", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, secrets: "allowlist", secretsAllow: ["NPM_TOKEN"] }, null, 2))
+    const policy = await readLabPolicy(project as string)
+    expect(policy.secrets).toBe("allowlist")
+    expect(policy.secretsAllow).toEqual(["NPM_TOKEN"])
+  })
+
+  it("falls back to none when the policy file carries an invalid secrets value", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, secrets: "all" }, null, 2))
+    const policy = await readLabPolicy(project as string)
+    expect(policy.secrets).toBe("none")
+  })
+
+  it("records the policy file secrets setting on a new sandbox", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, secrets: "allowlist", secretsAllow: ["NPM_TOKEN"] }, null, 2))
+    const sandbox = await createSandbox({ projectRoot: project as string, adapter: "node", trust: "trusted" })
+    expect(sandbox.policy.secrets).toBe("allowlist")
+    expect(sandbox.policy.secretsAllow).toEqual(["NPM_TOKEN"])
+    await destroySandbox(project as string, sandbox, true)
+  })
+
+  it("preserves secrets settings when the kill switch flips", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, secrets: "allowlist", secretsAllow: ["NPM_TOKEN"] }, null, 2))
+    await setLabDisabled(project as string, true)
+    const policy = await readLabPolicy(project as string)
+    expect(policy.disabled).toBe(true)
+    expect(policy.secrets).toBe("allowlist")
+    expect(policy.secretsAllow).toEqual(["NPM_TOKEN"])
+  })
+})
+
 describe("lab sandbox policy validation", () => {
   it("falls back to the safe defaults when no policy was stored", () => {
     expect(sanitizeSandboxPolicy(undefined)).toEqual(defaultSandboxPolicy())

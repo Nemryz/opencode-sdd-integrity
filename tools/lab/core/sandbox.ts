@@ -126,7 +126,7 @@ export async function createSandbox(options: CreateSandboxOptions): Promise<LabS
     adapter: options.adapter,
     provider: providerId,
     trust,
-    policy: { ...defaultSandboxPolicy(), network: labPolicy.network, networkAllow: labPolicy.networkAllow },
+    policy: { ...defaultSandboxPolicy(), network: labPolicy.network, networkAllow: labPolicy.networkAllow, secrets: labPolicy.secrets, secretsAllow: labPolicy.secretsAllow },
     label: options.label,
     baseCommit,
     createdAt: new Date().toISOString(),

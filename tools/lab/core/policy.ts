@@ -2,8 +2,8 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { labPaths } from "./home"
 import { appendLabAudit } from "./audit"
-import type { SandboxNetworkPolicy } from "./types"
-import { isSandboxNetworkPolicy } from "./types"
+import type { SandboxNetworkPolicy, SandboxSecretsPolicy } from "./types"
+import { isSandboxNetworkPolicy, isSandboxSecretsPolicy } from "./types"
 
 export const LAB_DISABLED_ENV = "OPENCODE_LAB_DISABLED"
 
@@ -12,6 +12,8 @@ export interface LabPolicy {
   source: "file" | "env" | "none"
   network: SandboxNetworkPolicy
   networkAllow: string[]
+  secrets: SandboxSecretsPolicy
+  secretsAllow: string[]
 }
 
 function policyFile(projectRoot: string): string {
@@ -27,8 +29,8 @@ function stringList(raw: unknown): string[] {
   return raw as string[]
 }
 
-function defaults(): { network: SandboxNetworkPolicy; networkAllow: string[] } {
-  return { network: "none", networkAllow: [] }
+function defaults(): { network: SandboxNetworkPolicy; networkAllow: string[]; secrets: SandboxSecretsPolicy; secretsAllow: string[] } {
+  return { network: "none", networkAllow: [], secrets: "none", secretsAllow: [] }
 }
 
 // The kill switch wins before any sandbox is planned, and the environment always beats the policy file.
@@ -43,12 +45,16 @@ export async function readLabPolicy(projectRoot: string): Promise<LabPolicy> {
       disabled?: unknown
       network?: unknown
       networkAllow?: unknown
+      secrets?: unknown
+      secretsAllow?: unknown
     }
     const disabled = parsed.disabled === true ? true : parsed.disabled === false ? false : false
     const source: "file" | "none" = parsed.disabled === true || parsed.disabled === false ? "file" : "none"
     const network = isSandboxNetworkPolicy(parsed.network) ? parsed.network : fallback.network
     const networkAllow = parsed.networkAllow === undefined ? fallback.networkAllow : stringList(parsed.networkAllow)
-    return { disabled, source, network, networkAllow }
+    const secrets = isSandboxSecretsPolicy(parsed.secrets) ? parsed.secrets : fallback.secrets
+    const secretsAllow = parsed.secretsAllow === undefined ? fallback.secretsAllow : stringList(parsed.secretsAllow)
+    return { disabled, source, network, networkAllow, secrets, secretsAllow }
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return { disabled: false, source: "none", ...fallback }

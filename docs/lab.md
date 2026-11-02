@@ -53,7 +53,7 @@ Every lab process spawns without a shell, so argv reaches the child literally on
 
 ## Environment sanitization
 
-Child processes never inherit the parent environment wholesale. `safeLabEnvironment` composes the child environment from an explicit allowlist plus safe defaults, so secrets such as SSH agent sockets, cloud credentials, API keys, cookies and proxy variables never reach a sandbox command. The lab marks itself with `OPENCODE_LAB=1` and `OPENCODE_LAB_NETWORK=none`, disables Husky, npm audit/fund, Playwright/Puppeteer browser downloads and git terminal prompts, and forces colour off for deterministic output.
+Child processes never inherit the parent environment wholesale. `safeLabEnvironment` composes the child environment from an explicit allowlist plus safe defaults, so secrets such as SSH agent sockets, cloud credentials, API keys, cookies and proxy variables never reach a sandbox command. The secrets policy is explicit and recorded on every sandbox as `none` or `allowlist`, and even an allowlisted key is dropped when it matches the deny list, so a policy can never widen access past the hard denied set. The lab marks itself with `OPENCODE_LAB=1` and `OPENCODE_LAB_NETWORK=none`, disables Husky, npm audit/fund, Playwright/Puppeteer browser downloads and git terminal prompts, and forces colour off for deterministic output.
 
 ## Package scripts off
 
