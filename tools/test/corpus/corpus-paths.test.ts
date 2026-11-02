@@ -245,3 +245,43 @@ describe("corpus windows accepted shapes", () => {
     }
   })
 })
+
+describe("corpus windows junctions", () => {
+  it.runIf(process.platform === "win32")("rejects a junction that is the final component and aims outside", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-junction-ws-"))
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-junction-out-"))
+    try {
+      await fs.symlink(outside, path.join(workspace, "jump"), "junction")
+      await expect(assertRealInsideWorkspace(workspace, "jump")).rejects.toThrow(LabPathError)
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true })
+      await fs.rm(outside, { recursive: true, force: true })
+    }
+  })
+
+  it.runIf(process.platform === "win32")("rejects a path that walks through a junction aimed outside", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-junction-ws-"))
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-junction-out-"))
+    try {
+      await fs.mkdir(path.join(workspace, "mid"))
+      await fs.writeFile(path.join(outside, "payload.txt"), "escape")
+      await fs.symlink(outside, path.join(workspace, "mid", "out"), "junction")
+      await expect(assertRealInsideWorkspace(workspace, "mid/out/payload.txt")).rejects.toThrow(LabPathError)
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true })
+      await fs.rm(outside, { recursive: true, force: true })
+    }
+  })
+
+  it.runIf(process.platform === "win32")("keeps a junction that stays inside the workspace usable", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "corpus-junction-ws-"))
+    try {
+      const real = path.join(workspace, "real")
+      await fs.mkdir(real)
+      await fs.symlink(real, path.join(workspace, "jump"), "junction")
+      await expect(assertRealInsideWorkspace(workspace, "jump")).resolves.toBe(await fs.realpath(real))
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true })
+    }
+  })
+})
