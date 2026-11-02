@@ -230,6 +230,53 @@ export interface LabRegistry {
   sandboxes: LabSandbox[]
 }
 
+// A session keeps checkpoint history for one sandbox so a later run can resume where evidence stopped.
+export type LabSessionStatus = "active" | "resumed" | "closed" | "pruned"
+
+export function isLabSessionStatus(value: unknown): value is LabSessionStatus {
+  return value === "active" || value === "resumed" || value === "closed" || value === "pruned"
+}
+
+export interface LabSession {
+  id: string
+  projectRoot: string
+  sandboxId: string
+  status: LabSessionStatus
+  createdAt: string
+  updatedAt: string
+  checkpointCount: number
+  label?: string
+  lastCheckpointAt?: string
+  lastRunId?: string
+  warnings: string[]
+}
+
+export interface LabSessionRegistry {
+  version: 1
+  sessions: LabSession[]
+}
+
+export interface LabCheckpoint {
+  schemaVersion: 1
+  index: number
+  createdAt: string
+  sessionId: string
+  sandboxId: string
+  sandboxHead: string
+  patchHash: string
+  runId?: string
+  runSummaryPath?: string
+  note?: string
+  integrity: string
+}
+
+export interface LabResume {
+  session: LabSession
+  sandbox: LabSandbox
+  checkpoint: LabCheckpoint
+  resumedAt: string
+}
+
 export interface LabTestTotals {
   total: number
   passed: number

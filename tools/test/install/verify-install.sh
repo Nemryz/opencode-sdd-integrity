@@ -56,6 +56,7 @@ expect_path tools/lab/core/policy.ts
 expect_path tools/lab/core/provider.ts
 expect_path tools/lab/core/runner.ts
 expect_path tools/lab/core/security.ts
+expect_path tools/lab/core/session.ts
 expect_path tools/lab/adapters/integrity.ts
 expect_path tools/lab/vitest.config.lab.ts
 expect_path tools/lab/core/diff.ts

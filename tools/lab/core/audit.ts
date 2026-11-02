@@ -10,6 +10,11 @@ export type LabAuditEventKind =
   | "lab_destroyed"
   | "lab_pruned"
   | "lab_policy"
+  | "lab_session_created"
+  | "lab_session_closed"
+  | "lab_checkpoint"
+  | "lab_resume"
+  | "lab_session_pruned"
 
 export interface LabAuditEvent {
   kind: LabAuditEventKind

@@ -148,6 +148,14 @@ Promotion is tied to the reviewed base. If the checkout HEAD moved after `create
 
 A sandbox becomes `promoted` and cannot be promoted twice. Destroy it and create a new sandbox for another change. `destroy` removes the worktree; the reports, patches and summary stay in `.opencode/lab/`, which is gitignored. A registry entry whose worktree disappeared can still be destroyed, which cleans the registry without touching the checkout.
 
+## Sessions and checkpoints
+
+A session keeps verifiable checkpoint history for one sandbox under `.opencode/lab/sessions/<id>/`. A session opens only for a registered live sandbox, and every session owns a read only `audit.jsonl` chronology plus numbered checkpoints under `checkpoints/`. Each checkpoint freezes the sandbox HEAD, hashes the staged patch with the same sha256 scheme promotion uses, carries its own integrity hash on disk with mode `0400`, and appends `lab_checkpoint` to the project audit and the session chronology.
+
+`resumeSession` never trusts that history. It checks that the sandbox is still registered, is not destroyed and still exists on disk, that the current HEAD equals the checkpointed HEAD, and that the current patch hash equals the recorded one. Any drift fails loud and asks for a fresh checkpoint before the resume can go through, so a session reopens only over the exact state it saved.
+
+`prune` covers sessions next to sandboxes. It removes expired sessions past the retention age, removes corrupt sessions whose checkpoints fail their integrity check, clears orphan session directories that no registry entry owns, closes sessions whose sandbox died, and appends a `lab_session_pruned` audit event. Sessions live on disk inside `.opencode/lab/` and need no extra tooling to inspect.
+
 ## Reports
 
 Each run writes:

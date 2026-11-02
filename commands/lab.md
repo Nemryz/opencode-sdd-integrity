@@ -26,7 +26,7 @@ Use the `speckit-lab` tool, which owns the worktree lifecycle described in `docs
 - If the checkout HEAD moved after `create`, `promote` refuses to apply the patch. Create a new sandbox from the current HEAD and review it again.
 - Pass `confirmed: true` for `destroy` and `prune` only after the user explicitly confirms; reports stay under `.opencode/lab/`. A sandbox whose worktree disappeared can still be destroyed to clean the registry.
 - `disable` and `enable` also need `confirmed: true`, because they flip the lab kill switch. While the switch holds, `create` and `run` are safe no-ops, `status`, `destroy` and `prune` keep working, and the policy file stays under `.opencode/lab/policy.json`. The `OPENCODE_LAB_DISABLED=1` environment variable overrides everything.
-- `prune` is a dry run unless confirmed. `baseline` requires a passed run. `compare` writes JSON and Markdown reports.
+- `prune` is a dry run unless confirmed, and it covers sandboxes plus sessions in one pass. `baseline` requires a passed run. `compare` writes JSON and Markdown reports.
 - Never add or run mutation tests. The lab excludes `*-mutation.test.ts`, `*-mutation-*.test.ts`, `*-kill-survivors.test.ts` and `*-kill.test.ts`.
 - `soak` and `smoke` are heavy and require confirmation. Never start them without warning the user.
 - The lab needs a git repository. If the project has no git metadata, say so and stop; do not copy files by hand.

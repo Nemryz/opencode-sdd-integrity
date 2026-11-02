@@ -150,6 +150,7 @@ Profiles: `quick`, `standard`, `hard`, `soak`. The lab excludes `*-mutation.test
 `diff` before `promote`; `promote` and `destroy` require user confirmation (`confirmed: true`). `soak` and `smoke` are heavy and confirmation gated.
 `disable` and `enable` require `confirmed: true` and flip the lab kill switch (`OPENCODE_LAB_DISABLED=1`); while it holds, `create` and `run` are safe no-ops and status, destroy and prune keep working. The `security` category runs the safe attack corpus under `tools/test/corpus`.
 `promote` refuses if the checkout HEAD moved after `create`. Lockfile changes or a missing `node_modules` install dependencies inside the sandbox before the run.
+`prune` is a dry run unless confirmed and covers both sandboxes and persistent sessions in one pass. Sessions keep tamper evident checkpoint history per sandbox under `.opencode/lab/sessions/<id>/`, and a resume proves the sandbox still holds the exact checked in state before it reopens.
 
 ### `/matrix [<batch> [batch...]|all]`
 Measure the mutation batches of the kit and store one report each. Uses `speckit-mutation` tool with `subcommand: "run"`.

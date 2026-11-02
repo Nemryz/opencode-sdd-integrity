@@ -12,6 +12,7 @@ import { runLab } from "./lab/core/run"
 import { createSandbox, destroySandbox, formatSandbox, loadSandbox } from "./lab/core/sandbox"
 import { isLabDisabled, setLabDisabled, LAB_DISABLED_ENV } from "./lab/core/policy"
 import { pruneSandboxes } from "./lab/core/prune"
+import { pruneSessions } from "./lab/core/session"
 import type { LabSandbox, SandboxTrust } from "./lab/core/types"
 import type { ProviderSelection } from "./lab/core/provider"
 
@@ -47,7 +48,7 @@ function helpOutput(): string {
     "  destroy [id]            Remove the worktree after explicit confirmation; reports stay",
     "  disable                 Kill switch, future create and run calls become safe no-ops",
     "  enable                  Revert the kill switch after explicit confirmation",
-    "  prune [days]            Dry-run or remove stale sandboxes, reports and orphan worktrees",
+    "  prune [days]            Dry-run or remove stale sandboxes, sessions, reports and orphan worktrees",
     "  baseline [selection]    Store the latest successful run as the baseline",
     "  compare [selection]     Compare the latest run against the stored baseline",
     "  list                    List known sandboxes",
@@ -94,28 +95,50 @@ export default tool({
       }
 
       if (subcommand === "prune") {
+        const confirmed = args.confirmed === true
         const result = await pruneSandboxes({
           projectRoot,
           olderThanDays: args.olderThanDays,
-          confirmed: args.confirmed === true,
+          confirmed,
+        })
+        const sessions = await pruneSessions({
+          projectRoot,
+          olderThanDays: args.olderThanDays,
+          confirmed,
         })
         const lines = [
           result.dryRun ? "Lab prune: dry run" : "Lab prune: completed",
           `  retention: ${result.olderThanDays} days`,
-          `  candidates: ${result.candidates.length}`,
+          `  sandbox candidates: ${result.candidates.length}`,
         ]
         for (const candidate of result.candidates) {
+          lines.push(`    ${candidate.id}  ${candidate.reason}  ${candidate.action}${candidate.path ? `  ${candidate.path}` : ""}`)
+        }
+        lines.push(`  session candidates: ${sessions.candidates.length}`)
+        for (const candidate of sessions.candidates) {
           lines.push(`    ${candidate.id}  ${candidate.reason}  ${candidate.action}${candidate.path ? `  ${candidate.path}` : ""}`)
         }
         if (result.dryRun) {
           lines.push("", "Re-run with confirmed: true to apply the prune.")
         } else {
-          lines.push("", `Removed: ${result.removed.length}`, `Marked destroyed: ${result.markedDestroyed.length}`, `Orphan worktrees: ${result.orphanWorktrees.length}`)
+          lines.push(
+            "",
+            `Removed sandboxes: ${result.removed.length}`,
+            `Marked destroyed: ${result.markedDestroyed.length}`,
+            `Orphan worktrees: ${result.orphanWorktrees.length}`,
+            `Removed sessions: ${sessions.removed.length}`,
+            `Closed sessions: ${sessions.closed.length}`,
+            `Orphan session directories: ${sessions.orphanDirectories.length}`,
+          )
         }
         return {
           title: result.dryRun ? "Lab Prune: Dry Run" : "Lab Prune: Completed",
           output: lines.join("\n"),
-          metadata: { dryRun: result.dryRun, candidates: result.candidates.length, removed: result.removed.length },
+          metadata: {
+            dryRun: result.dryRun,
+            candidates: result.candidates.length + sessions.candidates.length,
+            removed: result.removed.length + sessions.removed.length,
+          },
         }
       }
 
