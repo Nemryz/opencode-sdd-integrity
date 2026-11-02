@@ -5,6 +5,18 @@ import os from "node:os"
 import path from "node:path"
 import { resolveInside, safeSegment, pathFragments, insideWorkspace, assertInsideWorkspace, LabPathError } from "../../lab/core/paths"
 
+// Mirrors the Windows device rule so the safe round trip only claims ids the guard really keeps.
+const RESERVED_DEVICE_STEMS = new Set(["con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9"])
+
+function namesReservedDevice(value: string): boolean {
+  const cut = value.indexOf(".")
+  return RESERVED_DEVICE_STEMS.has((cut === -1 ? value : value.slice(0, cut)).toLowerCase())
+}
+
+function endsInDot(value: string): boolean {
+  return /\.$/.test(value)
+}
+
 describe("Property: resolveInside never escapes the workspace", () => {
   it("for every candidate, the result is inside the workspace or it throws", () => {
     const workspace = "/tmp/lab-property-workspace"
@@ -26,7 +38,7 @@ describe("Property: safeSegment round trips safe ids", () => {
   it("for every safe segment, safeSegment returns the same value", () => {
     fc.assert(
       fc.property(
-        fc.string({ minLength: 1, maxLength: 64 }).filter((s) => /^[A-Za-z0-9._-]+$/.test(s) && s !== "." && s !== ".."),
+        fc.string({ minLength: 1, maxLength: 64 }).filter((s) => /^[A-Za-z0-9._-]+$/.test(s) && s !== "." && s !== ".." && !namesReservedDevice(s) && !endsInDot(s)),
         (id) => {
           expect(safeSegment(id)).toBe(id)
         },
@@ -38,7 +50,7 @@ describe("Property: safeSegment round trips safe ids", () => {
   it("for every unsafe string, safeSegment throws", () => {
     fc.assert(
       fc.property(
-        fc.string().filter((s) => !/^[A-Za-z0-9._-]+$/.test(s) || s === "." || s === ".." || s === ""),
+        fc.string().filter((s) => !/^[A-Za-z0-9._-]+$/.test(s) || s === "." || s === ".." || s === "" || namesReservedDevice(s) || endsInDot(s)),
         (id) => {
           expect(() => safeSegment(id)).toThrow(LabPathError)
         },

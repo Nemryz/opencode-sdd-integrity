@@ -163,6 +163,7 @@ describe("corpus sandbox containment", () => {
       const id = safeSegment("20261101000000-abc")
       expect(id).toBe("20261101000000-abc")
       expect(() => safeSegment("../escape")).toThrow()
+      expect(() => safeSegment("abc.")).toThrow()
       expect(() => safeSegment("sub/dir")).toThrow()
       expect(() => safeSegment(".")).toThrow()
       expect(() => safeSegment('ev"il')).toThrow()

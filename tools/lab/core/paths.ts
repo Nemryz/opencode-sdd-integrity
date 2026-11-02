@@ -52,6 +52,7 @@ function isDriveLetterSegment(segment: string): boolean {
 export function safeSegment(value: string): string {
   if (!SAFE_SEGMENT.test(value)) throw new LabPathError(`The lab segment is not a safe id: ${value}`)
   if (value === "." || value === "..") throw new LabPathError("The lab segment cannot be a relative marker")
+  if (/\.$/.test(value)) throw new LabPathError(`The lab segment cannot end in a dot because Windows drops it: ${value}`)
   if (isDriveLetterSegment(value)) throw new LabPathError(`The lab segment cannot open a drive on Windows: ${value}`)
   if (isReservedDeviceSegment(value)) throw new LabPathError(`The lab segment names a reserved Windows device: ${value}`)
   return value
