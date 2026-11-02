@@ -175,15 +175,21 @@ export function planDependencyAction(input: DependencyInput): DependencyDecision
   }
 }
 
-async function installCommand(
+export async function installCommand(
   manager: LabPackageManager,
   root: string,
+  options: { offline?: boolean } = {},
 ): Promise<{ manager: string; args: string[] }> {
+  const offline = options.offline === true
   if (manager === "npm") {
-    return { manager, args: ["ci", "--ignore-scripts", "--no-audit", "--no-fund"] }
+    const args = ["ci", "--ignore-scripts", "--no-audit", "--no-fund"]
+    if (offline) args.push("--offline")
+    return { manager, args }
   }
   if (manager === "pnpm") {
-    return { manager, args: ["install", "--frozen-lockfile", "--ignore-scripts", "--prefer-offline"] }
+    const args = ["install", "--frozen-lockfile", "--ignore-scripts", "--prefer-offline"]
+    if (offline) args.push("--offline")
+    return { manager, args }
   }
   if (manager === "yarn") {
     let berry = false
@@ -193,20 +199,52 @@ async function installCommand(
     } catch (error) {
       if (!isMissing(error)) throw error
     }
+    const args = berry ? ["install", "--immutable", "--ignore-scripts"] : ["install", "--frozen-lockfile", "--ignore-scripts"]
+    if (offline) args.push("--offline")
     return {
       manager,
-      args: berry ? ["install", "--immutable", "--ignore-scripts"] : ["install", "--frozen-lockfile", "--ignore-scripts"],
+      args,
     }
   }
-  return { manager, args: ["install", "--frozen-lockfile", "--ignore-scripts"] }
+  const args = ["install", "--frozen-lockfile", "--ignore-scripts"]
+  if (offline) args.push("--offline")
+  return { manager, args }
+}
+
+// Scans a lockfile for resolved hosts so an offline cache policy can refuse unapproved registries before installing.
+export async function assertApprovedRegistries(
+  lockfile: LockfileState,
+  root: string,
+  allowlist: string[],
+): Promise<void> {
+  if (allowlist.length === 0) return
+  let contents: string
+  try {
+    contents = await fs.readFile(path.join(root, lockfile.file), "utf-8")
+  } catch (error) {
+    throw new Error(`Could not read ${lockfile.file} to check approved registries: ${error instanceof Error ? error.message : String(error)}`)
+  }
+  const urls = contents.match(/https?:\/\/[^\s"')]+/g) ?? []
+  const hosts = new Set<string>()
+  for (const url of urls) {
+    try {
+      hosts.add(new URL(url).host)
+    } catch {
+      // Ignore malformed fragments so the check never fails on noise.
+    }
+  }
+  const disallowed = [...hosts].filter((host) => host !== "" && !allowlist.includes(host))
+  if (disallowed.length > 0) {
+    throw new Error(`The lockfile resolves packages from unapproved registries: ${disallowed.join(", ")}`)
+  }
 }
 
 export async function installDependencies(
   root: string,
   lockfile: LockfileState,
-  options: { signal?: AbortSignal } = {},
+  options: { signal?: AbortSignal; offline?: boolean } = {},
 ): Promise<{ command: string; args: string[]; result: LabProcessResult }> {
-  const install = await installCommand(lockfile.manager, root)
+  const install = await installCommand(lockfile.manager, root, { offline: options.offline })
   // The runner resolves package manager shims itself, so the install keeps one argv on every platform.
   const command = install.manager
   const args = install.args
@@ -329,8 +367,16 @@ export async function ensureDependencies(options: EnsureDependenciesOptions): Pr
     )
   }
 
+  const registries = options.sandbox.policy?.registries ?? []
+  if (registries.length > 0) {
+    await assertApprovedRegistries(sandboxLockfile, options.sandbox.sandboxRoot, registries)
+  }
+
   await removeNodeModulesEntry(options.sandbox.sandboxRoot)
-  const installed = await installDependencies(options.sandbox.sandboxRoot, sandboxLockfile, { signal: options.signal })
+  const installed = await installDependencies(options.sandbox.sandboxRoot, sandboxLockfile, {
+    signal: options.signal,
+    offline: options.sandbox.policy?.offline === true,
+  })
   const logPath = await writeDependencyLog(
     options.reportDir,
     installed.command,

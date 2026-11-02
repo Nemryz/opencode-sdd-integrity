@@ -248,6 +248,41 @@ describe("lab secrets policy", () => {
   })
 })
 
+describe("lab offline cache", () => {
+  it("reads offline and registries fields from the policy file", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, offline: true, registries: ["registry.example"] }, null, 2))
+    const policy = await readLabPolicy(project as string)
+    expect(policy.offline).toBe(true)
+    expect(policy.registries).toEqual(["registry.example"])
+  })
+
+  it("records the policy file offline setting on a new sandbox", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, offline: true, registries: ["registry.example"] }, null, 2))
+    const sandbox = await createSandbox({ projectRoot: project as string, adapter: "node", trust: "trusted" })
+    expect(sandbox.policy.offline).toBe(true)
+    expect(sandbox.policy.registries).toEqual(["registry.example"])
+    await destroySandbox(project as string, sandbox, true)
+  })
+
+  it("preserves offline settings when the kill switch flips", async () => {
+    project = await makeAttackRepo()
+    const dir = path.dirname(labPolicyFile(project as string))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(labPolicyFile(project as string), JSON.stringify({ disabled: false, offline: true, registries: ["registry.example"] }, null, 2))
+    await setLabDisabled(project as string, true)
+    const policy = await readLabPolicy(project as string)
+    expect(policy.disabled).toBe(true)
+    expect(policy.offline).toBe(true)
+    expect(policy.registries).toEqual(["registry.example"])
+  })
+})
+
 describe("lab sandbox policy validation", () => {
   it("falls back to the safe defaults when no policy was stored", () => {
     expect(sanitizeSandboxPolicy(undefined)).toEqual(defaultSandboxPolicy())

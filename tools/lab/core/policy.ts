@@ -14,6 +14,8 @@ export interface LabPolicy {
   networkAllow: string[]
   secrets: SandboxSecretsPolicy
   secretsAllow: string[]
+  offline: boolean
+  registries: string[]
 }
 
 function policyFile(projectRoot: string): string {
@@ -29,8 +31,8 @@ function stringList(raw: unknown): string[] {
   return raw as string[]
 }
 
-function defaults(): { network: SandboxNetworkPolicy; networkAllow: string[]; secrets: SandboxSecretsPolicy; secretsAllow: string[] } {
-  return { network: "none", networkAllow: [], secrets: "none", secretsAllow: [] }
+function defaults(): { network: SandboxNetworkPolicy; networkAllow: string[]; secrets: SandboxSecretsPolicy; secretsAllow: string[]; offline: boolean; registries: string[] } {
+  return { network: "none", networkAllow: [], secrets: "none", secretsAllow: [], offline: false, registries: [] }
 }
 
 // The kill switch wins before any sandbox is planned, and the environment always beats the policy file.
@@ -47,6 +49,8 @@ export async function readLabPolicy(projectRoot: string): Promise<LabPolicy> {
       networkAllow?: unknown
       secrets?: unknown
       secretsAllow?: unknown
+      offline?: unknown
+      registries?: unknown
     }
     const disabled = parsed.disabled === true ? true : parsed.disabled === false ? false : false
     const source: "file" | "none" = parsed.disabled === true || parsed.disabled === false ? "file" : "none"
@@ -54,7 +58,9 @@ export async function readLabPolicy(projectRoot: string): Promise<LabPolicy> {
     const networkAllow = parsed.networkAllow === undefined ? fallback.networkAllow : stringList(parsed.networkAllow)
     const secrets = isSandboxSecretsPolicy(parsed.secrets) ? parsed.secrets : fallback.secrets
     const secretsAllow = parsed.secretsAllow === undefined ? fallback.secretsAllow : stringList(parsed.secretsAllow)
-    return { disabled, source, network, networkAllow, secrets, secretsAllow }
+    const offline = typeof parsed.offline === "boolean" ? parsed.offline : fallback.offline
+    const registries = parsed.registries === undefined ? fallback.registries : stringList(parsed.registries)
+    return { disabled, source, network, networkAllow, secrets, secretsAllow, offline, registries }
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return { disabled: false, source: "none", ...fallback }

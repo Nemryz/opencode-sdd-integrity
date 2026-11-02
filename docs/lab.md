@@ -59,6 +59,10 @@ Child processes never inherit the parent environment wholesale. `safeLabEnvironm
 
 Dependency installation runs with lifecycle scripts disabled (`--ignore-scripts` for npm and pnpm, `--ignore-scripts` or `--immutable` for yarn and bun). A lockfile alone does not prove install scripts are safe, so the lab forces package-script mode off by default and installs from the sandbox lockfile only when needed.
 
+## Offline cache and approved registries
+
+The offline policy is explicit and recorded on every sandbox as `offline` and `registries`. When offline is on, installs pass `--offline` to the package manager and rely on the local cache, and when a registry allowlist is set the lockfile is scanned before any install so a package resolved from an unapproved host fails loud instead of being fetched. An empty allowlist keeps the current behaviour and leaves dependency resolution unrestricted.
+
 ## Hooks and network guardrails
 
 Git hooks are neutralized inside every sandbox by enabling `extensions.worktreeConfig` and pointing the worktree-scoped `core.hooksPath` at an empty local directory, so the override lives in the sandbox's own `config.worktree` and the checkout keeps its original hooks untouched. Every run re-applies that setting, so a tampered sandbox run cannot reactivate hooks before the next step executes. The network policy is explicit and recorded on every sandbox as `none` or `allowlist`; `none` is the default and the `OPENCODE_LAB_NETWORK` marker carries the decision to children, while an `allowlist` names the hosts that may be reached and is only honored by the process-level worktree provider, because kernel-enforcing providers block all egress and refuse to pretend otherwise. The `OPENCODE_LAB_NETWORK=none` marker and the default `denyNetwork` control express that sandbox runs should not open network connections, and any command line that mentions `sudo`, `docker`, `firejail`, `bubblewrap` or `systemd-nspawn` is flagged as needing a no-exec adapter before it can run.
