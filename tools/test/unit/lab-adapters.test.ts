@@ -54,14 +54,16 @@ describe("integrity lab adapter", () => {
     expect(step?.args.filter((arg) => arg === "--exclude")).toHaveLength(4)
   })
 
-  it("gates the smoke category behind confirmation and rejects it on Windows", () => {
-    if (process.platform === "win32") {
-      expect(() => integrityAdapter.plan({ category: "smoke" }, context())).toThrow(/POSIX/)
-      return
-    }
+  it("gates the smoke category behind confirmation and picks the platform script", () => {
     const [step] = integrityAdapter.plan({ category: "smoke" }, context())
     expect(step?.requiresConfirmation).toBe(true)
-    expect(step?.command).toBe("bash")
+    if (process.platform === "win32") {
+      expect(step?.command).toBe("powershell")
+      expect(step?.args).toContain("tools/test/smoke/v2-smoke.ps1")
+    } else {
+      expect(step?.command).toBe("bash")
+      expect(step?.args).toContain("tools/test/smoke/v2-smoke.sh")
+    }
   })
 })
 

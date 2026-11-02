@@ -154,10 +154,11 @@ The six snapshot suites (`snapshot.test.ts`, `snapshot-restore.test.ts`, `snapsh
 ## Smoke coverage
 
 `tools/test/smoke/v2-smoke.sh` grades the wiring inside the real runtime, because plugin discovery, tool exposure, and the guard hooks only exist there.
+`tools/test/smoke/v2-smoke.ps1` mirrors every probe with PowerShell primitives, so the same wiring is graded on Windows as well.
 It installs the kit into an isolated config home through the npm CLI with the dependency switch, boots OpenCode 2 with `--standalone`, and grades the plugin markers, the tool registry, and the guard denial.
 `tools/test/smoke/smoke-probe.ts` is copied in as an extra plugin, and it records `ctx.tool.list()` right after the setups run, which turns the direct exposure rule into an assertion that needs no model.
 The model evidence is graded as a warning unless `SMOKE_LLM_REQUIRED=1` is set, because the free model tier can be unavailable while the wiring itself is healthy.
-`.github/workflows/smoke.yml` runs the script on every push against a pinned CLI version.
+`.github/workflows/smoke.yml` runs the bash script on ubuntu and the PowerShell script on windows on every push against a pinned CLI version.
 
 ## Install coverage
 

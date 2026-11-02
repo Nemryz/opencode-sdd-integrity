@@ -124,14 +124,14 @@ export const integrityAdapter: LabAdapter = {
   defaultExclude: EXCLUDES,
   plan(selection: LabSelection, context: LabPlanContext): LabStep[] {
     if (selection.category === "smoke") {
-      if (process.platform === "win32") {
-        throw new Error("The smoke category runs a POSIX shell script and is not available on Windows")
-      }
+      const windows = process.platform === "win32"
       return [
         {
           label: "smoke",
-          command: "bash",
-          args: ["tools/test/smoke/v2-smoke.sh"],
+          command: windows ? "powershell" : "bash",
+          args: windows
+            ? ["-NoProfile", "-File", "tools/test/smoke/v2-smoke.ps1"]
+            : ["tools/test/smoke/v2-smoke.sh"],
           timeoutMs: 30 * 60 * 1000,
           requiresConfirmation: true,
         },

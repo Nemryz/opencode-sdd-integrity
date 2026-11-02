@@ -45,7 +45,7 @@ POSIX directories under the lab home are created with `0700` and files with `060
 
 ## Command execution
 
-Every lab process spawns without a shell, so argv reaches the child literally on every platform and metacharacters inside a step never reach cmd.exe or bash. On Windows a bare package manager name or an explicit `.cmd` and `.bat` shim is resolved against PATH and PATHEXT first, a shim routes through `ComSpec` with one verbatim tail so the quoting rules of cmd.exe apply exactly once, and a real executable such as `git` or `node` keeps the direct spawn. The cmd route refuses percent signs and control characters before spawning because cmd expands environment variables even inside quotes and offers no reliable escape for them, the corpus proves that spaced and metacharacter arguments survive the round trip, and the smoke category reports itself unavailable on Windows rather than failing halfway.
+Every lab process spawns without a shell, so argv reaches the child literally on every platform and metacharacters inside a step never reach cmd.exe or bash. On Windows a bare package manager name or an explicit `.cmd` and `.bat` shim is resolved against PATH and PATHEXT first, a shim routes through `ComSpec` with one verbatim tail so the quoting rules of cmd.exe apply exactly once, and a real executable such as `git` or `node` keeps the direct spawn. The cmd route refuses percent signs and control characters before spawning because cmd expands environment variables even inside quotes and offers no reliable escape for them, the corpus proves that spaced and metacharacter arguments survive the round trip, and the smoke category picks `v2-smoke.sh` under bash on POSIX and `v2-smoke.ps1` under powershell on Windows.
 
 ## Environment sanitization
 
@@ -94,7 +94,7 @@ The integrity adapter discovers the repository through its package name or throu
 | `install` | `tools/test/install` |
 | `manual` | `tools/test/manual` |
 | `security` | `tools/test/corpus` |
-| `smoke` | The real OpenCode 2 CLI smoke script; POSIX only and confirmation gated |
+| `smoke` | The real OpenCode 2 CLI smoke script, one script per platform, confirmation gated |
 
 Profiles combine steps:
 
@@ -187,5 +187,5 @@ Failed Vitest steps can rerun only their failed files. The first rerun uses the 
 - The MVP requires git. A project without git metadata gets a clear error instead of a copy mode.
 - The lab prepares dependencies only from a supported lockfile or a matching checkout tree. If neither exists, install manually inside the sandbox.
 - Dependency installation needs the package manager and access to the network or a warm cache. If it fails, the run stops before the tests and points to `dependencies.log`.
-- The smoke category depends on the local OpenCode installation and runs only on POSIX.
+- The smoke category depends on the local OpenCode installation and picks the script that matches the platform.
 - The lab does not replace the normal suite, the install workflow or the mutation workflow. It gives those layers a disposable place to run under pressure.
