@@ -94,3 +94,20 @@ describe("corpus kernel limits", () => {
     expect(result.code).not.toBe(0)
   })
 })
+
+describe("corpus windows limit refusal", () => {
+  it.runIf(process.platform === "win32")("refuses kernel limits with an explicit message instead of pretending", () => {
+    expect(() => limitsWrapper({ cpuSeconds: 3 })).toThrow("cannot enforce cpu or memory limits on Windows")
+    expect(() => limitsWrapper({ memoryBytes: 1 << 20 })).toThrow("cannot enforce cpu or memory limits on Windows")
+  })
+
+  it.runIf(process.platform === "win32")("fails a limited step through the runner before anything spawns", async () => {
+    const result = await runLabProcess(process.execPath, ["-e", "console.log(1)"], {
+      cwd: os.tmpdir(),
+      timeoutMs: 20_000,
+      limits: { cpuSeconds: 3 },
+    })
+    expect(result.code).not.toBe(0)
+    expect(result.stderr).toContain("cannot enforce cpu or memory limits")
+  })
+})
