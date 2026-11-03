@@ -1,5 +1,6 @@
 import fs from "node:fs/promises"
 import path from "node:path"
+import { withLabLock } from "./fs"
 import { labPaths } from "./home"
 import type { LabIsolationProvider } from "./types"
 
@@ -56,21 +57,42 @@ function auditRecord(event: LabAuditEvent): LabAuditRecord {
   }
 }
 
+function auditLockFile(file: string): string {
+  return path.join(path.dirname(file), ".audit.lock")
+}
+
+// Appends one line under a lock with retries, so concurrent writers and the Windows read only attribute never collide.
+export async function appendAuditLine(file: string, line: string): Promise<void> {
+  const directory = path.dirname(file)
+  await fs.mkdir(directory, { recursive: true, mode: DIRECTORY_PERMISSIONS })
+  await fs.chmod(directory, DIRECTORY_PERMISSIONS).catch(() => undefined)
+  await withLabLock(auditLockFile(file), async () => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        // Windows keeps the read only attribute from the last append, so the write bit goes back on before the open.
+        await fs.chmod(file, WRITE_PERMISSIONS).catch(() => undefined)
+        const handle = await fs.open(file, "a", WRITE_PERMISSIONS)
+        try {
+          await handle.writeFile(line, "utf-8")
+        } finally {
+          await handle.close()
+        }
+        await fs.chmod(file, HOLD_PERMISSIONS).catch(() => undefined)
+        return
+      } catch (error) {
+        const code = error && typeof error === "object" ? (error as NodeJS.ErrnoException).code : undefined
+        if (code !== "EPERM" && code !== "EACCES" && code !== "EBUSY") throw error
+        await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)))
+      }
+    }
+    throw new Error(`The audit file could not be appended after retries: ${file}`)
+  })
+}
+
 // Appends one audit line per lab action and keeps the audit file owned by the parent process.
 export async function appendLabAudit(event: LabAuditEvent): Promise<string> {
-  const directory = auditDirectory(event.projectRoot)
   const file = auditFile(event.projectRoot)
-  await fs.mkdir(directory, { recursive: true, mode: DIRECTORY_PERMISSIONS })
-  await fs.chmod(directory, DIRECTORY_PERMISSIONS)
-  await fs.chmod(file, WRITE_PERMISSIONS).catch(() => undefined)
-  const line = `${JSON.stringify(auditRecord(event))}\n`
-  const handle = await fs.open(file, "a", WRITE_PERMISSIONS)
-  try {
-    await handle.writeFile(line, "utf-8")
-  } finally {
-    await handle.close()
-  }
-  await fs.chmod(file, HOLD_PERMISSIONS)
+  await appendAuditLine(file, `${JSON.stringify(auditRecord(event))}\n`)
   return file
 }
 

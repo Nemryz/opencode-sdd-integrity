@@ -13,12 +13,11 @@ import { isLabSessionStatus } from "./types"
 import { makeLabId, readJson, withLabLock, writeJsonAtomic } from "./fs"
 import { ensureLabHome, labPaths } from "./home"
 import type { LabAuditEventKind, LabAuditRecord } from "./audit"
-import { appendLabAudit } from "./audit"
+import { appendAuditLine, appendLabAudit } from "./audit"
 import { collectPatch, headCommit } from "./git"
 import { getSandbox, readRegistry } from "./registry"
 
 const HOLD_PERMISSIONS = 0o400
-const WRITE_PERMISSIONS = 0o600
 const DIRECTORY_PERMISSIONS = 0o700
 const SAFE_ID = /^[A-Za-z0-9._-]+$/
 const CHECKPOINT_FILE = /^(\d+)\.json$/
@@ -113,15 +112,7 @@ export async function appendSessionAudit(event: LabSessionAuditEvent): Promise<s
   }
   await ensureSessionDirs(event.projectRoot, event.sessionId)
   const file = sessionAuditFile(event.projectRoot, event.sessionId)
-  await fs.chmod(file, WRITE_PERMISSIONS).catch(() => undefined)
-  const line = `${JSON.stringify(sessionAuditRecord(event))}\n`
-  const handle = await fs.open(file, "a", WRITE_PERMISSIONS)
-  try {
-    await handle.writeFile(line, "utf-8")
-  } finally {
-    await handle.close()
-  }
-  await fs.chmod(file, HOLD_PERMISSIONS)
+  await appendAuditLine(sessionAuditFile(event.projectRoot, event.sessionId), `${JSON.stringify(sessionAuditRecord(event))}\n`)
   return file
 }
 
