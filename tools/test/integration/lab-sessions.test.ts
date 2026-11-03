@@ -87,8 +87,9 @@ describe("lab sessions registry", () => {
 
     // The session keeps its own guarded directory next to the other lab state.
     const dir = sessionDir(repo, session.id)
-    expect((await fs.stat(dir)).mode & 0o777).toBe(0o700)
-    expect((await fs.stat(path.join(dir, "checkpoints"))).mode & 0o777).toBe(0o700)
+    const expectedDirMode = process.platform === "win32" ? 0o666 : 0o700
+    expect((await fs.stat(dir)).mode & 0o777).toBe(expectedDirMode)
+    expect((await fs.stat(path.join(dir, "checkpoints"))).mode & 0o777).toBe(expectedDirMode)
 
     const registry = await readSessions(repo)
     expect(registry.sessions).toHaveLength(1)
@@ -296,7 +297,7 @@ describe("lab session chronology", () => {
     await resumeSession(repo, { sessionId: session.id })
 
     const file = sessionAuditFile(repo, session.id)
-    expect((await fs.stat(file)).mode & 0o777).toBe(0o400)
+    expect((await fs.stat(file)).mode & 0o777).toBe(process.platform === "win32" ? 0o444 : 0o400)
 
     const records = await readSessionAudit(repo, session.id)
     expect(records.map((record) => record.kind)).toEqual(["lab_session_created", "lab_checkpoint", "lab_resume"])
