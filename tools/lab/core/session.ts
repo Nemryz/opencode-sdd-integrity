@@ -16,7 +16,7 @@ import type { LabAuditEventKind, LabAuditRecord } from "./audit"
 import { appendAuditLine, appendLabAudit } from "./audit"
 import { linkProvenance } from "./provenance"
 import { collectPatch, headCommit } from "./git"
-import { getSandbox, readRegistry } from "./registry"
+import { getSandbox, readRegistry, readRunSummary } from "./registry"
 
 const HOLD_PERMISSIONS = 0o400
 const DIRECTORY_PERMISSIONS = 0o700
@@ -502,6 +502,23 @@ export async function resumeSession(projectRoot: string, options: ResumeSessionO
     throw new Error(`Lab session ${session.id} has no checkpoints yet, so there is nothing to resume`)
   }
   const checkpoint = checkpoints[checkpoints.length - 1]
+  // Refuses when the evidence the checkpoint claims is gone, so a resume never lands on unverifiable proof.
+  if (checkpoint.runSummaryPath) {
+    try {
+      await fs.readFile(checkpoint.runSummaryPath, "utf-8")
+    } catch {
+      throw new Error(
+        `Lab session ${session.id} cannot resume because the evidence file for run ${checkpoint.runId ?? "unknown"} is missing at ${checkpoint.runSummaryPath}; re-run the suite and take a fresh checkpoint before resuming`,
+      )
+    }
+  } else if (checkpoint.runId) {
+    const evidence = await readRunSummary(projectRoot, sandbox.id, checkpoint.runId)
+    if (!evidence) {
+      throw new Error(
+        `Lab session ${session.id} cannot resume because run ${checkpoint.runId} left no evidence on disk; re-run the suite and take a fresh checkpoint before resuming`,
+      )
+    }
+  }
   const currentHead = await headCommit(sandbox.sandboxRoot)
   if (currentHead !== checkpoint.sandboxHead) {
     throw new Error(`Lab sandbox ${sandbox.id} moved from commit ${checkpoint.sandboxHead} to ${currentHead} after the last checkpoint, so resume refused the drift; take a fresh checkpoint first`)

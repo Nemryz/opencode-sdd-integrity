@@ -172,6 +172,12 @@ Relations live in an append only sidecar per session under `.opencode/lab/proven
 
 Queries stay pure functions over the rebuilt graph. `graphSupports` returns the incoming tested and promoted edges that back an entity, `graphDependsOn` returns the outgoing edges it produced, and the `byRun`, `byPatch`, `byEvidence` and `bySession` filters keep multi session reports honest. `formatEvidenceGraph` prints nodes then edges in file order for review output.
 
+## Staleness
+
+`tools/lab/core/staleness.ts` detects stale evidence live on every read, so the answer always reflects the disk as it is now. A run goes stale when the repository head moved past the commit it proved, a run or its evidence file goes stale when the summary is missing or unreadable, a reviewed patch goes stale when its file is edited or lost after promotion, a baseline goes stale once `STALE_BASELINE_RUNS` newer runs exist for its sandbox, and a checkpoint goes stale when its session drifted from the state it captured. Findings carry the entity id, its kind, a reason and a timestamp, and every first sighting is journaled append only under `.opencode/lab/staleness/<sandbox_id>.jsonl` held read only between appends, mirrored into the audit as `lab_stale`, never deleted and never rewritten.
+
+The `status` and `compare` commands print a stale evidence section with the live findings, so a review sees the truth even when the journal already recorded it. A resume refuses with guidance when the evidence file its checkpoint claims is gone, telling the caller to re-run the suite and take a fresh checkpoint before resuming.
+
 ## Reports
 
 Each run writes:

@@ -11,6 +11,7 @@ import { createBaseline, compareRunToBaseline, formatComparison, readBaseline, w
 import { runLab } from "./lab/core/run"
 import { createSandbox, destroySandbox, formatSandbox, loadSandbox } from "./lab/core/sandbox"
 import { isLabDisabled, setLabDisabled, LAB_DISABLED_ENV } from "./lab/core/policy"
+import { formatStaleFindings, markStaleEvidence } from "./lab/core/staleness"
 import { pruneSandboxes } from "./lab/core/prune"
 import { pruneSessions } from "./lab/core/session"
 import type { LabSandbox, SandboxTrust } from "./lab/core/types"
@@ -218,10 +219,14 @@ export default tool({
         } else {
           lines.push("", "No run has been recorded yet.")
         }
+        const staleness = await markStaleEvidence(projectRoot, sandbox)
+        if (staleness.current.length > 0) {
+          lines.push("", formatStaleFindings(staleness.current))
+        }
         return {
           title: `Lab Sandbox: ${sandbox.status}`,
           output: lines.join("\n"),
-          metadata: { sandboxId: sandbox.id, status: sandbox.status, dirty: dirty !== "", latestRunId: latest?.runId },
+          metadata: { sandboxId: sandbox.id, status: sandbox.status, dirty: dirty !== "", latestRunId: latest?.runId, staleCount: staleness.current.length },
         }
       }
 
@@ -376,13 +381,16 @@ export default tool({
         const markdownPath = comparisonMarkdownPath(projectRoot, sandbox.id, summary.runId)
         await writeJsonAtomic(jsonPath, comparison)
         await writeTextAtomic(markdownPath, comparisonMarkdown(comparison))
+        const staleness = await markStaleEvidence(projectRoot, sandbox)
+        const staleSection = staleness.current.length > 0 ? `\n\n${formatStaleFindings(staleness.current)}` : ""
         return {
           title: comparison.status === "pass" ? "Lab Compare: Pass" : "Lab Compare: Regressed",
-          output: `${formatComparison(comparison)}\n\nReports: ${jsonPath}\n${markdownPath}`,
+          output: `${formatComparison(comparison)}${staleSection}\n\nReports: ${jsonPath}\n${markdownPath}`,
           metadata: {
             sandboxId: sandbox.id,
             runId: summary.runId,
             regressed: comparison.status === "regressed",
+            staleCount: staleness.current.length,
             jsonPath,
             markdownPath,
           },

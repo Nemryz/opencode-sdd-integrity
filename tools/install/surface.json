@@ -46,6 +46,7 @@
     "tools/lab/core/identity.ts",
     "tools/lab/core/provenance.ts",
     "tools/lab/core/evidence.ts",
+    "tools/lab/core/staleness.ts",
     "tools/lab/adapters/integrity.ts",
     "tools/lab/vitest.config.lab.ts",
     "tools/lab/core/diff.ts",
