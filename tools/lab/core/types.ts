@@ -217,9 +217,11 @@ export interface LabSandbox {
   lastDiffAt?: string
   lastDiffHash?: string
   lastDiffPath?: string
+  lastPatchId?: string
   promotedAt?: string
   promotedHead?: string
   promotedPatchHash?: string
+  lastPromotionId?: string
   lastRunAt?: string
   lastRunStatus?: string
   lastRunId?: string
@@ -275,6 +277,21 @@ export interface LabResume {
   sandbox: LabSandbox
   checkpoint: LabCheckpoint
   resumedAt: string
+}
+
+// Provenance edges keep one line per relation, so the evidence graph rebuilds from an append only file.
+export type LabProvenanceRelation = "produced" | "tested" | "promoted" | "invalidated"
+
+export function isLabProvenanceRelation(value: unknown): value is LabProvenanceRelation {
+  return value === "produced" || value === "tested" || value === "promoted" || value === "invalidated"
+}
+
+export interface LabProvenanceRecord {
+  kind: "linked"
+  when: string
+  from: string
+  to: string
+  relation: LabProvenanceRelation
 }
 
 export interface LabTestTotals {
@@ -351,6 +368,8 @@ export interface LabRunSummary {
   totals: LabTestTotals
   coverage: LabCoverageSummary | null
   notes: string[]
+  taskId?: string
+  evidenceId?: string
   flakes?: LabFlakeResult[]
   flakePath?: string
   summaryPath: string

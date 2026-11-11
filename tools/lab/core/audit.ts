@@ -16,6 +16,7 @@ export type LabAuditEventKind =
   | "lab_checkpoint"
   | "lab_resume"
   | "lab_session_pruned"
+  | "lab_provenance"
 
 export interface LabAuditEvent {
   kind: LabAuditEventKind

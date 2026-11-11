@@ -3,6 +3,7 @@ import path from "node:path"
 import type { LabRegistry, LabRunSummary, LabSandbox } from "./types"
 import { isSandboxTrust, sanitizeSandboxPolicy } from "./types"
 import { DEFAULT_PROVIDER_ID, isSandboxProviderId } from "./provider"
+import { isLabEntityId } from "./identity"
 import { makeLabId, readJson, withLabLock, writeJsonAtomic } from "./fs"
 import { labPaths } from "./home"
 import { ensureLabHome } from "./home"
@@ -33,6 +34,12 @@ function sanitizeRegistryEntry(entry: LabSandbox, projectRoot: string, file: str
   }
   if (entry.trust !== undefined && !isSandboxTrust(entry.trust)) {
     throw new Error(`Lab registry entry ${entry.id} carries an unknown trust level inside ${file}`)
+  }
+  if (entry.lastPatchId !== undefined && !isLabEntityId(entry.lastPatchId)) {
+    throw new Error(`Lab registry entry ${entry.id} carries an unsafe patch id inside ${file}`)
+  }
+  if (entry.lastPromotionId !== undefined && !isLabEntityId(entry.lastPromotionId)) {
+    throw new Error(`Lab registry entry ${entry.id} carries an unsafe promotion id inside ${file}`)
   }
   // Entries written before the provider era hydrate to the worktree default instead of failing the whole registry.
   return {

@@ -2,12 +2,16 @@ import crypto from "node:crypto"
 import path from "node:path"
 import type { LabSandbox } from "./types"
 import { makeLabId, readJson, writeTextAtomic, writeJsonAtomic } from "./fs"
+import { makePatchId, makePromotionId } from "./identity"
 import { applyPatch, collectPatch, headCommit } from "./git"
 import { ensureDiffDir, getSandbox, updateSandbox } from "./registry"
+import { activeSessionForSandbox } from "./session"
+import { linkProvenance } from "./provenance"
 import { validatePromotion } from "./crosscheck"
 import { markPromoted } from "./sandbox"
 
 export interface SandboxDiff {
+  patchId: string
   patchPath: string
   stat: string
   files: string[]
@@ -15,16 +19,19 @@ export interface SandboxDiff {
   baseCommit: string
   currentHead: string
   patchHash: string
+  promotionId?: string
 }
 
 export async function collectDiff(projectRoot: string, sandbox: LabSandbox): Promise<SandboxDiff> {
   const patch = await collectPatch(sandbox.sandboxRoot)
   const currentHead = await headCommit(sandbox.repoRoot)
   const directory = await ensureDiffDir(projectRoot, sandbox.id)
+  const patchId = makePatchId()
   const patchPath = path.join(directory, `diff-${makeLabId()}.patch`)
   await writeTextAtomic(patchPath, patch.patch)
   const patchHash = crypto.createHash("sha256").update(patch.patch).digest("hex")
   return {
+    patchId,
     patchPath,
     stat: patch.stat,
     files: patch.files,
@@ -41,6 +48,7 @@ export async function reviewDiff(projectRoot: string, sandbox: LabSandbox): Prom
     lastDiffAt: new Date().toISOString(),
     lastDiffHash: diff.patchHash,
     lastDiffPath: diff.patchPath,
+    lastPatchId: diff.patchId,
   })
   if (!updated) throw new Error(`Lab sandbox ${sandbox.id} disappeared while recording the reviewed patch`)
   return diff
@@ -69,8 +77,20 @@ export async function promoteDiff(
   }
   await applyPatch(sandbox.repoRoot, diff.patchPath, diff.baseCommit, { allowMoved: options.allowMoved })
   const appliedHead = await headCommit(sandbox.repoRoot)
-  await markPromoted(projectRoot, sandbox.id, { patchHash: diff.patchHash, appliedHead })
-  return diff
+  const promotionId = makePromotionId()
+  // The promotion belongs to the reviewed patch, so its id wins over the freshly collected one.
+  const promotedPatchId = currentSandbox.lastPatchId ?? diff.patchId
+  await markPromoted(projectRoot, sandbox.id, {
+    patchHash: diff.patchHash,
+    appliedHead,
+    promotionId,
+    patchId: promotedPatchId,
+  })
+  const session = await activeSessionForSandbox(projectRoot, sandbox.id)
+  if (session) {
+    await linkProvenance(projectRoot, session.id, promotionId, promotedPatchId, "promoted")
+  }
+  return { ...diff, patchId: promotedPatchId, promotionId }
 }
 
 export function formatDiff(diff: SandboxDiff): string {

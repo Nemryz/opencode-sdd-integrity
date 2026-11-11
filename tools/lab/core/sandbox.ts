@@ -16,6 +16,8 @@ import {
   removeWorktree,
 } from "./git"
 import { appendLabAudit } from "./audit"
+import { activeSessionForSandbox } from "./session"
+import { linkProvenance } from "./provenance"
 import {
   getSandbox,
   latestSandbox,
@@ -186,13 +188,15 @@ export async function loadSandbox(
 export async function markPromoted(
   projectRoot: string,
   id: string,
-  details: { patchHash?: string; appliedHead?: string } = {},
+  details: { patchHash?: string; appliedHead?: string; promotionId?: string; patchId?: string } = {},
 ): Promise<LabSandbox | null> {
   const updated = await updateSandbox(projectRoot, id, {
     status: "promoted",
     promotedAt: new Date().toISOString(),
     promotedHead: details.appliedHead,
     promotedPatchHash: details.patchHash,
+    lastPromotionId: details.promotionId,
+    lastPatchId: details.patchId,
   })
   if (updated) {
     await appendLabAudit({
@@ -201,7 +205,12 @@ export async function markPromoted(
       when: new Date().toISOString(),
       sandboxId: id,
       isolationProvider: updated.provider,
-      details: { patchHash: details.patchHash, appliedHead: details.appliedHead },
+      details: {
+        patchHash: details.patchHash,
+        appliedHead: details.appliedHead,
+        promotionId: details.promotionId,
+        patchId: details.patchId,
+      },
     })
   }
   return updated
@@ -223,6 +232,10 @@ export async function destroySandbox(projectRoot: string, sandbox: LabSandbox, c
     isolationProvider: sandbox.provider,
     details: { destroyed: sandbox.sandboxRoot },
   })
+  const session = await activeSessionForSandbox(projectRoot, sandbox.id)
+  if (session) {
+    await linkProvenance(projectRoot, session.id, session.id, sandbox.id, "invalidated")
+  }
   return updated
 }
 

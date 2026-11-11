@@ -14,6 +14,7 @@ import { makeLabId, readJson, withLabLock, writeJsonAtomic } from "./fs"
 import { ensureLabHome, labPaths } from "./home"
 import type { LabAuditEventKind, LabAuditRecord } from "./audit"
 import { appendAuditLine, appendLabAudit } from "./audit"
+import { linkProvenance } from "./provenance"
 import { collectPatch, headCommit } from "./git"
 import { getSandbox, readRegistry } from "./registry"
 
@@ -247,6 +248,7 @@ export async function createSession(options: CreateSessionOptions): Promise<LabS
       trust: sandbox.trust,
     },
   })
+  await linkProvenance(options.projectRoot, session.id, session.id, sandbox.id, "produced")
   return session
 }
 
@@ -258,6 +260,12 @@ export async function listSessions(projectRoot: string): Promise<LabSession[]> {
 export async function getSession(projectRoot: string, id: string): Promise<LabSession | null> {
   const registry = await readSessions(projectRoot)
   return registry.sessions.find((entry) => entry.id === id) ?? null
+}
+
+// Resolves the session a sandbox action belongs to, so provenance links land in the right sidecar.
+export async function activeSessionForSandbox(projectRoot: string, sandboxId: string): Promise<LabSession | null> {
+  const sessions = await listSessions(projectRoot)
+  return sessions.find((entry) => entry.sandboxId === sandboxId && (entry.status === "active" || entry.status === "resumed")) ?? null
 }
 
 export async function latestSession(projectRoot: string): Promise<LabSession | null> {

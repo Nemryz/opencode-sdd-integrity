@@ -10,6 +10,7 @@ export interface LabHomeLayout {
   patches: string
   audit: string
   sessions: string
+  provenance: string
 }
 
 const HOME_PERMISSION = 0o700
@@ -26,6 +27,7 @@ export function labPaths(projectRoot: string): LabHomeLayout {
     patches: path.join(home, "patches"),
     audit: path.join(home, "audit"),
     sessions: path.join(home, "sessions"),
+    provenance: path.join(home, "provenance"),
   }
 }
 
@@ -42,7 +44,7 @@ export function isLabSandboxRoot(projectRoot: string, value: string): boolean {
 
 export async function ensureLabHome(projectRoot: string): Promise<LabHomeLayout> {
   const paths = labPaths(projectRoot)
-  for (const dir of [paths.home, paths.sandboxes, paths.reports, paths.baselines, paths.registry, paths.patches, paths.audit, paths.sessions]) {
+  for (const dir of [paths.home, paths.sandboxes, paths.reports, paths.baselines, paths.registry, paths.patches, paths.audit, paths.sessions, paths.provenance]) {
     await fs.mkdir(dir, { recursive: true })
     await fs.chmod(dir, HOME_PERMISSION)
   }

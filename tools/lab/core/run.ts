@@ -14,6 +14,9 @@ import { ensureDependencies } from "./dependencies"
 import { appendLabAudit } from "./audit"
 import { disableSandboxHooks } from "./permissions"
 import { ensureRunDir, makeRunId, writeRunSummary } from "./registry"
+import { makeEvidenceId } from "./identity"
+import { activeSessionForSandbox } from "./session"
+import { linkProvenance } from "./provenance"
 import { detectFlake, flakeMarkdown } from "./flakes"
 import { runLabProcess } from "./runner"
 import { PROVIDER_LIBRARY } from "./provider"
@@ -34,6 +37,7 @@ export interface RunLabOptions {
   sandbox: LabSandbox
   adapter: LabAdapter
   selection: LabSelection
+  taskId?: string
   confirmed?: boolean
   signal?: AbortSignal
 }
@@ -210,6 +214,7 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
   const status: LabRunSummary["status"] = requiredFailures.length > 0 ? "failed" : "passed"
   const coverage = results.map((result) => result.coverage).find((value): value is LabCoverageSummary => Boolean(value)) ?? null
   const totals = results.some((result) => result.tests) ? aggregateTotals(results) : emptyTotals()
+  const evidenceId = makeEvidenceId()
   const summary: LabRunSummary = {
     version: 1,
     runId,
@@ -225,10 +230,17 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
     totals,
     coverage,
     notes,
+    evidenceId,
     flakes,
     flakePath,
     summaryPath: path.join(reportDir, "summary.json"),
   }
+  if (options.taskId) summary.taskId = options.taskId
   await writeRunSummary(options.projectRoot, summary)
+  const session = await activeSessionForSandbox(options.projectRoot, sandbox.id)
+  if (session) {
+    await linkProvenance(options.projectRoot, session.id, session.id, summary.runId, "produced")
+    await linkProvenance(options.projectRoot, session.id, evidenceId, summary.runId, "tested")
+  }
   return summary
 }

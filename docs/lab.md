@@ -160,6 +160,12 @@ A session keeps verifiable checkpoint history for one sandbox under `.opencode/l
 
 The safe attack corpus under `tools/test/corpus` runs everywhere, but the deep manual block stays parked until a disposable virtual machine is available. That block runs escaped attempts against every provider, forges checkpoints and chronology files, replays resumes over tampered state and stresses the registry and audit files under hostile writes. Nothing in it targets third party infrastructure, and nothing in it runs on the day to day host, so the kit keeps shipping while the drill waits for a machine that can be thrown away afterwards.
 
+## Provenance
+
+Every lab artifact carries a stable id. Sessions, runs and sandboxes keep their existing lab ids, while `tools/lab/core/identity.ts` mints the ids the chain was missing for tasks, patches, evidence and promotions, each with a typed prefix and the same safe id rules as the rest of the lab. `reviewDiff` records `lastPatchId` on the sandbox, `promoteDiff` mints a promotion id and reports it next to the promoted patch id, and every run summary carries an `evidenceId` plus an optional `taskId` passed by the caller.
+
+Relations live in an append only sidecar per session under `.opencode/lab/provenance/<session_id>.jsonl` held read only between appends, with the edge mirrored into the project audit as `lab_provenance`. Edges use four relations, `produced`, `tested`, `promoted` and `invalidated`. A session links itself to its sandbox when it opens, a run links the session to its run id and its evidence to the run, a promotion links the promotion id to the reviewed patch id, and destroying a sandbox invalidates the session edge. Sandboxes without an active session never write provenance files, so an empty provenance directory means exactly what it says.
+
 ## Reports
 
 Each run writes:
