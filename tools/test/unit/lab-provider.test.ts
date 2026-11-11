@@ -313,9 +313,10 @@ describe("lab os sandbox provider", () => {
 })
 
 describe("lab container provider", () => {
-  const containerAvailable = PROVIDER_LIBRARY.container.availability().available
+  // One probe feeds both gates and both assertions, so a slow daemon cannot contradict itself between calls.
+  const containerAvailability = PROVIDER_LIBRARY.container.availability()
 
-  it.runIf(containerAvailable)("wraps a command in a docker run with no network", () => {
+  it.runIf(containerAvailability.available)("wraps a command in a docker run with no network", () => {
     const uid = typeof process.getuid === "function" ? process.getuid() : undefined
     const gid = typeof process.getgid === "function" ? process.getgid() : undefined
     const userArgs = typeof uid === "number" && typeof gid === "number" ? ["--user", `${uid}:${gid}`] : []
@@ -326,10 +327,9 @@ describe("lab container provider", () => {
     })
   })
 
-  it.runIf(!containerAvailable)("reports why the container provider cannot run on this host", () => {
-    const availability = PROVIDER_LIBRARY.container.availability()
-    expect(availability.available).toBe(false)
-    expect(availability.reason.length).toBeGreaterThan(0)
+  it.runIf(!containerAvailability.available)("reports why the container provider cannot run on this host", () => {
+    expect(containerAvailability.available).toBe(false)
+    expect(containerAvailability.reason.length).toBeGreaterThan(0)
   })
 })
 
