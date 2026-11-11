@@ -166,6 +166,12 @@ Every lab artifact carries a stable id. Sessions, runs and sandboxes keep their 
 
 Relations live in an append only sidecar per session under `.opencode/lab/provenance/<session_id>.jsonl` held read only between appends, with the edge mirrored into the project audit as `lab_provenance`. Edges use four relations, `produced`, `tested`, `promoted` and `invalidated`. A session links itself to its sandbox when it opens, a run links the session to its run id and its evidence to the run, a promotion links the promotion id to the reviewed patch id, and destroying a sandbox invalidates the session edge. Sandboxes without an active session never write provenance files, so an empty provenance directory means exactly what it says.
 
+## Evidence graph
+
+`tools/lab/core/evidence.ts` rebuilds a graph from those sidecars on every read, so the graph is always derived and never stored twice. Nodes carry the entity id and its kind, resolved from the typed prefixes for task, patch, evidence and promotion ids and from the session registry, the sandbox registry and the run directory layout for bare lab ids. A bare id that resolves to nothing fails loud as a dangling reference, while typed prefixes are trusted on sight. Edges keep the sidecar they came from, so `graphBySession` scopes a report to one chronology and a graph built for one session never picks up a neighbour's edges.
+
+Queries stay pure functions over the rebuilt graph. `graphSupports` returns the incoming tested and promoted edges that back an entity, `graphDependsOn` returns the outgoing edges it produced, and the `byRun`, `byPatch`, `byEvidence` and `bySession` filters keep multi session reports honest. `formatEvidenceGraph` prints nodes then edges in file order for review output.
+
 ## Reports
 
 Each run writes:

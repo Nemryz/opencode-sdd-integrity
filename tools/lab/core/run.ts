@@ -241,6 +241,9 @@ export async function runLab(options: RunLabOptions): Promise<LabRunSummary> {
   if (session) {
     await linkProvenance(options.projectRoot, session.id, session.id, summary.runId, "produced")
     await linkProvenance(options.projectRoot, session.id, evidenceId, summary.runId, "tested")
+    if (summary.taskId) {
+      await linkProvenance(options.projectRoot, session.id, summary.taskId, summary.runId, "produced")
+    }
   }
   return summary
 }

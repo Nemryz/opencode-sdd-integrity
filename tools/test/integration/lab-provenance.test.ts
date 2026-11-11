@@ -130,10 +130,11 @@ describe("lab provenance chain", () => {
     expect(summary.taskId).toBe("task-20261110000000-abcdefab")
 
     const edges = await readProvenance(repo, session.id)
-    expect(edges).toHaveLength(3)
+    expect(edges).toHaveLength(4)
     expect(edges[0]).toMatchObject({ from: session.id, to: sandbox.id, relation: "produced" })
     expect(edges[1]).toMatchObject({ from: session.id, to: summary.runId, relation: "produced" })
     expect(edges[2]).toMatchObject({ from: summary.evidenceId, to: summary.runId, relation: "tested" })
+    expect(edges[3]).toMatchObject({ from: summary.taskId, to: summary.runId, relation: "produced" })
   })
 
   it("keeps runs of sandboxes without sessions out of the provenance files", async () => {
