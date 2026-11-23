@@ -61,6 +61,7 @@ expect_path tools/lab/core/identity.ts
 expect_path tools/lab/core/provenance.ts
 expect_path tools/lab/core/evidence.ts
 expect_path tools/lab/core/staleness.ts
+expect_path tools/lab/core/compaction.ts
 expect_path tools/lab/adapters/integrity.ts
 expect_path tools/lab/vitest.config.lab.ts
 expect_path tools/lab/core/diff.ts

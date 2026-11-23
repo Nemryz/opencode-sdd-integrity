@@ -178,6 +178,10 @@ Queries stay pure functions over the rebuilt graph. `graphSupports` returns the 
 
 The `status` and `compare` commands print a stale evidence section with the live findings, so a review sees the truth even when the journal already recorded it. A resume refuses with guidance when the evidence file its checkpoint claims is gone, telling the caller to re-run the suite and take a fresh checkpoint before resuming.
 
+## Compaction
+
+`tools/lab/core/compaction.ts` compacts the bulky payload of two bundles on demand, never the parts that must stay whole. A session bundle compacts its session chronology: audit log lines keep their kind, session and status fields while long detail strings become their sha256 and size, and checkpoints stay untouched because their integrity depends on their bytes. A run bundle compacts the bulky raw step logs (`step-*.log`) and flake artifacts, while the run summary keeps every id and summary, so the evidence graph still resolves after compaction. Every compaction writes a `compaction.json` descriptor in the bundle root with the inventory of changed and preserved files and journals the compaction to the audit as `lab_compacted` with the compacted file names and bytes freed. Compaction is idempotent, so once `compaction.json` marks a bundle compacted further calls report no change and log nothing new.
+
 ## Reports
 
 Each run writes:

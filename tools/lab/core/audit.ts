@@ -18,6 +18,7 @@ export type LabAuditEventKind =
   | "lab_session_pruned"
   | "lab_provenance"
   | "lab_stale"
+  | "lab_compacted"
 
 export interface LabAuditEvent {
   kind: LabAuditEventKind

@@ -1,5 +1,6 @@
 export * from "./audit"
 export * from "./baseline"
+export * from "./compaction"
 export * from "./crosscheck"
 export * from "./dependencies"
 export * from "./diff"
