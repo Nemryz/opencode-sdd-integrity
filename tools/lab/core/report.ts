@@ -2,6 +2,7 @@ import fs from "node:fs/promises"
 import type {
   LabCoverageSummary,
   LabCoverageTotals,
+  LabRunIndexEntry,
   LabRunSummary,
   LabStepResult,
   LabTestTotals,
@@ -153,6 +154,17 @@ export function failureLines(value: string, limit = 12): string[] {
     .split(/\r?\n/)
     .filter((line) => /\bFAIL\b|\bError\b|AssertionError|expected .* to/.test(line))
     .slice(0, limit)
+}
+
+export function formatRunIndexEntry(entry: LabRunIndexEntry): string {
+  const lines = [
+    `${entry.status.toUpperCase()} ${entry.selection.profile ? `profile ${entry.selection.profile}` : `category ${entry.selection.category ?? "all"}`}`,
+    `  run: ${entry.runId}`,
+    `  sandbox: ${entry.sandboxId}`,
+    `  commit: ${entry.commit.slice(0, 12)}`,
+    `  duration: ${formatDuration(entry.durationMs)}`,
+  ]
+  return lines.join("\n")
 }
 
 export function formatRunSummary(summary: LabRunSummary): string {

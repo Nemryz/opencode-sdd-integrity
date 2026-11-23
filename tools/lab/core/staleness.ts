@@ -6,7 +6,7 @@ import { isLabEntityId } from "./identity"
 import { labPaths, ensureLabHome } from "./home"
 import { appendAuditLine, appendLabAudit } from "./audit"
 import { withLabLock } from "./fs"
-import { readRunSummary } from "./registry"
+import { isRunDirectory, readRunIndex, readRunSummaryFresh } from "./registry"
 import { headCommit, collectPatch } from "./git"
 import { readSessions, latestCheckpoint } from "./session"
 
@@ -109,7 +109,11 @@ export async function detectStaleEvidence(projectRoot: string, sandbox: LabSandb
   const runsDir = path.join(labPaths(projectRoot).reports, sandbox.id, "runs")
   let runIds: string[] = []
   try {
-    runIds = (await fs.readdir(runsDir)).sort((a, b) => a.localeCompare(b))
+    const found = await fs.readdir(runsDir)
+    for (const entry of found.sort((a, b) => a.localeCompare(b))) {
+      if (!(await isRunDirectory(runsDir, entry))) continue
+      runIds.push(entry)
+    }
   } catch {
     runIds = []
   }
@@ -119,7 +123,7 @@ export async function detectStaleEvidence(projectRoot: string, sandbox: LabSandb
   for (const runId of runIds) {
     let summary: LabRunSummary | null = null
     try {
-      summary = await readRunSummary(projectRoot, sandbox.id, runId)
+      summary = await readRunSummaryFresh(projectRoot, sandbox.id, runId)
     } catch {
       summary = null
     }
@@ -202,9 +206,13 @@ export interface LabStalenessReport {
 
 // Journals every new finding with its reason and timestamp, keeping old records so nothing is ever erased.
 // The report returns the live findings for display plus the ones this call journaled for the first time.
-export async function markStaleEvidence(projectRoot: string, sandbox: LabSandbox): Promise<LabStalenessReport> {
-  const current = await detectStaleEvidence(projectRoot, sandbox)
-  if (current.length === 0) return { current, fresh: [] }
+// Journals every new finding with its reason and timestamp, keeping old records so nothing is ever erased.
+async function journalFindings(
+  projectRoot: string,
+  sandbox: LabSandbox,
+  current: LabStaleFinding[],
+): Promise<LabStalenessReport["fresh"]> {
+  if (current.length === 0) return []
   await ensureLabHome(projectRoot)
   return withLabLock(stalenessLock(projectRoot, sandbox.id), async () => {
     const known = new Set((await readStaleJournal(projectRoot, sandbox.id)).map((record) => `${record.entityId}\u0000${record.entityKind}\u0000${record.reason}`))
@@ -227,8 +235,46 @@ export async function markStaleEvidence(projectRoot: string, sandbox: LabSandbox
       })
       fresh.push({ ...finding, detectedAt: when })
     }
-    return { current, fresh }
+    return fresh
   })
+}
+
+// The heavy staleness pass: reads run summaries, patch files, baselines and checkpoints.
+export async function markStaleEvidence(projectRoot: string, sandbox: LabSandbox): Promise<LabStalenessReport> {
+  const current = await detectStaleEvidence(projectRoot, sandbox)
+  const fresh = await journalFindings(projectRoot, sandbox, current)
+  return { current, fresh }
+}
+
+// Light staleness check for `status`, reading only the run index and the HEAD, never run summaries or diff payloads.
+export async function detectStaleEvidenceLight(projectRoot: string, sandbox: LabSandbox): Promise<LabStaleFinding[]> {
+  if (sandbox.status === "destroyed") return []
+  try {
+    await fs.lstat(sandbox.sandboxRoot)
+  } catch {
+    return []
+  }
+  const currentHead = await headCommit(sandbox.repoRoot)
+  const entries = await readRunIndex(projectRoot, sandbox.id)
+  const now = new Date().toISOString()
+  const findings: LabStaleFinding[] = entries
+    .filter((entry) => entry.commit !== "" && entry.commit !== currentHead)
+    .map((entry) => ({
+      entityId: entry.runId,
+      entityKind: "run" as LabStaleEntityKind,
+      reason: `the repository head moved from ${entry.commit.slice(0, 12)} to ${currentHead.slice(0, 12)} after the run`,
+      detectedAt: now,
+    }))
+  for (const finding of findings) {
+    validateFinding(finding, sandbox.id)
+  }
+  return findings
+}
+
+export async function markStaleEvidenceLight(projectRoot: string, sandbox: LabSandbox): Promise<LabStalenessReport> {
+  const current = await detectStaleEvidenceLight(projectRoot, sandbox)
+  const fresh = await journalFindings(projectRoot, sandbox, current)
+  return { current, fresh }
 }
 
 // Prints the findings as a review ready section, so status and compare name every stale artifact.

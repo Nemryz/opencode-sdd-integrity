@@ -374,3 +374,17 @@ export interface LabRunSummary {
   flakePath?: string
   summaryPath: string
 }
+
+// Light record of a run, written by the run and read back by status, so status never loads the heavy summary payload.
+export interface LabRunIndexEntry {
+  version: 1
+  runId: string
+  sandboxId: string
+  adapter: string
+  commit: string
+  selection: LabSelection
+  startedAt: string
+  finishedAt: string
+  durationMs: number
+  status: LabRunSummary["status"]
+}

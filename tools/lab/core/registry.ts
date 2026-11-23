@@ -1,9 +1,10 @@
 import fs from "node:fs/promises"
 import path from "node:path"
-import type { LabRegistry, LabRunSummary, LabSandbox } from "./types"
+import type { LabRegistry, LabRunIndexEntry, LabRunSummary, LabSandbox } from "./types"
 import { isSandboxTrust, sanitizeSandboxPolicy } from "./types"
 import { DEFAULT_PROVIDER_ID, isSandboxProviderId } from "./provider"
 import { isLabEntityId } from "./identity"
+import { getCached, invalidateCached, setCached } from "./cache"
 import { makeLabId, readJson, withLabLock, writeJsonAtomic } from "./fs"
 import { labPaths } from "./home"
 import { ensureLabHome } from "./home"
@@ -68,6 +69,22 @@ export function sandboxReportDir(projectRoot: string, sandboxId: string): string
 
 export function runDir(projectRoot: string, sandboxId: string, runId: string): string {
   return path.join(sandboxReportDir(projectRoot, sandboxId), "runs", runId)
+}
+
+export function runIndexFile(projectRoot: string, sandboxId: string): string {
+  return path.join(sandboxReportDir(projectRoot, sandboxId), "runs", "index.json")
+}
+
+export function runIndexLock(projectRoot: string, sandboxId: string): string {
+  return `${runIndexFile(projectRoot, sandboxId)}.lock`
+}
+
+function runSummaryCacheKey(projectRoot: string, sandboxId: string, runId: string): string {
+  return `run-summary|${projectRoot}|${sandboxId}|${runId}|`
+}
+
+function runIndexCacheKey(projectRoot: string, sandboxId: string): string {
+  return `run-index|${projectRoot}|${sandboxId}|`
 }
 
 export function diffDir(projectRoot: string, sandboxId: string): string {
@@ -151,10 +168,95 @@ export async function writeRunSummary(projectRoot: string, summary: LabRunSummar
     lastRunStatus: summary.status,
     lastRunId: summary.runId,
   })
+  invalidateCached(runSummaryCacheKey(projectRoot, summary.sandboxId, summary.runId))
+  invalidateCached(runIndexCacheKey(projectRoot, summary.sandboxId))
+  const entry = toRunIndexEntry(summary)
+  let indexEntries: LabRunIndexEntry[] = []
+  await withLabLock(runIndexLock(projectRoot, summary.sandboxId), async () => {
+    const file = runIndexFile(projectRoot, summary.sandboxId)
+    const existing = await readRunIndexFromFile(file)
+    indexEntries = [...existing.filter((current) => current.runId !== summary.runId), entry].sort(compareRunIndexEntries)
+    await writeJsonAtomic(file, indexEntries)
+  })
+  setCached(runIndexCacheKey(projectRoot, summary.sandboxId), indexEntries)
+}
+
+function toRunIndexEntry(summary: LabRunSummary): LabRunIndexEntry {
+  return {
+    version: 1,
+    runId: summary.runId,
+    sandboxId: summary.sandboxId,
+    adapter: summary.adapter,
+    commit: summary.commit ?? "",
+    selection: summary.selection,
+    startedAt: summary.startedAt,
+    finishedAt: summary.finishedAt,
+    durationMs: summary.durationMs,
+    status: summary.status,
+  }
+}
+
+async function readRunIndexFromFile(file: string): Promise<LabRunIndexEntry[]> {
+  try {
+    const entries = await readJson<LabRunIndexEntry[]>(file)
+    return entries ?? []
+  } catch {
+    return []
+  }
+}
+
+function compareRunIndexEntries(a: LabRunIndexEntry, b: LabRunIndexEntry): number {
+  return b.startedAt.localeCompare(a.startedAt) || b.finishedAt.localeCompare(a.finishedAt) || b.runId.localeCompare(a.runId)
+}
+
+export async function readRunIndex(projectRoot: string, sandboxId: string): Promise<LabRunIndexEntry[]> {
+  const cached = getCached<LabRunIndexEntry[]>(runIndexCacheKey(projectRoot, sandboxId))
+  if (cached) return cached
+  const file = runIndexFile(projectRoot, sandboxId)
+  let entries = await readRunIndexFromFile(file)
+  if (entries.length === 0) {
+    entries = await rebuildRunIndexFromRunDirs(projectRoot, sandboxId)
+  }
+  setCached(runIndexCacheKey(projectRoot, sandboxId), entries)
+  return entries
+}
+
+export async function latestRunIndexEntry(projectRoot: string, sandboxId: string): Promise<LabRunIndexEntry | null> {
+  return (await readRunIndex(projectRoot, sandboxId))[0] ?? null
+}
+
+async function rebuildRunIndexFromRunDirs(projectRoot: string, sandboxId: string): Promise<LabRunIndexEntry[]> {
+  const directory = path.join(sandboxReportDir(projectRoot, sandboxId), "runs")
+  let entries: string[] = []
+  try {
+    entries = await fs.readdir(directory)
+  } catch {
+    return []
+  }
+  const summaries: LabRunSummary[] = []
+  for (const entry of entries) {
+    if (!SAFE_ID.test(entry)) continue
+    if (!(await isRunDirectory(directory, entry))) continue
+    const summary = await readRunSummary(projectRoot, sandboxId, entry)
+    if (summary) summaries.push(summary)
+  }
+  return summaries.map(toRunIndexEntry).sort(compareRunIndexEntries)
+}
+
+// Reads the run summary straight from disk, bypassing the process cache, so heavy detection paths see what is really there.
+export async function readRunSummaryFresh(projectRoot: string, sandboxId: string, runId: string): Promise<LabRunSummary | null> {
+  const summary = await readJson<LabRunSummary>(path.join(runDir(projectRoot, sandboxId, runId), "summary.json"))
+  setCached(runSummaryCacheKey(projectRoot, sandboxId, runId), summary)
+  return summary
 }
 
 export async function readRunSummary(projectRoot: string, sandboxId: string, runId: string): Promise<LabRunSummary | null> {
-  return readJson<LabRunSummary>(path.join(runDir(projectRoot, sandboxId, runId), "summary.json"))
+  const cacheKey = runSummaryCacheKey(projectRoot, sandboxId, runId)
+  const cached = getCached<LabRunSummary | null>(cacheKey)
+  if (cached !== undefined) return cached
+  const summary = await readJson<LabRunSummary>(path.join(runDir(projectRoot, sandboxId, runId), "summary.json"))
+  setCached(cacheKey, summary)
+  return summary
 }
 
 export async function latestRunSummary(projectRoot: string, sandboxId: string): Promise<LabRunSummary | null> {
@@ -167,10 +269,17 @@ export async function latestRunSummary(projectRoot: string, sandboxId: string): 
     throw error
   }
   for (const entry of entries.sort((a, b) => b.localeCompare(a))) {
+    if (!(await isRunDirectory(directory, entry))) continue
     const summary = await readRunSummary(projectRoot, sandboxId, entry)
     if (summary) return summary
   }
   return null
+}
+
+// The runs directory also holds the index file, so run entries are filtered to real directories.
+export async function isRunDirectory(directory: string, name: string): Promise<boolean> {
+  const stat = await fs.lstat(path.join(directory, name)).catch(() => null)
+  return stat?.isDirectory() === true
 }
 
 export async function ensureRunDir(projectRoot: string, sandboxId: string, runId: string): Promise<string> {

@@ -5,13 +5,18 @@ import { selectAdapter, type AdapterChoice } from "./lab/adapters"
 import { collectDiff, formatDiff, promoteDiff, reviewDiff } from "./lab/core/diff"
 import { findGitRoot, statusShort } from "./lab/core/git"
 import { writeJsonAtomic, writeTextAtomic } from "./lab/core/fs"
-import { listSandboxes, latestRunSummary, readRunSummary } from "./lab/core/registry"
-import { formatRunSummary } from "./lab/core/report"
+import {
+  listSandboxes,
+  latestRunIndexEntry,
+  latestRunSummary,
+  readRunSummary,
+} from "./lab/core/registry"
+import { formatRunIndexEntry, formatRunSummary } from "./lab/core/report"
 import { createBaseline, compareRunToBaseline, formatComparison, readBaseline, writeBaseline, comparisonMarkdown, comparisonMarkdownPath, comparisonPath } from "./lab/core/baseline"
 import { runLab } from "./lab/core/run"
 import { createSandbox, destroySandbox, formatSandbox, loadSandbox } from "./lab/core/sandbox"
 import { isLabDisabled, setLabDisabled, LAB_DISABLED_ENV } from "./lab/core/policy"
-import { formatStaleFindings, markStaleEvidence } from "./lab/core/staleness"
+import { formatStaleFindings, markStaleEvidenceLight, markStaleEvidence } from "./lab/core/staleness"
 import { pruneSandboxes } from "./lab/core/prune"
 import { pruneSessions } from "./lab/core/session"
 import type { LabSandbox, SandboxTrust } from "./lab/core/types"
@@ -207,7 +212,7 @@ export default tool({
 
       if (subcommand === "status") {
         const dirty = await statusShort(sandbox.sandboxRoot)
-        const latest = await latestRunSummary(projectRoot, sandbox.id)
+        const latest = await latestRunIndexEntry(projectRoot, sandbox.id)
         const lines = [formatSandbox(sandbox)]
         if (dirty) {
           lines.push("", "Dirty files in the sandbox:", ...dirty.split(/\r?\n/).slice(0, 20))
@@ -215,18 +220,18 @@ export default tool({
           lines.push("", "The sandbox is clean.")
         }
         if (latest) {
-          lines.push("", "Latest run:", formatRunSummary(latest))
+          lines.push("", "Latest run:", formatRunIndexEntry(latest))
         } else {
           lines.push("", "No run has been recorded yet.")
         }
-        const staleness = await markStaleEvidence(projectRoot, sandbox)
+        const staleness = await markStaleEvidenceLight(projectRoot, sandbox)
         if (staleness.current.length > 0) {
           lines.push("", formatStaleFindings(staleness.current))
         }
         return {
           title: `Lab Sandbox: ${sandbox.status}`,
           output: lines.join("\n"),
-          metadata: { sandboxId: sandbox.id, status: sandbox.status, dirty: dirty !== "", latestRunId: latest?.runId, staleCount: staleness.current.length },
+          metadata: { sandboxId: sandbox.id, status: sandbox.status, dirty: dirty !== "", latestRunId: latest?.runId, latestRunCommit: latest?.commit, staleCount: staleness.current.length },
         }
       }
 

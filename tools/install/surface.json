@@ -53,6 +53,7 @@
     "tools/lab/core/diff.ts",
     "tools/lab/core/prune.ts",
     "tools/lab/core/baseline.ts",
+    "tools/lab/core/cache.ts",
     "tools/lab/core/flakes.ts",
     "tools/shared/state/plan.ts",
     "tools/shared/state/apply.ts",

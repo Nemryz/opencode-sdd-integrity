@@ -156,6 +156,12 @@ A session keeps verifiable checkpoint history for one sandbox under `.opencode/l
 
 `prune` covers sessions next to sandboxes. It removes expired sessions past the retention age, removes corrupt sessions whose checkpoints fail their integrity check, clears orphan session directories that no registry entry owns, closes sessions whose sandbox died, and appends a `lab_session_pruned` audit event. Sessions live on disk inside `.opencode/lab/` and need no extra tooling to inspect.
 
+## Lazy loading
+
+`tools/lab/core/cache.ts` keeps run summary and run index reads in a process-local map that never persists to disk, so each process re-reads the disk on its own and no cache ever outlives the process. `readRunSummary` and `readRunIndex` serve cached values when present, and `writeRunSummary` invalidates both after writing the summary and its index entry.
+
+`latestRunIndexEntry` returns the newest run from `runs/index.json` without reading any summary, and `formatRunIndexEntry` prints a compact summary of the index record, so `status` shows the latest run without loading the full payload. The heavy paths still read everything they need: `compare`, `baseline` and `run` use `latestRunSummary` and `readRunSummary`, and staleness detection reads run summaries through `readRunSummaryFresh` to see what is actually on disk right now.
+
 ## Manual red team in a disposable VM
 
 The safe attack corpus under `tools/test/corpus` runs everywhere, but the deep manual block stays parked until a disposable virtual machine is available. That block runs escaped attempts against every provider, forges checkpoints and chronology files, replays resumes over tampered state and stresses the registry and audit files under hostile writes. Nothing in it targets third party infrastructure, and nothing in it runs on the day to day host, so the kit keeps shipping while the drill waits for a machine that can be thrown away afterwards.

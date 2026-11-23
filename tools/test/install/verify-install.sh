@@ -67,6 +67,7 @@ expect_path tools/lab/vitest.config.lab.ts
 expect_path tools/lab/core/diff.ts
 expect_path tools/lab/core/prune.ts
 expect_path tools/lab/core/baseline.ts
+expect_path tools/lab/core/cache.ts
 expect_path tools/lab/core/flakes.ts
 expect_path tools/shared/state/plan.ts
 expect_path tools/shared/state/apply.ts
